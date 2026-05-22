@@ -1037,7 +1037,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                     final group = similarGroups[index];
                     return _ImageGridSection(
                       title: _formatTimeRange(group),
-                      subtitle: 'Similar Set ${index + 1} · ${group.length} images',
+                      subtitle: _formatSetDate(group.first.date),
                       items: group,
                       allStackKeys: widget.allStackKeys,
                       stackNames: widget.stackNames,
@@ -1096,7 +1096,7 @@ class _DetailModeSwitch extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _ModeChip(label: '시간별', selected: !showSimilar, onTap: () => onChanged(false)),
+          _ModeChip(label: '시간대별', selected: !showSimilar, onTap: () => onChanged(false)),
           const SizedBox(width: 8),
           _ModeChip(label: '유사 화면', selected: showSimilar, onTap: () => onChanged(true)),
         ],
@@ -1173,7 +1173,8 @@ class _SetSectionState extends State<_SetSection> {
   Widget build(BuildContext context) {
     return _ImageGridSection(
       title: widget.set.timeRange,
-      subtitle: widget.set.memo.trim().isEmpty ? '여기에 메모를 추가하세요...' : widget.set.memo.trim(),
+      subtitle: _formatSetDate(widget.set.items.first.date),
+      memoText: widget.set.memo.trim().isEmpty ? '여기에 메모를 추가하세요...' : widget.set.memo.trim(),
       items: widget.set.items,
       allStackKeys: widget.allStackKeys,
       stackNames: widget.stackNames,
@@ -1216,6 +1217,7 @@ class _ImageGridSection extends StatelessWidget {
     required this.subtitle,
     required this.items,
     required this.allStackKeys,
+    this.memoText,
     required this.stackNames,
     required this.onExcludeImage,
     required this.onMoveImage,
@@ -1225,6 +1227,7 @@ class _ImageGridSection extends StatelessWidget {
   final String title;
   final String subtitle;
   final List<ScreenshotItem> items;
+  final String? memoText;
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
   final Future<void> Function(String imageId) onExcludeImage;
@@ -1242,32 +1245,36 @@ class _ImageGridSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(title, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF1A1C1C))),
-              const SizedBox(height: 4),
-              InkWell(
-                onTap: onEditMemo,
-                borderRadius: BorderRadius.circular(6),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          subtitle,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: subtitle == '여기에 메모를 추가하세요...' ? const Color(0xFF727785) : const Color(0xFF424754),
-                                fontStyle: subtitle == '여기에 메모를 추가하세요...' ? FontStyle.italic : FontStyle.normal,
-                              ),
+              const SizedBox(height: 2),
+              Text(subtitle, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xFF727785))),
+              if (memoText != null) ...[
+                const SizedBox(height: 4),
+                InkWell(
+                  onTap: onEditMemo,
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            memoText!,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: memoText == '여기에 메모를 추가하세요...' ? const Color(0xFF727785) : const Color(0xFF424754),
+                                  fontStyle: memoText == '여기에 메모를 추가하세요...' ? FontStyle.italic : FontStyle.normal,
+                                ),
+                          ),
                         ),
-                      ),
-                      if (onEditMemo != null) ...[
-                        const SizedBox(width: 6),
-                        const Icon(Icons.edit_outlined, size: 16, color: Color(0xFF727785)),
+                        if (onEditMemo != null) ...[
+                          const SizedBox(width: 6),
+                          const Icon(Icons.edit_outlined, size: 16, color: Color(0xFF727785)),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -1454,14 +1461,18 @@ String _formatSetTitle(DateTime date) {
   return '${date.year}년 ${date.month}월 ${date.day}일 (${weekdays[date.weekday - 1]}) ${date.hour.toString().padLeft(2, '0')}시 ${date.minute.toString().padLeft(2, '0')}분';
 }
 
+String _formatSetDate(DateTime date) {
+  return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+}
+
 String _formatTimeRange(List<ScreenshotItem> items) {
   final times = items.where((item) => item.dateTakenMillis > 0).map((item) => item.date).toList();
   if (times.isEmpty) return '촬영 시간 정보 없음';
   times.sort();
   String format(DateTime date) => '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-  final earliest = format(times.first);
-  final latest = format(times.last);
-  return earliest == latest ? latest : '$earliest-$latest';
+  final start = times.first;
+  final end = start.add(const Duration(hours: 1));
+  return '${format(start)}-${format(end)}';
 }
 
 class _Thumb extends StatelessWidget {
