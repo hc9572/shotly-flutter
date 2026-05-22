@@ -20,26 +20,26 @@ class ShotlyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFFFFFFF),
+        scaffoldBackgroundColor: const Color(0xFFFAFAFA),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF111111),
+          seedColor: const Color(0xFF0058BE),
           brightness: Brightness.light,
-          primary: const Color(0xFF111111),
-          surface: const Color(0xFFFFFFFF),
-          surfaceContainerHighest: const Color(0xFFF5F5F5),
-          outline: const Color(0xFFE5E7EB),
+          primary: const Color(0xFF0058BE),
+          surface: const Color(0xFFFAFAFA),
+          surfaceContainerHighest: const Color(0xFFE2E2E2),
+          outline: const Color(0xFF727785),
         ),
         textTheme: const TextTheme(
-          headlineLarge: TextStyle(fontSize: 36, height: 1.14, fontWeight: FontWeight.w700, letterSpacing: -1.0),
-          headlineMedium: TextStyle(fontSize: 28, height: 1.18, fontWeight: FontWeight.w700, letterSpacing: -0.5),
+          headlineLarge: TextStyle(fontSize: 28, height: 1.21, fontWeight: FontWeight.w700, letterSpacing: -0.56),
+          headlineMedium: TextStyle(fontSize: 22, height: 1.27, fontWeight: FontWeight.w600, letterSpacing: -0.22),
           titleLarge: TextStyle(fontSize: 22, height: 1.25, fontWeight: FontWeight.w700),
           titleMedium: TextStyle(fontSize: 18, height: 1.3, fontWeight: FontWeight.w600),
           bodyLarge: TextStyle(fontSize: 16, height: 1.45, fontWeight: FontWeight.w400),
           bodyMedium: TextStyle(fontSize: 15, height: 1.45, fontWeight: FontWeight.w400),
           bodySmall: TextStyle(fontSize: 13, height: 1.35, fontWeight: FontWeight.w400),
         ).apply(
-          bodyColor: const Color(0xFF111111),
-          displayColor: const Color(0xFF111111),
+          bodyColor: const Color(0xFF1A1C1C),
+          displayColor: const Color(0xFF1A1C1C),
           fontFamily: defaultTargetPlatform == TargetPlatform.iOS ? '.SF Pro Text' : 'sans-serif',
         ),
       ),
@@ -96,6 +96,8 @@ class ScreenshotItem {
   }
 }
 
+enum StackSortMode { latest, name, mostImages, fewestImages }
+
 class StackItem {
   const StackItem({required this.name, required this.items});
 
@@ -137,6 +139,8 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   DateTime? _selectedDate;
   String _query = '';
   String? _error;
+  bool _showSortMenu = false;
+  StackSortMode _sortMode = StackSortMode.latest;
 
   @override
   void initState() {
@@ -190,7 +194,16 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
     final stacks = grouped.entries
         .map((entry) => StackItem(name: entry.key, items: entry.value..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis))))
         .toList();
-    stacks.sort((a, b) => b.items.first.dateTakenMillis.compareTo(a.items.first.dateTakenMillis));
+    switch (_sortMode) {
+      case StackSortMode.latest:
+        stacks.sort((a, b) => b.items.first.dateTakenMillis.compareTo(a.items.first.dateTakenMillis));
+      case StackSortMode.name:
+        stacks.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      case StackSortMode.mostImages:
+        stacks.sort((a, b) => b.items.length.compareTo(a.items.length));
+      case StackSortMode.fewestImages:
+        stacks.sort((a, b) => a.items.length.compareTo(b.items.length));
+    }
     return stacks;
   }
 
@@ -207,81 +220,162 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   Widget build(BuildContext context) {
     final stacks = _stacks;
     return Scaffold(
+      backgroundColor: const Color(0xFFFAFAFA),
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _load,
-          color: const Color(0xFF111111),
-          child: CustomScrollView(
-            slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-                sliver: SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _Header(onRefresh: _load),
-                      const SizedBox(height: 22),
-                      if (_isLoading) const _LoadingState()
-                      else if (!_hasPermission) _PermissionState(onRequest: _load)
-                      else if (_error != null) _ErrorState(message: _error!, onRetry: _load)
-                      else ...[
-                        _SummaryRow(screenshotCount: _filteredScreenshots.length, stackCount: stacks.length),
-                        const SizedBox(height: 14),
-                        _SearchField(
-                          controller: _searchController,
-                          onChanged: (value) => setState(() => _query = value),
-                        ),
-                        const SizedBox(height: 12),
-                        _DateFilterRow(
-                          selectedDate: _selectedDate,
-                          showCalendar: _showCalendar,
-                          onToggleCalendar: () => setState(() => _showCalendar = !_showCalendar),
-                          onReset: () => setState(() => _selectedDate = null),
-                        ),
-                        if (_showCalendar) ...[
-                          const SizedBox(height: 8),
-                          _CalendarPanel(
-                            dateCounts: _dateCounts,
-                            selectedDate: _selectedDate,
-                            onSelect: (date) => setState(() {
-                              _selectedDate = _sameNullableDay(_selectedDate, date) ? null : date;
-                              _showCalendar = false;
-                            }),
-                          ),
-                          const SizedBox(height: 24),
-                        ] else ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            _query.isEmpty
-                                ? (_selectedDate == null ? '전체 Stack' : '${_formatDate(_selectedDate!)} Stack')
-                                : '검색 결과: ${_filteredScreenshots.length}개 이미지 · ${stacks.length}개 Stack',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF6B7280)),
-                          ),
-                          const SizedBox(height: 16),
-                          if (_screenshots.isEmpty) const _EmptyState()
-                          else if (stacks.isEmpty) const _NoResultState()
-                          else ...stacks.map((stack) => Padding(
-                                padding: const EdgeInsets.only(bottom: 22),
-                                child: _StackCard(stack: stack),
-                              )),
-                        ],
-                      ],
-                    ],
+        child: Stack(
+          children: [
+            RefreshIndicator(
+              onRefresh: _load,
+              color: const Color(0xFF0058BE),
+              child: CustomScrollView(
+                slivers: [
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _ShotlyTopBarDelegate(onRefresh: _load),
                   ),
-                ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 118),
+                    sliver: SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (_isLoading) const _LoadingState()
+                          else if (!_hasPermission) _PermissionState(onRequest: _load)
+                          else if (_error != null) _ErrorState(message: _error!, onRetry: _load)
+                          else ...[
+                            _SearchField(
+                              controller: _searchController,
+                              onChanged: (value) => setState(() => _query = value),
+                            ),
+                            const SizedBox(height: 16),
+                            _SummarySortRow(
+                              screenshotCount: _filteredScreenshots.length,
+                              stackCount: stacks.length,
+                              sortMode: _sortMode,
+                              showSortMenu: _showSortMenu,
+                              onToggleSort: () => setState(() => _showSortMenu = !_showSortMenu),
+                              onSelectSort: (mode) => setState(() {
+                                _sortMode = mode;
+                                _showSortMenu = false;
+                              }),
+                            ),
+                            SizedBox(height: _showSortMenu ? 190 : 8),
+                            if (_selectedDate != null)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        '${_formatDate(_selectedDate!)} Stack',
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785), fontSize: 13),
+                                      ),
+                                    ),
+                                    TextButton(onPressed: () => setState(() => _selectedDate = null), child: const Text('초기화')),
+                                  ],
+                                ),
+                              ),
+                            if (_showCalendar) ...[
+                              const SizedBox(height: 8),
+                              _CalendarPanel(
+                                dateCounts: _dateCounts,
+                                selectedDate: _selectedDate,
+                                onSelect: (date) => setState(() {
+                                  _selectedDate = _sameNullableDay(_selectedDate, date) ? null : date;
+                                  _showCalendar = false;
+                                }),
+                              ),
+                              const SizedBox(height: 24),
+                            ] else ...[
+                              const SizedBox(height: 18),
+                              if (_screenshots.isEmpty) const _EmptyState()
+                              else if (stacks.isEmpty) const _NoResultState()
+                              else ...stacks.map((stack) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 26),
+                                    child: _StackCard(stack: stack),
+                                  )),
+                            ],
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            _BottomNavBar(
+              calendarSelected: _showCalendar,
+              onCalendarTap: () => setState(() => _showCalendar = !_showCalendar),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header({required this.onRefresh});
+class _ShotlyTopBarDelegate extends SliverPersistentHeaderDelegate {
+  const _ShotlyTopBarDelegate({required this.onRefresh});
 
   final VoidCallback onRefresh;
+
+  @override
+  double get minExtent => 64;
+
+  @override
+  double get maxExtent => 64;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      height: 64,
+      color: const Color(0xFFFAFAFA).withValues(alpha: 0.96),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Shotly',
+              style: Theme.of(context).textTheme.headlineLarge?.copyWith(color: const Color(0xFF1A1C1C)),
+            ),
+          ),
+          IconButton(
+            onPressed: onRefresh,
+            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF424754)),
+          ),
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.settings_outlined, color: Color(0xFF424754)),
+          ),
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.add_rounded, color: Color(0xFF0058BE)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _ShotlyTopBarDelegate oldDelegate) => false;
+}
+
+class _SummarySortRow extends StatelessWidget {
+  const _SummarySortRow({
+    required this.screenshotCount,
+    required this.stackCount,
+    required this.sortMode,
+    required this.showSortMenu,
+    required this.onToggleSort,
+    required this.onSelectSort,
+  });
+
+  final int screenshotCount;
+  final int stackCount;
+  final StackSortMode sortMode;
+  final bool showSortMenu;
+  final VoidCallback onToggleSort;
+  final ValueChanged<StackSortMode> onSelectSort;
 
   @override
   Widget build(BuildContext context) {
@@ -289,47 +383,97 @@ class _Header extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Shotly', style: Theme.of(context).textTheme.headlineLarge),
-              const SizedBox(height: 6),
-              Text(
-                '로컬 스크린샷을 Stack으로 정리해요.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF6B7280)),
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Text(
+              '$screenshotCount개 스크린샷 · $stackCount개 Stack',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785), fontSize: 13),
+            ),
           ),
         ),
-        IconButton(onPressed: onRefresh, icon: const Icon(Icons.refresh_rounded)),
-        IconButton(onPressed: () {}, icon: const Icon(Icons.settings_outlined)),
-        FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF111111),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            minimumSize: const Size(44, 44),
-            padding: EdgeInsets.zero,
+        SizedBox(
+          width: 156,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.topRight,
+            children: [
+              TextButton.icon(
+                onPressed: onToggleSort,
+                icon: const Icon(Icons.sort_rounded, size: 18),
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Sort'),
+                    const SizedBox(width: 2),
+                    Icon(showSortMenu ? Icons.expand_less_rounded : Icons.expand_more_rounded, size: 18),
+                  ],
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF111111),
+                  textStyle: Theme.of(context).textTheme.bodyMedium,
+                  padding: EdgeInsets.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+              if (showSortMenu)
+                Positioned(
+                  top: 42,
+                  right: 0,
+                  child: _SortDropdown(selected: sortMode, onSelect: onSelectSort),
+                ),
+            ],
           ),
-          onPressed: () {},
-          child: const Icon(Icons.add_rounded),
         ),
       ],
     );
   }
 }
 
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({required this.screenshotCount, required this.stackCount});
+class _SortDropdown extends StatelessWidget {
+  const _SortDropdown({required this.selected, required this.onSelect});
 
-  final int screenshotCount;
-  final int stackCount;
+  final StackSortMode selected;
+  final ValueChanged<StackSortMode> onSelect;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      '$screenshotCount개 스크린샷 · $stackCount개 Stack',
-      style: Theme.of(context).textTheme.titleMedium,
+    final items = [
+      (StackSortMode.latest, '최신순'),
+      (StackSortMode.name, '이름 순'),
+      (StackSortMode.mostImages, '이미지 많은 순'),
+      (StackSortMode.fewestImages, '이미지 적은 순'),
+    ];
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 192,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+          boxShadow: const [BoxShadow(color: Color(0x1F000000), blurRadius: 18, offset: Offset(0, 8))],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: items.map((item) {
+            final isSelected = item.$1 == selected;
+            return InkWell(
+              onTap: () => onSelect(item.$1),
+              child: Container(
+                color: isSelected ? const Color(0xFFF9F9F9) : Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(item.$2, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF111111)))),
+                    if (isSelected) const Icon(Icons.check_rounded, color: Color(0xFF0058BE), size: 18),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
     );
   }
 }
@@ -345,57 +489,19 @@ class _SearchField extends StatelessWidget {
     return TextField(
       controller: controller,
       onChanged: onChanged,
+      style: Theme.of(context).textTheme.bodyMedium,
       decoration: InputDecoration(
-        hintText: '앱 이름, 파일명, 경로 검색',
-        prefixIcon: const Icon(Icons.search_rounded),
-        filled: true,
-        fillColor: const Color(0xFFF7F7F7),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF111111), width: 1),
-        ),
+        hintText: '앱 이름, 파일명, 날짜 검색',
+        hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785)),
+        prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF727785)),
+        prefixIconConstraints: const BoxConstraints(minWidth: 28, minHeight: 40),
+        filled: false,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 0),
+        border: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFC2C6D6))),
+        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFC2C6D6))),
+        focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF0058BE), width: 1.2)),
       ),
-    );
-  }
-}
-
-class _DateFilterRow extends StatelessWidget {
-  const _DateFilterRow({
-    required this.selectedDate,
-    required this.showCalendar,
-    required this.onToggleCalendar,
-    required this.onReset,
-  });
-
-  final DateTime? selectedDate;
-  final bool showCalendar;
-  final VoidCallback onToggleCalendar;
-  final VoidCallback onReset;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            selectedDate == null ? '전체 날짜' : _formatDate(selectedDate!),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF6B7280)),
-          ),
-        ),
-        if (selectedDate != null) TextButton(onPressed: onReset, child: const Text('초기화')),
-        OutlinedButton.icon(
-          onPressed: onToggleCalendar,
-          icon: Icon(showCalendar ? Icons.close_rounded : Icons.calendar_month_outlined, size: 18),
-          label: Text(showCalendar ? '닫기' : '달력'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF111111),
-            side: const BorderSide(color: Color(0xFFE5E7EB)),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -544,41 +650,127 @@ class _StackCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => StackDetailScreen(stack: stack))),
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-        ),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(stack.name, style: Theme.of(context).textTheme.headlineMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 4),
-                      Text('${stack.items.length}개 이미지', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6B7280))),
+                      Text(
+                        stack.name,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontSize: 18,
+                              height: 24 / 18,
+                              color: const Color(0xFF1A1C1C),
+                              fontWeight: FontWeight.w600,
+                            ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${stack.items.length} images',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: const Color(0xFF424754),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                      ),
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right_rounded),
+                const Icon(Icons.chevron_right_rounded, color: Color(0xFF727785)),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             SizedBox(
-              height: 132,
+              height: 160,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: stack.items.take(8).length,
-                separatorBuilder: (context, index) => const SizedBox(width: 10),
-                itemBuilder: (context, index) => _Thumb(path: stack.items[index].thumbnailPath, width: 78, height: 132),
+                separatorBuilder: (context, index) => const SizedBox(width: 8),
+                itemBuilder: (context, index) => _Thumb(path: stack.items[index].thumbnailPath, width: 96, height: 160),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomNavBar extends StatelessWidget {
+  const _BottomNavBar({required this.calendarSelected, required this.onCalendarTap});
+
+  final bool calendarSelected;
+  final VoidCallback onCalendarTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 24,
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.95),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: const Color(0x4DC2C6D6)),
+            boxShadow: const [BoxShadow(color: Color(0x26000000), blurRadius: 24, offset: Offset(0, 12))],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _BottomNavItem(icon: Icons.layers_rounded, label: 'Stacks', selected: !calendarSelected, onTap: () {}),
+              const SizedBox(width: 48),
+              _BottomNavItem(icon: Icons.calendar_today_outlined, label: 'Calendar', selected: calendarSelected, onTap: onCalendarTap),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomNavItem extends StatelessWidget {
+  const _BottomNavItem({required this.icon, required this.label, required this.selected, required this.onTap});
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? const Color(0xFF0058BE) : const Color(0xFF424754);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: color,
+                    fontSize: 11,
+                    height: 14 / 11,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.33,
+                  ),
             ),
           ],
         ),
@@ -638,8 +830,14 @@ class _Thumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFC2C6D6)),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: _buildThumbnail(path, width, height),
     );
   }
