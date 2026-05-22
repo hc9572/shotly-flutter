@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'local_store.dart';
 import 'mock_data.dart';
+import 'visual_features.dart';
 
 void main() {
   runApp(const ShotlyApp());
@@ -161,6 +162,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   final Map<String, String> _stackNames = {};
   final Map<String, String> _imageAssignments = {};
   final Map<String, String> _setMemos = {};
+  final Map<String, VisualFeature> _visualFeatures = {};
   final Set<String> _hiddenStackKeys = {};
   final Set<String> _excludedImageIds = {};
   bool _isLoading = true;
@@ -219,7 +221,11 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
       if (_hasPermission) {
         final screenshots = await ShotlyNative.getScreenshots();
         screenshots.sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
+        final features = await extractVisualFeatures({for (final item in screenshots) item.id: item.thumbnailPath});
         _screenshots = screenshots;
+        _visualFeatures
+          ..clear()
+          ..addAll(features);
       }
     } on PlatformException catch (e) {
       _error = e.message ?? e.code;
@@ -487,6 +493,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
                                       allStackKeys: _stacks.map((item) => item.key).toList(),
                                       stackNames: _stackNames,
                                       setMemos: _setMemos,
+                                      visualFeatures: _visualFeatures,
                                       onRenameStack: _renameStack,
                                       onHideStack: _hideStack,
                                       onExcludeImage: _excludeImage,
@@ -723,6 +730,7 @@ class _StackCard extends StatelessWidget {
     required this.allStackKeys,
     required this.stackNames,
     required this.setMemos,
+    required this.visualFeatures,
     required this.onRenameStack,
     required this.onHideStack,
     required this.onExcludeImage,
@@ -734,6 +742,7 @@ class _StackCard extends StatelessWidget {
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
   final Map<String, String> setMemos;
+  final Map<String, VisualFeature> visualFeatures;
   final Future<void> Function(String stackKey, String name) onRenameStack;
   final Future<void> Function(String stackKey) onHideStack;
   final Future<void> Function(String imageId) onExcludeImage;
@@ -749,6 +758,7 @@ class _StackCard extends StatelessWidget {
           allStackKeys: allStackKeys,
           stackNames: stackNames,
           setMemos: setMemos,
+          visualFeatures: visualFeatures,
           onRenameStack: onRenameStack,
           onHideStack: onHideStack,
           onExcludeImage: onExcludeImage,
@@ -953,6 +963,7 @@ class StackDetailScreen extends StatefulWidget {
     required this.allStackKeys,
     required this.stackNames,
     required this.setMemos,
+    required this.visualFeatures,
     required this.onRenameStack,
     required this.onHideStack,
     required this.onExcludeImage,
@@ -964,6 +975,7 @@ class StackDetailScreen extends StatefulWidget {
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
   final Map<String, String> setMemos;
+  final Map<String, VisualFeature> visualFeatures;
   final Future<void> Function(String stackKey, String name) onRenameStack;
   final Future<void> Function(String stackKey) onHideStack;
   final Future<void> Function(String imageId) onExcludeImage;
@@ -980,7 +992,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final sets = _buildScreenshotSets(widget.stack.key, widget.stack.items, widget.setMemos);
-    final similarGroups = _buildSimilarGroups(widget.stack.items);
+    final similarGroups = _buildSimilarGroups(widget.stack.items, widget.visualFeatures);
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       body: SafeArea(
@@ -1430,8 +1442,68 @@ String _buildSetKey(String stackKey, List<ScreenshotItem> items) {
   return '$stackKey|${first?.dateTakenMillis ?? 0}|${first?.id ?? ''}';
 }
 
-List<List<ScreenshotItem>> _buildSimilarGroups(List<ScreenshotItem> items) {
+List<List<ScreenshotItem>> _buildSimilarGroups(List<ScreenshotItem> items, Map<String, VisualFeature> features) {
   final sorted = [...items]..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
+  if (sorted.length < 2) return const [];
+
+  const threshold = 0.86;
+  final edges = <String, Set<String>>{for (final item in sorted) item.id: <String>{}};
+  var featurePairCount = 0;
+
+  for (var i = 0; i < sorted.length; i++) {
+    for (var j = i + 1; j < sorted.length; j++) {
+      final a = sorted[i];
+      final b = sorted[j];
+      final aFeature = features[a.id];
+      final bFeature = features[b.id];
+      if (aFeature == null || bFeature == null) continue;
+      featurePairCount++;
+      final score = visualSimilarity(aFeature, bFeature);
+      if (score >= threshold) {
+        edges[a.id]!.add(b.id);
+        edges[b.id]!.add(a.id);
+      }
+    }
+  }
+
+  final groups = _connectedSimilarGroups(sorted, edges);
+  if (groups.isNotEmpty) return groups;
+
+  // Web/mock fallback until MediaPipe/native features are available there.
+  if (featurePairCount == 0) return _filenameSimilarGroups(sorted);
+  return const [];
+}
+
+List<List<ScreenshotItem>> _connectedSimilarGroups(List<ScreenshotItem> sorted, Map<String, Set<String>> edges) {
+  final byId = {for (final item in sorted) item.id: item};
+  final visited = <String>{};
+  final groups = <List<ScreenshotItem>>[];
+
+  for (final item in sorted) {
+    if (visited.contains(item.id)) continue;
+    final queue = <String>[item.id];
+    final component = <ScreenshotItem>[];
+    visited.add(item.id);
+
+    while (queue.isNotEmpty) {
+      final id = queue.removeLast();
+      final node = byId[id];
+      if (node != null) component.add(node);
+      for (final next in edges[id] ?? const <String>{}) {
+        if (visited.add(next)) queue.add(next);
+      }
+    }
+
+    if (component.length >= 2) {
+      component.sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
+      groups.add(component);
+    }
+  }
+  groups.sort((a, b) => b.length.compareTo(a.length));
+  return groups;
+}
+
+List<List<ScreenshotItem>> _filenameSimilarGroups(List<ScreenshotItem> sorted) {
   final groups = <List<ScreenshotItem>>[];
   final used = <String>{};
   for (final item in sorted) {
