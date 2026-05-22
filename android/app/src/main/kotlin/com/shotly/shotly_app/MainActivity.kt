@@ -3,6 +3,7 @@ package com.shotly.shotly_app
 import android.Manifest
 import android.content.ContentUris
 import android.content.Intent
+import android.content.IntentSender
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.os.Build
@@ -23,8 +24,11 @@ class MainActivity : FlutterActivity() {
     private val channelName = "shotly/native"
     private val permissionRequestCode = 9210
     private val pickImageRequestCode = 9211
+    private val deleteImageRequestCode = 9212
     private var pendingPermissionResult: MethodChannel.Result? = null
     private var pendingPickImageResult: MethodChannel.Result? = null
+    private var pendingDeleteImageResult: MethodChannel.Result? = null
+    private var pendingDeleteImageUri: Uri? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -34,6 +38,8 @@ class MainActivity : FlutterActivity() {
                 "openPhotoSettings" -> openPhotoSettings(result)
                 "getScreenshots" -> result.success(loadScreenshots())
                 "pickImage" -> pickImage(result)
+                "getImagePreview" -> getImagePreview(call.argument<String>("imageId"), result)
+                "deleteOriginalImage" -> deleteOriginalImage(call.argument<String>("imageId"), result)
                 else -> result.notImplemented()
             }
         }
@@ -112,6 +118,55 @@ class MainActivity : FlutterActivity() {
             }
             pendingPickImageResult = null
         }
+        if (requestCode == deleteImageRequestCode) {
+            pendingDeleteImageResult?.success(resultCode == RESULT_OK || pendingDeleteImageUri?.let { !doesImageExist(it) } == true)
+            pendingDeleteImageResult = null
+            pendingDeleteImageUri = null
+        }
+    }
+
+    private fun getImagePreview(imageId: String?, result: MethodChannel.Result) {
+        val uri = imageUriForId(imageId)
+        if (uri == null) {
+            result.success("")
+            return
+        }
+        result.success(createThumbnailFileFromUri("preview-${imageId.orEmpty()}", uri, preview = true))
+    }
+
+    private fun deleteOriginalImage(imageId: String?, result: MethodChannel.Result) {
+        val uri = imageUriForId(imageId)
+        if (uri == null) {
+            result.error("invalid_image_id", "삭제할 원본 이미지를 찾을 수 없어요.", null)
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            pendingDeleteImageResult = result
+            pendingDeleteImageUri = uri
+            val request = MediaStore.createDeleteRequest(contentResolver, listOf(uri))
+            return try {
+                startIntentSenderForResult(request.intentSender, deleteImageRequestCode, null, 0, 0, 0, null)
+            } catch (e: IntentSender.SendIntentException) {
+                pendingDeleteImageResult = null
+                pendingDeleteImageUri = null
+                result.error("delete_failed", "원본 파일 삭제 요청을 열 수 없어요.", null)
+            }
+        }
+        try {
+            val rows = contentResolver.delete(uri, null, null)
+            result.success(rows > 0)
+        } catch (e: SecurityException) {
+            result.error("delete_permission_denied", "원본 파일 삭제 권한이 필요해요.", null)
+        }
+    }
+
+    private fun imageUriForId(imageId: String?): Uri? {
+        val numericId = imageId?.substringAfter("picked-", imageId)?.substringBefore("-")?.toLongOrNull() ?: return null
+        return ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, numericId)
+    }
+
+    private fun doesImageExist(uri: Uri): Boolean {
+        return contentResolver.query(uri, arrayOf(MediaStore.Images.Media._ID), null, null, null)?.use { cursor -> cursor.moveToFirst() } == true
     }
 
     private fun loadScreenshots(): List<Map<String, Any?>> {
@@ -250,7 +305,7 @@ class MainActivity : FlutterActivity() {
         return createThumbnailFileFromUri(id.toString(), uri, id)
     }
 
-    private fun createThumbnailFileFromUri(key: String, uri: android.net.Uri, legacyId: Long? = null): String {
+    private fun createThumbnailFileFromUri(key: String, uri: android.net.Uri, legacyId: Long? = null, preview: Boolean = false): String {
         return try {
             val directory = File(cacheDir, "shotly_thumbs").apply { mkdirs() }
             val safeKey = key.replace(Regex("[^A-Za-z0-9_-]"), "_")
@@ -258,7 +313,7 @@ class MainActivity : FlutterActivity() {
             if (file.exists() && file.length() > 0) return file.absolutePath
 
             val bitmap: Bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                contentResolver.loadThumbnail(uri, Size(320, 320), null)
+                contentResolver.loadThumbnail(uri, if (preview) Size(1200, 2200) else Size(320, 320), null)
             } else if (legacyId != null) {
                 MediaStore.Images.Thumbnails.getThumbnail(contentResolver, legacyId, MediaStore.Images.Thumbnails.MINI_KIND, null)
             } else {

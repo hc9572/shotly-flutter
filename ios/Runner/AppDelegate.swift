@@ -33,6 +33,12 @@ import UIKit
         self.getScreenshots(result: result)
       case "pickImage":
         self.pickImage(result: result)
+      case "getImagePreview":
+        let imageId = (call.arguments as? [String: Any])?["imageId"] as? String
+        self.getImagePreview(imageId: imageId, result: result)
+      case "deleteOriginalImage":
+        let imageId = (call.arguments as? [String: Any])?["imageId"] as? String
+        self.deleteOriginalImage(imageId: imageId, result: result)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -108,6 +114,42 @@ import UIKit
     window?.rootViewController?.present(picker, animated: true)
   }
 
+  private func getImagePreview(imageId: String?, result: @escaping FlutterResult) {
+    guard let imageId else {
+      result("")
+      return
+    }
+    let assets = PHAsset.fetchAssets(withLocalIdentifiers: [imageId], options: nil)
+    guard let asset = assets.firstObject else {
+      result("")
+      return
+    }
+    result(previewPath(for: asset) ?? thumbnailPath(for: asset) ?? "")
+  }
+
+  private func deleteOriginalImage(imageId: String?, result: @escaping FlutterResult) {
+    guard let imageId else {
+      result(FlutterError(code: "invalid_image_id", message: "삭제할 원본 이미지를 찾을 수 없어요.", details: nil))
+      return
+    }
+    let assets = PHAsset.fetchAssets(withLocalIdentifiers: [imageId], options: nil)
+    guard assets.count > 0 else {
+      result(FlutterError(code: "asset_not_found", message: "삭제할 원본 이미지를 찾을 수 없어요.", details: nil))
+      return
+    }
+    PHPhotoLibrary.shared().performChanges({
+      PHAssetChangeRequest.deleteAssets(assets)
+    }) { success, error in
+      DispatchQueue.main.async {
+        if let error {
+          result(FlutterError(code: "delete_failed", message: error.localizedDescription, details: nil))
+        } else {
+          result(success)
+        }
+      }
+    }
+  }
+
   func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
     picker.dismiss(animated: true) { [weak self] in
       self?.pendingPickResult?(nil)
@@ -181,6 +223,31 @@ import UIKit
       for: asset,
       targetSize: CGSize(width: 360, height: 640),
       contentMode: .aspectFill,
+      options: options
+    ) { image, _ in
+      guard let image else { return }
+      outputPath = self.writeThumbnail(image: image, fileUrl: fileUrl)
+    }
+    return outputPath
+  }
+
+  private func previewPath(for asset: PHAsset) -> String? {
+    let cacheDir = thumbnailCacheDirectory()
+    let safeId = asset.localIdentifier.replacingOccurrences(of: "/", with: "_")
+    let fileUrl = cacheDir.appendingPathComponent("preview-\(safeId).jpg")
+    if FileManager.default.fileExists(atPath: fileUrl.path) { return fileUrl.path }
+
+    let options = PHImageRequestOptions()
+    options.deliveryMode = .highQualityFormat
+    options.resizeMode = .fast
+    options.isSynchronous = true
+    options.isNetworkAccessAllowed = true
+
+    var outputPath: String?
+    PHImageManager.default().requestImage(
+      for: asset,
+      targetSize: CGSize(width: 1200, height: 2200),
+      contentMode: .aspectFit,
       options: options
     ) { image, _ in
       guard let image else { return }
