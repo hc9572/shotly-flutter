@@ -41,7 +41,8 @@ class ShotlyApp extends StatelessWidget {
         ).apply(
           bodyColor: const Color(0xFF1A1C1C),
           displayColor: const Color(0xFF1A1C1C),
-          fontFamily: 'Pretendard',
+          fontFamily: 'Inter',
+          fontFamilyFallback: ['Pretendard'],
         ),
       ),
       home: const ShotlyHomeScreen(),
@@ -510,7 +511,7 @@ class _SummarySortRow extends StatelessWidget {
               ),
               style: TextButton.styleFrom(
                 foregroundColor: const Color(0xFF111111),
-                textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.1),
+                textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0),
                 padding: EdgeInsets.zero,
                 minimumSize: const Size(0, 22),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -625,11 +626,11 @@ class _StackCard extends StatelessWidget {
                       Text(
                         stack.name,
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontSize: 20,
-                              height: 25 / 20,
+                              fontSize: 18,
+                              height: 23 / 18,
                               color: const Color(0xFF1A1C1C),
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.2,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.18,
                             ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -639,10 +640,10 @@ class _StackCard extends StatelessWidget {
                         '${stack.items.length} images',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: const Color(0xFF424754),
-                              fontSize: 13,
-                              height: 16 / 13,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.05,
+                              fontSize: 12,
+                              height: 16 / 12,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0,
                             ),
                       ),
                     ],
@@ -731,8 +732,8 @@ class _BottomNavItem extends StatelessWidget {
                     color: color,
                     fontSize: 11,
                     height: 14 / 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.33,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.22,
                   ),
             ),
           ],
@@ -769,14 +770,14 @@ class _CalendarTimelineView extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: const Color(0xFF1A1C1C),
                         fontSize: 18,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                         letterSpacing: -0.1,
                       ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   '${grouped[date]!.length} images',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF424754), fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.05),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF424754), fontSize: 12, fontWeight: FontWeight.w500),
                 ),
               ],
             ),
@@ -873,12 +874,12 @@ class _SetSection extends StatelessWidget {
         children: [
           Text(
             set.title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: -0.1),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: -0.1),
           ),
           const SizedBox(height: 3),
           Text(
             '${set.items.length} images · ${set.timeRange}',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF424754), fontSize: 13, fontWeight: FontWeight.w600),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF424754), fontSize: 12, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 12),
           GridView.builder(
