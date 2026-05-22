@@ -464,14 +464,14 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(width: 38, height: 4, decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(99))),
               const SizedBox(height: 16),
               _AddMenuTile(icon: Icons.layers_rounded, title: 'Stack 추가', onTap: () => Navigator.of(context).pop('stack')),
-              _AddMenuTile(icon: Icons.photo_library_outlined, title: '이미지 추가', onTap: () => Navigator.of(context).pop('image')),
+              _AddMenuTile(icon: Icons.photo_library_rounded, title: '이미지 추가', onTap: () => Navigator.of(context).pop('image')),
             ],
           ),
         ),
@@ -636,7 +636,7 @@ class _ShotlyTopBarDelegate extends SliverPersistentHeaderDelegate {
           ),
           IconButton(
             onPressed: onSettings,
-            icon: const Icon(Icons.settings_outlined, color: Color(0xFF424754)),
+            icon: const Icon(Icons.settings_rounded, color: Color(0xFF424754)),
           ),
           IconButton(
             onPressed: onAdd,
@@ -924,9 +924,9 @@ class _BottomNavBar extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _BottomNavItem(icon: Icons.layers_rounded, label: 'Stacks', selected: !calendarSelected, onTap: onStacksTap),
+              _BottomNavItem(icon: Icons.layers_outlined, selectedIcon: Icons.layers_rounded, label: 'Stacks', selected: !calendarSelected, onTap: onStacksTap),
               const SizedBox(width: 34),
-              _BottomNavItem(icon: Icons.calendar_today_outlined, label: 'Calendar', selected: calendarSelected, onTap: onCalendarTap),
+              _BottomNavItem(icon: Icons.calendar_today_outlined, selectedIcon: Icons.calendar_month_rounded, label: 'Calendar', selected: calendarSelected, onTap: onCalendarTap),
             ],
           ),
         ),
@@ -936,9 +936,10 @@ class _BottomNavBar extends StatelessWidget {
 }
 
 class _BottomNavItem extends StatelessWidget {
-  const _BottomNavItem({required this.icon, required this.label, required this.selected, required this.onTap});
+  const _BottomNavItem({required this.icon, required this.selectedIcon, required this.label, required this.selected, required this.onTap});
 
   final IconData icon;
+  final IconData selectedIcon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -954,7 +955,7 @@ class _BottomNavItem extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color, size: 24),
+            Icon(selected ? selectedIcon : icon, color: color, size: 24),
             const SizedBox(height: 2),
             Text(
               label,
@@ -1181,14 +1182,14 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(width: 38, height: 4, decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(99))),
               const SizedBox(height: 16),
-              _AddMenuTile(icon: Icons.edit_outlined, title: 'Stack 이름 수정', onTap: () => Navigator.of(context).pop('rename')),
-              _AddMenuTile(icon: Icons.visibility_off_outlined, title: 'Stack 숨기기', onTap: () => Navigator.of(context).pop('hide')),
+              _AddMenuTile(icon: Icons.edit_rounded, title: 'Stack 이름 수정', onTap: () => Navigator.of(context).pop('rename')),
+              _AddMenuTile(icon: Icons.visibility_off_rounded, title: 'Stack 숨기기', onTap: () => Navigator.of(context).pop('hide')),
             ],
           ),
         ),
@@ -1387,7 +1388,7 @@ class _SetSectionState extends State<_SetSection> {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1415,7 +1416,7 @@ class _SetSectionState extends State<_SetSection> {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1729,9 +1730,9 @@ class _SelectionActionBar extends StatelessWidget {
         children: [
           Text('$count개 선택', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF1A1C1C))),
           const Spacer(),
-          _SelectionActionButton(icon: Icons.ios_share_rounded, label: '공유', onTap: onShare),
-          _SelectionActionButton(icon: Icons.delete_outline_rounded, label: '삭제', onTap: onDelete, destructive: true),
-          _SelectionActionButton(icon: Icons.drive_file_move_outline, label: '이동', onTap: onMove),
+          _SelectionActionButton(icon: Icons.share_rounded, label: '공유', onTap: onShare),
+          _SelectionActionButton(icon: Icons.delete_rounded, label: '삭제', onTap: onDelete, destructive: true),
+          _SelectionActionButton(icon: Icons.drive_file_move_rounded, label: '이동', onTap: onMove),
           _SelectionActionButton(icon: Icons.visibility_off_outlined, label: '숨기기', onTap: onHide),
           IconButton(onPressed: onCancel, icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF727785))),
         ],
@@ -1873,12 +1874,12 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
                         child: Row(
                           children: [
                             _ViewerCircleButton(
-                              icon: Icons.ios_share_rounded,
+                              icon: Icons.share_rounded,
                               onTap: () => ShotlyNative.shareImages([_currentItem.id]),
                             ),
                             const SizedBox(width: 10),
                             _ViewerCircleButton(
-                              icon: Icons.delete_outline_rounded,
+                              icon: Icons.delete_rounded,
                               destructive: true,
                               onTap: () async {
                                 final confirmed = await _showShotlyConfirmDialog(
@@ -1993,7 +1994,7 @@ Future<T?> _showShotlyActionSheet<T>(BuildContext context, {String? title, requi
     barrierColor: Colors.black.withValues(alpha: 0.18),
     builder: (context) => SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -2007,7 +2008,7 @@ Future<T?> _showShotlyActionSheet<T>(BuildContext context, {String? title, requi
             children: [
               if (title != null) ...[
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                   child: Text(title, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xFF727785))),
                 ),
               ],
