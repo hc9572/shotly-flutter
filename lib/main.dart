@@ -135,8 +135,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   List<ScreenshotItem> _screenshots = const [];
   bool _isLoading = true;
   bool _hasPermission = false;
-  bool _showCalendar = false;
-  DateTime? _selectedDate;
+  bool _isCalendarView = false;
   String _query = '';
   String? _error;
   bool _showSortMenu = false;
@@ -177,9 +176,6 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
 
   List<ScreenshotItem> get _filteredScreenshots {
     Iterable<ScreenshotItem> items = _screenshots;
-    if (_selectedDate != null) {
-      items = items.where((item) => _sameDay(item.date, _selectedDate!));
-    }
     if (_query.trim().isNotEmpty) {
       items = items.where((item) => item.matches(_query.trim()));
     }
@@ -207,17 +203,10 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
     return stacks;
   }
 
-  Map<DateTime, int> get _dateCounts {
-    final counts = <DateTime, int>{};
-    for (final item in _screenshots) {
-      final date = DateTime(item.date.year, item.date.month, item.date.day);
-      counts[date] = (counts[date] ?? 0) + 1;
-    }
-    return counts;
-  }
 
   @override
   Widget build(BuildContext context) {
+    final filteredScreenshots = _filteredScreenshots..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
     final stacks = _stacks;
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
@@ -248,46 +237,28 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
                               onChanged: (value) => setState(() => _query = value),
                             ),
                             const SizedBox(height: 16),
-                            _SummarySortRow(
-                              screenshotCount: _filteredScreenshots.length,
-                              stackCount: stacks.length,
-                              sortMode: _sortMode,
-                              showSortMenu: _showSortMenu,
-                              onToggleSort: () => setState(() => _showSortMenu = !_showSortMenu),
-                              onSelectSort: (mode) => setState(() {
-                                _sortMode = mode;
-                                _showSortMenu = false;
-                              }),
-                            ),
-                            SizedBox(height: _showSortMenu ? 190 : 8),
-                            if (_selectedDate != null)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        '${_formatDate(_selectedDate!)} Stack',
-                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785), fontSize: 13),
-                                      ),
-                                    ),
-                                    TextButton(onPressed: () => setState(() => _selectedDate = null), child: const Text('초기화')),
-                                  ],
-                                ),
+                            if (_isCalendarView) ...[
+                              Text(
+                                '${filteredScreenshots.length}개 스크린샷 · 최신순',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785), fontSize: 13),
                               ),
-                            if (_showCalendar) ...[
-                              const SizedBox(height: 8),
-                              _CalendarPanel(
-                                dateCounts: _dateCounts,
-                                selectedDate: _selectedDate,
-                                onSelect: (date) => setState(() {
-                                  _selectedDate = _sameNullableDay(_selectedDate, date) ? null : date;
-                                  _showCalendar = false;
+                              const SizedBox(height: 18),
+                              if (_screenshots.isEmpty) const _EmptyState()
+                              else if (filteredScreenshots.isEmpty) const _NoResultState()
+                              else _CalendarTimelineView(items: filteredScreenshots),
+                            ] else ...[
+                              _SummarySortRow(
+                                screenshotCount: filteredScreenshots.length,
+                                stackCount: stacks.length,
+                                sortMode: _sortMode,
+                                showSortMenu: _showSortMenu,
+                                onToggleSort: () => setState(() => _showSortMenu = !_showSortMenu),
+                                onSelectSort: (mode) => setState(() {
+                                  _sortMode = mode;
+                                  _showSortMenu = false;
                                 }),
                               ),
-                              const SizedBox(height: 24),
-                            ] else ...[
-                              const SizedBox(height: 18),
+                              SizedBox(height: _showSortMenu ? 190 : 26),
                               if (_screenshots.isEmpty) const _EmptyState()
                               else if (stacks.isEmpty) const _NoResultState()
                               else ...stacks.map((stack) => Padding(
@@ -304,8 +275,9 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
               ),
             ),
             _BottomNavBar(
-              calendarSelected: _showCalendar,
-              onCalendarTap: () => setState(() => _showCalendar = !_showCalendar),
+              calendarSelected: _isCalendarView,
+              onStacksTap: () => setState(() => _isCalendarView = false),
+              onCalendarTap: () => setState(() => _isCalendarView = true),
             ),
           ],
         ),
@@ -506,141 +478,6 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-class _CalendarPanel extends StatefulWidget {
-  const _CalendarPanel({required this.dateCounts, required this.selectedDate, required this.onSelect});
-
-  final Map<DateTime, int> dateCounts;
-  final DateTime? selectedDate;
-  final ValueChanged<DateTime> onSelect;
-
-  @override
-  State<_CalendarPanel> createState() => _CalendarPanelState();
-}
-
-class _CalendarPanelState extends State<_CalendarPanel> {
-  late DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
-
-  @override
-  void initState() {
-    super.initState();
-    final initial = widget.selectedDate ?? (widget.dateCounts.keys.toList()..sort((a, b) => b.compareTo(a))).firstOrNull ?? DateTime.now();
-    _month = DateTime(initial.year, initial.month);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final firstDay = DateTime(_month.year, _month.month, 1);
-    final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
-    final leading = firstDay.weekday - 1;
-    final cells = <DateTime?>[
-      ...List<DateTime?>.filled(leading, null),
-      ...List.generate(daysInMonth, (i) => DateTime(_month.year, _month.month, i + 1)),
-    ];
-    while (cells.length % 7 != 0) {
-      cells.add(null);
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text('${_month.year}년 ${_month.month}월', style: Theme.of(context).textTheme.titleMedium),
-              ),
-              IconButton(onPressed: () => setState(() => _month = DateTime(_month.year, _month.month - 1)), icon: const Icon(Icons.chevron_left_rounded)),
-              TextButton(onPressed: () => setState(() => _month = DateTime(DateTime.now().year, DateTime.now().month)), child: const Text('오늘')),
-              IconButton(onPressed: () => setState(() => _month = DateTime(_month.year, _month.month + 1)), icon: const Icon(Icons.chevron_right_rounded)),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: ['월', '화', '수', '목', '금', '토', '일']
-                .map((day) => Expanded(
-                      child: Center(
-                        child: Text(day, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6B7280))),
-                      ),
-                    ))
-                .toList(),
-          ),
-          const SizedBox(height: 8),
-          ...cells.slices(7).map((week) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: week
-                      .map((date) => Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 3),
-                              child: _CalendarCell(
-                                date: date,
-                                count: date == null ? 0 : widget.dateCounts[DateTime(date.year, date.month, date.day)] ?? 0,
-                                selected: date != null && _sameNullableDay(widget.selectedDate, date),
-                                onTap: date == null ? null : () => widget.onSelect(date),
-                              ),
-                            ),
-                          ))
-                      .toList(),
-                ),
-              )),
-        ],
-      ),
-    );
-  }
-}
-
-class _CalendarCell extends StatelessWidget {
-  const _CalendarCell({required this.date, required this.count, required this.selected, required this.onTap});
-
-  final DateTime? date;
-  final int count;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasItems = count > 0;
-    return InkWell(
-      onTap: hasItems ? onTap : null,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        height: 54,
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFF111111) : (hasItems ? const Color(0xFFF5F5F5) : Colors.white),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-        ),
-        padding: const EdgeInsets.all(6),
-        child: date == null
-            ? null
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${date!.day}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: selected ? Colors.white : const Color(0xFF111111),
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  if (hasItems)
-                    Text(
-                      '$count장',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: selected ? Colors.white70 : const Color(0xFF6B7280), fontSize: 11),
-                    ),
-                ],
-              ),
-      ),
-    );
-  }
-}
-
 class _StackCard extends StatelessWidget {
   const _StackCard({required this.stack});
 
@@ -707,9 +544,10 @@ class _StackCard extends StatelessWidget {
 }
 
 class _BottomNavBar extends StatelessWidget {
-  const _BottomNavBar({required this.calendarSelected, required this.onCalendarTap});
+  const _BottomNavBar({required this.calendarSelected, required this.onStacksTap, required this.onCalendarTap});
 
   final bool calendarSelected;
+  final VoidCallback onStacksTap;
   final VoidCallback onCalendarTap;
 
   @override
@@ -730,7 +568,7 @@ class _BottomNavBar extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _BottomNavItem(icon: Icons.layers_rounded, label: 'Stacks', selected: !calendarSelected, onTap: () {}),
+              _BottomNavItem(icon: Icons.layers_rounded, label: 'Stacks', selected: !calendarSelected, onTap: onStacksTap),
               const SizedBox(width: 48),
               _BottomNavItem(icon: Icons.calendar_today_outlined, label: 'Calendar', selected: calendarSelected, onTap: onCalendarTap),
             ],
@@ -775,6 +613,70 @@ class _BottomNavItem extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _CalendarTimelineView extends StatelessWidget {
+  const _CalendarTimelineView({required this.items});
+
+  final List<ScreenshotItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final grouped = <DateTime, List<ScreenshotItem>>{};
+    for (final item in items) {
+      final date = DateTime(item.date.year, item.date.month, item.date.day);
+      grouped.putIfAbsent(date, () => []).add(item);
+    }
+    final dates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final date in dates) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 12),
+            child: Row(
+              children: [
+                Text(
+                  _formatTimelineDate(date),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: const Color(0xFF1A1C1C),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${grouped[date]!.length} images',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF424754), fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+          GridView.builder(
+            itemCount: grouped[date]!.length,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 0.6,
+            ),
+            itemBuilder: (context, index) {
+              final item = grouped[date]![index];
+              return InkWell(
+                onTap: () {},
+                borderRadius: BorderRadius.circular(8),
+                child: _Thumb(path: item.thumbnailPath),
+              );
+            },
+          ),
+          const SizedBox(height: 24),
+        ],
+      ],
     );
   }
 }
@@ -981,14 +883,11 @@ class _CenteredMessage extends StatelessWidget {
   }
 }
 
-bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
-bool _sameNullableDay(DateTime? a, DateTime b) => a != null && _sameDay(a, b);
-String _formatDate(DateTime date) => '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
-
-extension _ListSlices<T> on List<T> {
-  Iterable<List<T>> slices(int size) sync* {
-    for (var i = 0; i < length; i += size) {
-      yield sublist(i, i + size > length ? length : i + size);
-    }
-  }
+String _formatTimelineDate(DateTime date) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final target = DateTime(date.year, date.month, date.day);
+  if (target == today) return '오늘';
+  if (target == today.subtract(const Duration(days: 1))) return '어제';
+  return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
 }
