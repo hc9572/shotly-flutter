@@ -1108,12 +1108,24 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   }
 
   Future<void> _showStackActions(BuildContext context) async {
-    final action = await _showShotlyActionSheet<String>(
-      context,
-      items: const [
-        _ShotlyActionItem(value: 'rename', icon: Icons.edit_outlined, title: 'Stack 이름 수정'),
-        _ShotlyActionItem(value: 'hide', icon: Icons.visibility_off_outlined, title: 'Stack 숨기기'),
-      ],
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 38, height: 4, decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(99))),
+              const SizedBox(height: 16),
+              _AddMenuTile(icon: Icons.edit_outlined, title: 'Stack 이름 수정', onTap: () => Navigator.of(context).pop('rename')),
+              _AddMenuTile(icon: Icons.visibility_off_outlined, title: 'Stack 숨기기', onTap: () => Navigator.of(context).pop('hide')),
+            ],
+          ),
+        ),
+      ),
     );
     if (!context.mounted) return;
     if (action == 'rename') await _renameStack(context);
