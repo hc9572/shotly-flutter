@@ -131,6 +131,12 @@ class ShotlyNative {
     return result ?? false;
   }
 
+  static Future<bool> openPhotoSettings() async {
+    if (kIsWeb) return false;
+    final result = await _channel.invokeMethod<bool>('openPhotoSettings');
+    return result ?? false;
+  }
+
   static Future<List<ScreenshotItem>> getScreenshots() async {
     if (kIsWeb) return mockScreenshots();
     final result = await _channel.invokeMethod<List<dynamic>>('getScreenshots');
@@ -348,6 +354,15 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  Future<void> _openPhotoSettings() async {
+    try {
+      final opened = await ShotlyNative.openPhotoSettings();
+      if (!opened && mounted) _showSnack('웹 미리보기에서는 시스템 설정을 열 수 없어요.');
+    } on PlatformException catch (e) {
+      if (mounted) _showSnack(e.message ?? e.code);
+    }
+  }
+
   Future<void> _renameStack(String stackKey, String name) async {
     final trimmed = name.trim().isEmpty ? stackKey : name.trim();
     setState(() => _stackNames[stackKey] = trimmed);
@@ -448,7 +463,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
                           hasPermission: _hasPermission,
                           hiddenStacks: _hiddenStacks,
                           excludedImages: _excludedImages,
-                          onRequestPermission: _load,
+                          onOpenPhotoSettings: _openPhotoSettings,
                           onRestoreStack: _restoreStack,
                           onRestoreImage: _restoreImage,
                         ),
@@ -1970,7 +1985,7 @@ class SettingsScreen extends StatefulWidget {
     required this.hasPermission,
     required this.hiddenStacks,
     required this.excludedImages,
-    required this.onRequestPermission,
+    required this.onOpenPhotoSettings,
     required this.onRestoreStack,
     required this.onRestoreImage,
   });
@@ -1978,7 +1993,7 @@ class SettingsScreen extends StatefulWidget {
   final bool hasPermission;
   final List<StackItem> hiddenStacks;
   final List<ScreenshotItem> excludedImages;
-  final Future<void> Function() onRequestPermission;
+  final Future<void> Function() onOpenPhotoSettings;
   final Future<void> Function(String stackKey) onRestoreStack;
   final Future<void> Function(String imageId) onRestoreImage;
 
@@ -1989,7 +2004,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   late final List<StackItem> _hiddenStacks = [...widget.hiddenStacks];
   late final List<ScreenshotItem> _excludedImages = [...widget.excludedImages];
-  late bool _hasPermission = widget.hasPermission;
+  late final bool _hasPermission = widget.hasPermission;
 
   @override
   Widget build(BuildContext context) {
@@ -2011,10 +2026,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 _PermissionStatusTile(
                   hasPermission: _hasPermission,
-                  onRequest: () async {
-                    await widget.onRequestPermission();
-                    if (mounted) setState(() => _hasPermission = true);
-                  },
+                  onOpenSettings: widget.onOpenPhotoSettings,
                 ),
               ],
             ),
@@ -2203,18 +2215,19 @@ class _SettingsSection extends StatelessWidget {
 }
 
 class _PermissionStatusTile extends StatelessWidget {
-  const _PermissionStatusTile({required this.hasPermission, required this.onRequest});
+  const _PermissionStatusTile({required this.hasPermission, required this.onOpenSettings});
 
   final bool hasPermission;
-  final Future<void> Function() onRequest;
+  final Future<void> Function() onOpenSettings;
 
   @override
   Widget build(BuildContext context) {
     return _SettingsTile(
       icon: hasPermission ? Icons.check_circle_outline_rounded : Icons.error_outline_rounded,
       title: '사진 접근 권한',
-      subtitle: hasPermission ? '허용됨 · 사진 원본은 기기 밖으로 나가지 않아요' : '권한 필요 · 스크린샷 정리를 위해 허용해주세요',
-      trailing: hasPermission ? null : TextButton(onPressed: onRequest, child: const Text('허용')),
+      subtitle: hasPermission ? '허용됨 · 시스템 설정에서 접근 범위를 바꿀 수 있어요' : '권한 필요 · 시스템 사진 권한으로 이동해요',
+      trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFF727785)),
+      onTap: onOpenSettings,
     );
   }
 }

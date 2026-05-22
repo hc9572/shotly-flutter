@@ -27,6 +27,8 @@ import UIKit
       switch call.method {
       case "requestPhotoPermission":
         self.requestPhotoPermission(result: result)
+      case "openPhotoSettings":
+        self.openPhotoSettings(result: result)
       case "getScreenshots":
         self.getScreenshots(result: result)
       case "pickImage":
@@ -34,6 +36,16 @@ import UIKit
       default:
         result(FlutterMethodNotImplemented)
       }
+    }
+  }
+
+  private func openPhotoSettings(result: @escaping FlutterResult) {
+    guard let url = URL(string: UIApplication.openSettingsURLString), UIApplication.shared.canOpenURL(url) else {
+      result(false)
+      return
+    }
+    UIApplication.shared.open(url, options: [:]) { opened in
+      result(opened)
     }
   }
 

@@ -9,6 +9,7 @@ import android.os.Build
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
+import android.provider.Settings
 import android.util.Size
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -30,6 +31,7 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName).setMethodCallHandler { call, result ->
             when (call.method) {
                 "requestPhotoPermission" -> requestPhotoPermission(result)
+                "openPhotoSettings" -> openPhotoSettings(result)
                 "getScreenshots" -> result.success(loadScreenshots())
                 "pickImage" -> pickImage(result)
                 else -> result.notImplemented()
@@ -53,6 +55,19 @@ class MainActivity : FlutterActivity() {
             Manifest.permission.READ_EXTERNAL_STORAGE
         }
         ActivityCompat.requestPermissions(this, arrayOf(permission), permissionRequestCode)
+    }
+
+    private fun openPhotoSettings(result: MethodChannel.Result) {
+        return try {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", packageName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("settings_unavailable", "시스템 설정을 열 수 없어요.", null)
+        }
     }
 
     private fun hasPhotoPermission(): Boolean {
