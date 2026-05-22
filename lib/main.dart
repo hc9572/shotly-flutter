@@ -40,7 +40,7 @@ class ShotlyApp extends StatelessWidget {
         ).apply(
           bodyColor: const Color(0xFF1A1C1C),
           displayColor: const Color(0xFF1A1C1C),
-          fontFamily: defaultTargetPlatform == TargetPlatform.iOS ? '.SF Pro Text' : 'sans-serif',
+          fontFamily: 'Pretendard',
         ),
       ),
       home: const ShotlyHomeScreen(),
