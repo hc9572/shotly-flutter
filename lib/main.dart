@@ -105,6 +105,14 @@ class StackItem {
   final List<ScreenshotItem> items;
 }
 
+class ScreenshotSet {
+  const ScreenshotSet({required this.title, required this.timeRange, required this.items});
+
+  final String title;
+  final String timeRange;
+  final List<ScreenshotItem> items;
+}
+
 class ShotlyNative {
   static const _channel = MethodChannel('shotly/native');
 
@@ -121,6 +129,13 @@ class ShotlyNative {
         .map((item) => ScreenshotItem.fromMap(item as Map<dynamic, dynamic>))
         .toList();
   }
+
+  static Future<ScreenshotItem?> pickImage() async {
+    if (kIsWeb) return null;
+    final result = await _channel.invokeMethod<Map<dynamic, dynamic>>('pickImage');
+    if (result == null) return null;
+    return ScreenshotItem.fromMap(result);
+  }
 }
 
 class ShotlyHomeScreen extends StatefulWidget {
@@ -133,6 +148,7 @@ class ShotlyHomeScreen extends StatefulWidget {
 class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   final _searchController = TextEditingController();
   List<ScreenshotItem> _screenshots = const [];
+  final List<String> _manualStackNames = [];
   bool _isLoading = true;
   bool _hasPermission = false;
   bool _isCalendarView = false;
@@ -190,9 +206,15 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
     final stacks = grouped.entries
         .map((entry) => StackItem(name: entry.key, items: entry.value..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis))))
         .toList();
+    for (final name in _manualStackNames) {
+      final matchesQuery = _query.trim().isEmpty || name.toLowerCase().contains(_query.trim().toLowerCase());
+      if (matchesQuery && !grouped.containsKey(name)) {
+        stacks.add(StackItem(name: name, items: const []));
+      }
+    }
     switch (_sortMode) {
       case StackSortMode.latest:
-        stacks.sort((a, b) => b.items.first.dateTakenMillis.compareTo(a.items.first.dateTakenMillis));
+        stacks.sort((a, b) => (b.items.isEmpty ? 0 : b.items.first.dateTakenMillis).compareTo(a.items.isEmpty ? 0 : a.items.first.dateTakenMillis));
       case StackSortMode.name:
         stacks.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
       case StackSortMode.mostImages:
@@ -203,6 +225,76 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
     return stacks;
   }
 
+
+  Future<void> _showCreateStackDialog() async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text('Stack 추가'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Stack 이름'),
+          onSubmitted: (value) => Navigator.of(context).pop(value),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('취소')),
+          TextButton(onPressed: () => Navigator.of(context).pop(controller.text), child: const Text('추가')),
+        ],
+      ),
+    );
+    controller.dispose();
+    final trimmed = name?.trim();
+    if (trimmed == null || trimmed.isEmpty) return;
+    setState(() {
+      if (!_manualStackNames.contains(trimmed)) _manualStackNames.add(trimmed);
+    });
+  }
+
+  Future<void> _pickImageFromAlbum() async {
+    try {
+      final image = await ShotlyNative.pickImage();
+      if (image == null) {
+        if (mounted) _showSnack('웹 미리보기에서는 앨범 열기를 지원하지 않아요. Android 앱에서 동작해.');
+        return;
+      }
+      setState(() {
+        _screenshots = [image, ..._screenshots]..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
+      });
+    } on PlatformException catch (e) {
+      if (mounted) _showSnack(e.message ?? e.code);
+    }
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _showAddMenu() async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 38, height: 4, decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(99))),
+              const SizedBox(height: 16),
+              _AddMenuTile(icon: Icons.layers_rounded, title: 'Stack 추가', onTap: () => Navigator.of(context).pop('stack')),
+              _AddMenuTile(icon: Icons.photo_library_outlined, title: '이미지 추가', onTap: () => Navigator.of(context).pop('image')),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (action == 'stack') await _showCreateStackDialog();
+    if (action == 'image') await _pickImageFromAlbum();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -220,7 +312,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
                 slivers: [
                   SliverPersistentHeader(
                     pinned: true,
-                    delegate: _ShotlyTopBarDelegate(onRefresh: _load),
+                    delegate: _ShotlyTopBarDelegate(onAdd: _showAddMenu),
                   ),
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 118),
@@ -306,9 +398,9 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
 }
 
 class _ShotlyTopBarDelegate extends SliverPersistentHeaderDelegate {
-  const _ShotlyTopBarDelegate({required this.onRefresh});
+  const _ShotlyTopBarDelegate({required this.onAdd});
 
-  final VoidCallback onRefresh;
+  final VoidCallback onAdd;
 
   @override
   double get minExtent => 64;
@@ -335,7 +427,7 @@ class _ShotlyTopBarDelegate extends SliverPersistentHeaderDelegate {
             icon: const Icon(Icons.settings_outlined, color: Color(0xFF424754)),
           ),
           IconButton(
-            onPressed: () {},
+            onPressed: onAdd,
             icon: const Icon(Icons.add_rounded, color: Color(0xFF111111)),
           ),
         ],
@@ -701,7 +793,9 @@ class StackDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sets = _buildScreenshotSets(stack.items);
     return Scaffold(
+      backgroundColor: const Color(0xFFFAFAFA),
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -715,18 +809,21 @@ class StackDetailScreen extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(stack.name, style: Theme.of(context).textTheme.headlineLarge),
                     const SizedBox(height: 4),
-                    Text('${stack.items.length}개 이미지', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF6B7280))),
+                    Text('${stack.items.length}개 이미지 · ${sets.length}개 Set', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF6B7280))),
                     const SizedBox(height: 20),
                   ],
                 ),
               ),
             ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-              sliver: SliverGrid.builder(
-                itemCount: stack.items.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 0.56),
-                itemBuilder: (context, index) => _Thumb(path: stack.items[index].thumbnailPath),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+              sliver: SliverList.separated(
+                itemCount: sets.isEmpty ? 1 : sets.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 18),
+                itemBuilder: (context, index) {
+                  if (sets.isEmpty) return const _EmptyStackDetail();
+                  return _SetSection(set: sets[index]);
+                },
               ),
             ),
           ],
@@ -734,6 +831,129 @@ class StackDetailScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SetSection extends StatelessWidget {
+  const _SetSection({required this.set});
+
+  final ScreenshotSet set;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            set.title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: -0.1),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            '${set.items.length} images · ${set.timeRange}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF424754), fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          GridView.builder(
+            itemCount: set.items.length,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 0.6,
+            ),
+            itemBuilder: (context, index) => _Thumb(path: set.items[index].thumbnailPath),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyStackDetail extends StatelessWidget {
+  const _EmptyStackDetail();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 80),
+      child: Center(
+        child: Text('아직 이미지가 없는 Stack이에요', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785))),
+      ),
+    );
+  }
+}
+
+class _AddMenuTile extends StatelessWidget {
+  const _AddMenuTile({required this.icon, required this.title, required this.onTap});
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: onTap,
+      leading: Icon(icon, color: const Color(0xFF111111)),
+      title: Text(title, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    );
+  }
+}
+
+List<ScreenshotSet> _buildScreenshotSets(List<ScreenshotItem> items) {
+  if (items.isEmpty) return const [];
+  final sorted = [...items]..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
+  final sets = <List<ScreenshotItem>>[];
+  var current = <ScreenshotItem>[];
+  var firstTime = 0;
+  const oneHourMillis = 60 * 60 * 1000;
+
+  for (final item in sorted) {
+    if (current.isEmpty) {
+      current = [item];
+      firstTime = item.dateTakenMillis;
+      continue;
+    }
+    final withinOneHour = firstTime > 0 && item.dateTakenMillis > 0 && (firstTime - item.dateTakenMillis).abs() <= oneHourMillis;
+    final sameDay = _isSameDay(DateTime.fromMillisecondsSinceEpoch(firstTime), item.date);
+    if (withinOneHour && sameDay) {
+      current.add(item);
+    } else {
+      sets.add(current);
+      current = [item];
+      firstTime = item.dateTakenMillis;
+    }
+  }
+  if (current.isNotEmpty) sets.add(current);
+
+  return sets.map((setItems) => ScreenshotSet(title: _formatSetTitle(setItems.first.date), timeRange: _formatTimeRange(setItems), items: setItems)).toList();
+}
+
+bool _isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+
+String _formatSetTitle(DateTime date) {
+  final weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+  return '${date.year}년 ${date.month}월 ${date.day}일 (${weekdays[date.weekday - 1]}) ${date.hour.toString().padLeft(2, '0')}시 ${date.minute.toString().padLeft(2, '0')}분';
+}
+
+String _formatTimeRange(List<ScreenshotItem> items) {
+  final times = items.where((item) => item.dateTakenMillis > 0).map((item) => item.date).toList();
+  if (times.isEmpty) return '촬영 시간 정보 없음';
+  times.sort();
+  String format(DateTime date) => '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  final earliest = format(times.first);
+  final latest = format(times.last);
+  return earliest == latest ? latest : '$earliest-$latest';
 }
 
 class _Thumb extends StatelessWidget {
