@@ -1,6 +1,7 @@
 package com.shotly.shotly_app
 
 import android.Manifest
+import android.content.ClipData
 import android.content.ContentUris
 import android.content.Intent
 import android.content.IntentSender
@@ -40,6 +41,7 @@ class MainActivity : FlutterActivity() {
                 "pickImage" -> pickImage(result)
                 "getImagePreview" -> getImagePreview(call.argument<String>("imageId"), result)
                 "deleteOriginalImage" -> deleteOriginalImage(call.argument<String>("imageId"), result)
+                "shareImages" -> shareImages(call.argument<List<String>>("imageIds"), result)
                 else -> result.notImplemented()
             }
         }
@@ -158,6 +160,30 @@ class MainActivity : FlutterActivity() {
         } catch (e: SecurityException) {
             result.error("delete_permission_denied", "원본 파일 삭제 권한이 필요해요.", null)
         }
+    }
+
+    private fun shareImages(imageIds: List<String>?, result: MethodChannel.Result) {
+        val uris = imageIds.orEmpty().mapNotNull { imageUriForId(it) }
+        if (uris.isEmpty()) {
+            result.success(false)
+            return
+        }
+        val intent = if (uris.size == 1) {
+            Intent(Intent.ACTION_SEND).apply {
+                type = "image/*"
+                putExtra(Intent.EXTRA_STREAM, uris.first())
+            }
+        } else {
+            Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                type = "image/*"
+                putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
+            }
+        }.apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            clipData = ClipData.newUri(contentResolver, "Shotly", uris.first())
+        }
+        startActivity(Intent.createChooser(intent, "Share via"))
+        result.success(true)
     }
 
     private fun imageUriForId(imageId: String?): Uri? {

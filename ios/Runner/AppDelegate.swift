@@ -39,6 +39,9 @@ import UIKit
       case "deleteOriginalImage":
         let imageId = (call.arguments as? [String: Any])?["imageId"] as? String
         self.deleteOriginalImage(imageId: imageId, result: result)
+      case "shareImages":
+        let imageIds = (call.arguments as? [String: Any])?["imageIds"] as? [String]
+        self.shareImages(imageIds: imageIds, result: result)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -148,6 +151,29 @@ import UIKit
         }
       }
     }
+  }
+
+  private func shareImages(imageIds: [String]?, result: @escaping FlutterResult) {
+    let ids = imageIds ?? []
+    let assets = PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil)
+    var urls: [URL] = []
+    assets.enumerateObjects { asset, _, _ in
+      if let path = self.previewPath(for: asset) ?? self.thumbnailPath(for: asset) {
+        urls.append(URL(fileURLWithPath: path))
+      }
+    }
+    guard !urls.isEmpty, let controller = self.window?.rootViewController else {
+      result(false)
+      return
+    }
+    let activity = UIActivityViewController(activityItems: urls, applicationActivities: nil)
+    if let popover = activity.popoverPresentationController {
+      popover.sourceView = controller.view
+      popover.sourceRect = CGRect(x: controller.view.bounds.midX, y: controller.view.bounds.midY, width: 0, height: 0)
+      popover.permittedArrowDirections = []
+    }
+    controller.present(activity, animated: true)
+    result(true)
   }
 
   func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
