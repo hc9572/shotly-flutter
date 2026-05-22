@@ -1041,8 +1041,8 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
               sliver: SliverList.separated(
-                itemCount: _showSimilar ? (similarGroups.isEmpty ? 1 : similarGroups.length) : (sets.isEmpty ? 1 : sets.length),
-                separatorBuilder: (context, index) => const SizedBox(height: 28),
+                itemCount: _showSimilar ? (similarGroups.isEmpty ? 1 : similarGroups.length) : (_groupSetsByDate(sets).isEmpty ? 1 : _groupSetsByDate(sets).length),
+                separatorBuilder: (context, index) => const SizedBox(height: 32),
                 itemBuilder: (context, index) {
                   if (_showSimilar) {
                     if (similarGroups.isEmpty) return const _EmptyStackDetail(message: '유사 화면 후보가 없어요');
@@ -1057,9 +1057,11 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                       onMoveImage: widget.onMoveImage,
                     );
                   }
-                  if (sets.isEmpty) return const _EmptyStackDetail(message: '아직 이미지가 없는 Stack이에요');
-                  return _SetSection(
-                    set: sets[index],
+                  final dateGroups = _groupSetsByDate(sets);
+                  if (dateGroups.isEmpty) return const _EmptyStackDetail(message: '아직 이미지가 없는 Stack이에요');
+                  return _SetDateSection(
+                    dateLabel: dateGroups[index].dateLabel,
+                    sets: dateGroups[index].sets,
                     allStackKeys: widget.allStackKeys,
                     stackNames: widget.stackNames,
                     onExcludeImage: widget.onExcludeImage,
@@ -1145,6 +1147,51 @@ class _ModeChip extends StatelessWidget {
   }
 }
 
+class _SetDateSection extends StatelessWidget {
+  const _SetDateSection({
+    required this.dateLabel,
+    required this.sets,
+    required this.allStackKeys,
+    required this.stackNames,
+    required this.onExcludeImage,
+    required this.onMoveImage,
+    required this.onSaveMemo,
+  });
+
+  final String dateLabel;
+  final List<ScreenshotSet> sets;
+  final List<String> allStackKeys;
+  final Map<String, String> stackNames;
+  final Future<void> Function(String imageId) onExcludeImage;
+  final Future<void> Function(String imageId, String stackKey) onMoveImage;
+  final Future<void> Function(String setKey, String memo) onSaveMemo;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(dateLabel, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xFF727785))),
+        ),
+        const SizedBox(height: 8),
+        for (var index = 0; index < sets.length; index++) ...[
+          _SetSection(
+            set: sets[index],
+            allStackKeys: allStackKeys,
+            stackNames: stackNames,
+            onExcludeImage: onExcludeImage,
+            onMoveImage: onMoveImage,
+            onSaveMemo: onSaveMemo,
+          ),
+          if (index != sets.length - 1) const SizedBox(height: 28),
+        ],
+      ],
+    );
+  }
+}
+
 class _SetSection extends StatefulWidget {
   const _SetSection({
     required this.set,
@@ -1185,7 +1232,6 @@ class _SetSectionState extends State<_SetSection> {
   Widget build(BuildContext context) {
     return _ImageGridSection(
       title: widget.set.timeRange,
-      subtitle: _formatSetDate(widget.set.items.first.date),
       memoText: widget.set.memo.trim().isEmpty ? '여기에 메모를 추가하세요...' : widget.set.memo.trim(),
       items: widget.set.items,
       allStackKeys: widget.allStackKeys,
@@ -1226,7 +1272,7 @@ class _SetSectionState extends State<_SetSection> {
 class _ImageGridSection extends StatelessWidget {
   const _ImageGridSection({
     required this.title,
-    required this.subtitle,
+    this.subtitle,
     required this.items,
     required this.allStackKeys,
     this.memoText,
@@ -1237,7 +1283,7 @@ class _ImageGridSection extends StatelessWidget {
   });
 
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final List<ScreenshotItem> items;
   final String? memoText;
   final List<String> allStackKeys;
@@ -1256,8 +1302,10 @@ class _ImageGridSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(subtitle, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xFF727785))),
-              const SizedBox(height: 2),
+              if (subtitle != null) ...[
+                Text(subtitle!, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xFF727785))),
+                const SizedBox(height: 2),
+              ],
               Text(title, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF1A1C1C))),
               if (memoText != null) ...[
                 const SizedBox(height: 4),
@@ -1300,7 +1348,7 @@ class _ImageGridSection extends StatelessWidget {
             crossAxisCount: 4,
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,
-            childAspectRatio: 1,
+            childAspectRatio: 3 / 4,
           ),
           itemBuilder: (context, index) => _ActionableThumb(
             item: items[index],
@@ -1402,6 +1450,23 @@ class _AddMenuTile extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     );
   }
+}
+
+class _SetDateGroup {
+  const _SetDateGroup({required this.dateLabel, required this.sets});
+
+  final String dateLabel;
+  final List<ScreenshotSet> sets;
+}
+
+List<_SetDateGroup> _groupSetsByDate(List<ScreenshotSet> sets) {
+  final grouped = <String, List<ScreenshotSet>>{};
+  for (final set in sets) {
+    if (set.items.isEmpty) continue;
+    final dateLabel = _formatSetDate(set.items.first.date);
+    grouped.putIfAbsent(dateLabel, () => []).add(set);
+  }
+  return grouped.entries.map((entry) => _SetDateGroup(dateLabel: entry.key, sets: entry.value)).toList();
 }
 
 List<ScreenshotSet> _buildScreenshotSets(String stackKey, List<ScreenshotItem> items, Map<String, String> setMemos) {
