@@ -1046,7 +1046,7 @@ class _BottomNavBar extends StatelessWidget {
             children: [
               _BottomNavItem(icon: Icons.layers_outlined, selectedIcon: Icons.layers_rounded, label: 'Stacks', selected: !calendarSelected, onTap: onStacksTap),
               const SizedBox(width: 34),
-              _BottomNavItem(icon: Icons.calendar_today_outlined, selectedIcon: Icons.calendar_month_rounded, label: 'Calendar', selected: calendarSelected, onTap: onCalendarTap),
+              _BottomNavItem(icon: Icons.calendar_today_outlined, selectedIcon: Icons.calendar_today_rounded, label: 'Calendar', selected: calendarSelected, onTap: onCalendarTap),
             ],
           ),
         ),
@@ -1977,7 +1977,7 @@ class _SelectionActionBar extends StatelessWidget {
           _SelectionActionButton(icon: Icons.share_rounded, label: '공유', onTap: onShare),
           _SelectionActionButton(icon: Icons.delete_rounded, label: '삭제', onTap: onDelete, destructive: true),
           _SelectionActionButton(icon: Icons.drive_file_move_rounded, label: '이동', onTap: onMove),
-          _SelectionActionButton(icon: Icons.visibility_off_outlined, label: '숨기기', onTap: onHide),
+          _SelectionActionButton(icon: Icons.visibility_off_rounded, label: '숨기기', onTap: onHide),
           IconButton(onPressed: onCancel, icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF727785))),
         ],
       ),
@@ -2004,7 +2004,7 @@ class _SelectionActionButton extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 19, color: color),
+            Icon(icon, size: 20, color: color),
             const SizedBox(height: 2),
             Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color)),
           ],
@@ -2432,7 +2432,7 @@ class _AddMenuTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       onTap: onTap,
-      leading: Icon(icon, color: const Color(0xFF111111)),
+      leading: Icon(icon, size: 24, color: const Color(0xFF111111)),
       title: Text(title, style: Theme.of(context).textTheme.labelLarge),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     );
