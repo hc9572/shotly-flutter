@@ -71,12 +71,24 @@ class ShotlyLocalStore implements LocalStore {
   }
 
   @override
+  Future<void> restoreStack(String stackKey) async {
+    await _db.ensureOpen();
+    await _db.customStatement('DELETE FROM hidden_stacks WHERE stack_key = ?', [stackKey]);
+  }
+
+  @override
   Future<void> excludeImage(String imageId) async {
     await _db.ensureOpen();
     await _db.customStatement(
       'INSERT OR IGNORE INTO excluded_images(image_id, created_at) VALUES (?, ?)',
       [imageId, DateTime.now().millisecondsSinceEpoch],
     );
+  }
+
+  @override
+  Future<void> restoreImage(String imageId) async {
+    await _db.ensureOpen();
+    await _db.customStatement('DELETE FROM excluded_images WHERE image_id = ?', [imageId]);
   }
 
   @override

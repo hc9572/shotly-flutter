@@ -41,7 +41,13 @@ class ShotlyLocalStore implements LocalStore {
   Future<void> hideStack(String stackKey) => _updateList(_hiddenStacksPrefsKey, stackKey);
 
   @override
+  Future<void> restoreStack(String stackKey) => _removeFromList(_hiddenStacksPrefsKey, stackKey);
+
+  @override
   Future<void> excludeImage(String imageId) => _updateList(_excludedImagesPrefsKey, imageId);
+
+  @override
+  Future<void> restoreImage(String imageId) => _removeFromList(_excludedImagesPrefsKey, imageId);
 
   @override
   Future<void> moveImage(String imageId, String stackKey) => _updateMap(_imageAssignmentsPrefsKey, imageId, stackKey);
@@ -53,6 +59,13 @@ class ShotlyLocalStore implements LocalStore {
     final prefs = await SharedPreferences.getInstance();
     final values = prefs.getStringList(key) ?? [];
     if (!values.contains(value)) values.add(value);
+    await prefs.setStringList(key, values);
+  }
+
+  Future<void> _removeFromList(String key, String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    final values = prefs.getStringList(key) ?? [];
+    values.remove(value);
     await prefs.setStringList(key, values);
   }
 

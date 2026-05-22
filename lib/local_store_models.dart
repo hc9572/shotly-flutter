@@ -21,7 +21,9 @@ abstract class LocalStore {
   Future<void> upsertManualStack(String name);
   Future<void> renameStack(String stackKey, String name);
   Future<void> hideStack(String stackKey);
+  Future<void> restoreStack(String stackKey);
   Future<void> excludeImage(String imageId);
+  Future<void> restoreImage(String imageId);
   Future<void> moveImage(String imageId, String stackKey);
   Future<void> saveSetMemo(String setKey, String memo);
 }

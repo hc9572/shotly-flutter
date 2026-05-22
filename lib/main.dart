@@ -241,7 +241,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   List<StackItem> get _stacks {
     final grouped = <String, List<ScreenshotItem>>{};
     for (final item in _filteredScreenshots) {
-      final stackKey = _imageAssignments[item.id] ?? (item.appName.isEmpty ? 'Unknown' : item.appName);
+      final stackKey = _stackKeyFor(item);
       if (_hiddenStackKeys.contains(stackKey)) continue;
       grouped.putIfAbsent(stackKey, () => []).add(item);
     }
@@ -270,6 +270,35 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
     }
     return stacks;
   }
+
+  List<StackItem> get _hiddenStacks {
+    final grouped = <String, List<ScreenshotItem>>{};
+    for (final item in _screenshots.where((item) => !_excludedImageIds.contains(item.id))) {
+      final stackKey = _stackKeyFor(item);
+      if (_hiddenStackKeys.contains(stackKey)) grouped.putIfAbsent(stackKey, () => []).add(item);
+    }
+    final stacks = grouped.entries
+        .map((entry) => StackItem(
+              key: entry.key,
+              name: _stackNames[entry.key] ?? entry.key,
+              items: entry.value..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis)),
+            ))
+        .toList();
+    for (final name in _manualStackNames) {
+      if (_hiddenStackKeys.contains(name) && !grouped.containsKey(name)) {
+        stacks.add(StackItem(key: name, name: _stackNames[name] ?? name, items: const []));
+      }
+    }
+    stacks.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return stacks;
+  }
+
+  List<ScreenshotItem> get _excludedImages {
+    return _screenshots.where((item) => _excludedImageIds.contains(item.id)).toList()
+      ..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
+  }
+
+  String _stackKeyFor(ScreenshotItem item) => _imageAssignments[item.id] ?? (item.appName.isEmpty ? 'Unknown' : item.appName);
 
 
   Future<void> _showCreateStackDialog() async {
@@ -330,9 +359,19 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
     await _localStore.hideStack(stackKey);
   }
 
+  Future<void> _restoreStack(String stackKey) async {
+    setState(() => _hiddenStackKeys.remove(stackKey));
+    await _localStore.restoreStack(stackKey);
+  }
+
   Future<void> _excludeImage(String imageId) async {
     setState(() => _excludedImageIds.add(imageId));
     await _localStore.excludeImage(imageId);
+  }
+
+  Future<void> _restoreImage(String imageId) async {
+    setState(() => _excludedImageIds.remove(imageId));
+    await _localStore.restoreImage(imageId);
   }
 
   Future<void> _moveImage(String imageId, String stackKey) async {
@@ -388,7 +427,19 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
                 slivers: [
                   SliverPersistentHeader(
                     pinned: true,
-                    delegate: _ShotlyTopBarDelegate(onAdd: _showAddMenu),
+                    delegate: _ShotlyTopBarDelegate(
+                      onAdd: _showAddMenu,
+                      onSettings: () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => SettingsScreen(
+                          hasPermission: _hasPermission,
+                          hiddenStacks: _hiddenStacks,
+                          excludedImages: _excludedImages,
+                          onRequestPermission: _load,
+                          onRestoreStack: _restoreStack,
+                          onRestoreImage: _restoreImage,
+                        ),
+                      )),
+                    ),
                   ),
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 118),
@@ -484,9 +535,10 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
 }
 
 class _ShotlyTopBarDelegate extends SliverPersistentHeaderDelegate {
-  const _ShotlyTopBarDelegate({required this.onAdd});
+  const _ShotlyTopBarDelegate({required this.onAdd, required this.onSettings});
 
   final VoidCallback onAdd;
+  final VoidCallback onSettings;
 
   @override
   double get minExtent => 64;
@@ -509,7 +561,7 @@ class _ShotlyTopBarDelegate extends SliverPersistentHeaderDelegate {
             ),
           ),
           IconButton(
-            onPressed: () {},
+            onPressed: onSettings,
             icon: const Icon(Icons.settings_outlined, color: Color(0xFF424754)),
           ),
           IconButton(
@@ -522,7 +574,7 @@ class _ShotlyTopBarDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  bool shouldRebuild(covariant _ShotlyTopBarDelegate oldDelegate) => false;
+  bool shouldRebuild(covariant _ShotlyTopBarDelegate oldDelegate) => onAdd != oldDelegate.onAdd || onSettings != oldDelegate.onSettings;
 }
 
 class _SummarySortRow extends StatelessWidget {
@@ -1495,6 +1547,330 @@ class _LoadingState extends StatelessWidget {
     return const Padding(
       padding: EdgeInsets.only(top: 120),
       child: Center(child: CircularProgressIndicator(color: Color(0xFF111111))),
+    );
+  }
+}
+
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({
+    super.key,
+    required this.hasPermission,
+    required this.hiddenStacks,
+    required this.excludedImages,
+    required this.onRequestPermission,
+    required this.onRestoreStack,
+    required this.onRestoreImage,
+  });
+
+  final bool hasPermission;
+  final List<StackItem> hiddenStacks;
+  final List<ScreenshotItem> excludedImages;
+  final Future<void> Function() onRequestPermission;
+  final Future<void> Function(String stackKey) onRestoreStack;
+  final Future<void> Function(String imageId) onRestoreImage;
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  late final List<StackItem> _hiddenStacks = [...widget.hiddenStacks];
+  late final List<ScreenshotItem> _excludedImages = [...widget.excludedImages];
+  late bool _hasPermission = widget.hasPermission;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFFAFAFA),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          children: [
+            Row(
+              children: [
+                IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF424754))),
+                Expanded(child: Text('Settings', style: Theme.of(context).textTheme.headlineMedium)),
+              ],
+            ),
+            const SizedBox(height: 20),
+            _SettingsSection(
+              title: '권한',
+              children: [
+                _PermissionStatusTile(
+                  hasPermission: _hasPermission,
+                  onRequest: () async {
+                    await widget.onRequestPermission();
+                    if (mounted) setState(() => _hasPermission = true);
+                  },
+                ),
+              ],
+            ),
+            _SettingsSection(
+              title: '숨김 복구',
+              children: [
+                _RecoverySummaryTile(
+                  icon: Icons.layers_clear_outlined,
+                  title: '숨긴 Stack',
+                  count: _hiddenStacks.length,
+                  onTap: () => _showHiddenStacks(context),
+                ),
+                _RecoverySummaryTile(
+                  icon: Icons.visibility_off_outlined,
+                  title: '숨긴 이미지',
+                  count: _excludedImages.length,
+                  onTap: () => _showExcludedImages(context),
+                ),
+              ],
+            ),
+            _SettingsSection(
+              title: '정보',
+              children: [
+                _SettingsTile(
+                  icon: Icons.info_outline_rounded,
+                  title: '앱 정보',
+                  subtitle: 'Shotly 1.0.0 · 로컬 기반 스크린샷 정리 앱',
+                  onTap: () => _showInfoDialog(context),
+                ),
+                _SettingsTile(
+                  icon: Icons.privacy_tip_outlined,
+                  title: '개인정보처리방침',
+                  subtitle: '사진 원본은 클라우드에 업로드하지 않아요',
+                  onTap: () => _showPolicyDialog(context, '개인정보처리방침', 'Shotly는 사진 원본을 서버에 업로드하지 않고, 기기 로컬에서 스크린샷 메타데이터와 정리 이력만 저장하는 방향으로 설계돼요. 정식 출시 전 정책 문서 링크를 연결할 예정이에요.'),
+                ),
+                _SettingsTile(
+                  icon: Icons.description_outlined,
+                  title: '이용약관',
+                  subtitle: '정식 출시 전 문서 링크 연결 예정',
+                  onTap: () => _showPolicyDialog(context, '이용약관', '정식 출시 전 이용약관 문서 링크를 연결할 예정이에요. 현재 MVP preview에서는 약관 원문을 앱 밖으로 보내지 않아요.'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showHiddenStacks(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(width: 38, height: 4, decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(99)))),
+              const SizedBox(height: 18),
+              Text('숨긴 Stack', style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 8),
+              if (_hiddenStacks.isEmpty)
+                _EmptyRecoveryMessage(message: '숨긴 Stack이 없어요')
+              else
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: _hiddenStacks.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                    itemBuilder: (context, index) {
+                      final stack = _hiddenStacks[index];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(stack.name, style: Theme.of(context).textTheme.bodyLarge),
+                        subtitle: Text('${stack.items.length} images', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785))),
+                        trailing: TextButton(onPressed: () => _restoreStack(index), child: const Text('복구')),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showExcludedImages(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(width: 38, height: 4, decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(99)))),
+              const SizedBox(height: 18),
+              Text('숨긴 이미지', style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 8),
+              if (_excludedImages.isEmpty)
+                _EmptyRecoveryMessage(message: '숨긴 이미지가 없어요')
+              else
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: _excludedImages.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                    itemBuilder: (context, index) {
+                      final item = _excludedImages[index];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: _Thumb(path: item.thumbnailPath, width: 44, height: 64, radius: 8),
+                        title: Text(item.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodyMedium),
+                        subtitle: Text(item.appName, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785))),
+                        trailing: TextButton(onPressed: () => _restoreImage(index), child: const Text('복구')),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _restoreStack(int index) async {
+    final stack = _hiddenStacks[index];
+    await widget.onRestoreStack(stack.key);
+    if (mounted) setState(() => _hiddenStacks.removeAt(index));
+  }
+
+  Future<void> _restoreImage(int index) async {
+    final item = _excludedImages[index];
+    await widget.onRestoreImage(item.id);
+    if (mounted) setState(() => _excludedImages.removeAt(index));
+  }
+
+  void _showInfoDialog(BuildContext context) {
+    showAboutDialog(
+      context: context,
+      applicationName: 'Shotly',
+      applicationVersion: '1.0.0',
+      applicationIcon: const Icon(Icons.layers_rounded, size: 32),
+      children: const [Text('기획자를 위한 로컬 기반 스크린샷 정리 앱')],
+    );
+  }
+
+  void _showPolicyDialog(BuildContext context, String title, String body) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: Text(title),
+        content: Text(body),
+        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('확인'))],
+      ),
+    );
+  }
+}
+
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Text(title, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xFF727785))),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: Column(children: children),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PermissionStatusTile extends StatelessWidget {
+  const _PermissionStatusTile({required this.hasPermission, required this.onRequest});
+
+  final bool hasPermission;
+  final Future<void> Function() onRequest;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsTile(
+      icon: hasPermission ? Icons.check_circle_outline_rounded : Icons.error_outline_rounded,
+      title: '사진 접근 권한',
+      subtitle: hasPermission ? '허용됨 · 사진 원본은 기기 밖으로 나가지 않아요' : '권한 필요 · 스크린샷 정리를 위해 허용해주세요',
+      trailing: hasPermission ? null : TextButton(onPressed: onRequest, child: const Text('허용')),
+    );
+  }
+}
+
+class _RecoverySummaryTile extends StatelessWidget {
+  const _RecoverySummaryTile({required this.icon, required this.title, required this.count, required this.onTap});
+
+  final IconData icon;
+  final String title;
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsTile(
+      icon: icon,
+      title: title,
+      subtitle: count == 0 ? '복구할 항목 없음' : '$count개 항목 복구 가능',
+      trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFF727785)),
+      onTap: onTap,
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  const _SettingsTile({required this.icon, required this.title, required this.subtitle, this.trailing, this.onTap});
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: onTap,
+      leading: Icon(icon, color: const Color(0xFF424754)),
+      title: Text(title, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+      subtitle: Text(subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785))),
+      trailing: trailing,
+    );
+  }
+}
+
+class _EmptyRecoveryMessage extends StatelessWidget {
+  const _EmptyRecoveryMessage({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 28),
+      child: Center(child: Text(message, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785)))),
     );
   }
 }
