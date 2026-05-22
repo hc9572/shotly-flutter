@@ -1,52 +1,73 @@
 # Shotly Flutter 전환 메모
 
-## 현재 상태
+업데이트: 2026-05-22
 
-- 기존 Kotlin/Jetpack Compose 앱은 `../shotly-android`에 그대로 보존.
-- 새 Flutter 앱은 `shotly-flutter`에 생성.
-- Flutter SDK 설치 완료: 3.44.0 / Dart 3.12.0.
-- Android debug APK 빌드 성공.
+## 현재 결정
 
-## 전환 방향
+Shotly는 iOS 출시가 필수이므로 Flutter를 메인 앱으로 사용한다. 기존 Kotlin/Jetpack Compose 앱은 삭제하지 않고 `../shotly-android`에 보존하며, 기능 정의와 native 구현 참고용 prototype으로 사용한다.
 
-Shotly는 iOS 출시가 확정이므로 Flutter를 메인 앱으로 사용한다.
+## 구조
 
 - Flutter/Dart
   - UI
   - 화면 흐름
-  - Stack/Set 모델
-  - 검색/필터
-  - 로컬 상태/DB 예정
-- Android Kotlin
+  - Stack/Set/Calendar/Search 모델
+  - 로컬 상태 저장
+  - Web mock preview
+- Android Kotlin bridge
   - 사진 권한
   - MediaStore 스크린샷 조회
+  - Android image picker
   - 썸네일 cache 파일 생성
-- iOS Swift 예정
+- iOS Swift bridge 예정
   - Photos 권한
   - Screenshot/album 조회
+  - iOS image picker
   - 썸네일 cache 파일 생성
+- Web
+  - 실제 로컬 사진 접근 불가
+  - GitHub Pages 기반 mock preview 전용
+  - 배포 링크는 항상 cache-busted `?v=<commit>` 사용
+
+## 기존 PRD 대비 변경된 핵심 정의
+
+- 지원 OS: `AOS Only` 폐기. Android+iOS 지원이 최신 정의.
+- Stack: “동일 이미지”가 아니라 앱/서비스 단위 기본 정리 단위.
+- 유사 화면: Stack 내부 보조 후보 보기. 전역 유사 검색/고도화 분류는 Phase 2.
+- Set: Stack 내부에서 동일 날짜 + 첫 이미지 기준 1시간 이내 작업 세션.
+- Calendar tab: 날짜 picker/filter가 아니라 전체 스크린샷 최신 날짜순 timeline/grid.
+- 수동 동기화: 상단 refresh icon은 제거. pull-to-refresh 유지.
+- 로컬 저장: Flutter 현재는 shared_preferences. MVP 안정화 전 Drift/Isar 등 구조화 DB 전환 필요.
 
 ## 구현된 것
 
 ### Flutter UI
 
-- 홈 화면
-- Shotly 헤더
+- Stitch-style 홈 화면
+- Shotly sticky top bar
 - 스크린샷/Stack 개수 요약
-- 검색 필드
-- 날짜 필터 row
-- 캘린더는 버튼 클릭 시에만 표시
-- 캘린더 열렸을 때 리스트와 겹치지 않음
-- Stack 카드 리스트
+- underline search
+- Stack 리스트
+- Calendar timeline tab
+- floating bottom nav
+- 검정 + 버튼
+- + 메뉴: Stack 추가 / 이미지 추가
 - Stack 상세 화면
+  - 날짜별/유사 화면 chip toggle
+  - Set section
+  - Set memo edit
+  - 3-column 9:16 thumbnail grid
+  - Stack rename/hide menu
 - 권한/빈 상태/에러 상태
+- Web mock data preview
 
-### Android 브릿지
+### Android bridge
 
 MethodChannel: `shotly/native`
 
 - `requestPhotoPermission`
 - `getScreenshots`
+- `pickImage`
 
 반환 데이터:
 
@@ -61,23 +82,48 @@ MethodChannel: `shotly/native`
 }
 ```
 
+### 로컬 기능
+
+- Stack 이름 수정
+- Stack 숨기기
+- 수동 Stack 생성
+- Set 메모 저장
+- 이미지 숨기기/제외
+- 이미지 다른 Stack으로 이동
+- 유사 화면 후보 보기
+
 ## 검증 결과
+
+최근 기준:
 
 - `flutter analyze` 통과
 - `flutter test` 통과
-- `flutter build apk --debug` 성공
+- `flutter build web --base-href /shotly-flutter/ --pwa-strategy=none` 통과
+- `flutter build apk --debug` 통과
+- GitHub Pages deploy workflow 통과
 
 ## 남은 일
 
-- Android 실기기 재연결 후 APK 설치/실행 검증
-- iOS Photos 브릿지 추가
-- 기존 Kotlin 앱 기능 추가 포팅
-  - 제외/숨김
-  - 수동 Stack
-  - Stack 이름 변경
-  - Set 묶음
-  - 유사 화면 그룹
-  - 메모
-- 로컬 DB 결정
-  - Drift 또는 Isar 후보
-- 디자인 툴 결과 반영
+### P0
+
+- iOS Photos bridge 추가
+- 로컬 DB 결정 및 shared_preferences migration
+- Settings 기본 화면
+- 숨김/제외 복구 UX
+- 개인정보처리방침/약관 초안 연결
+
+### P1
+
+- 중복 선택 방지 picker UX
+- Set 합치기/분리
+- Search 대상 강화: Set memo, alias dictionary 정리
+- Stack 상세/Calendar visual QA polish
+- Android app name extraction 개선
+
+### P2
+
+- 온디바이스 screenshot 판별 모델 검토
+- OCR 검색
+- 전역 유사 화면 검색
+- 선택 로그인/클라우드 백업
+- 멀티 디바이스 동기화
