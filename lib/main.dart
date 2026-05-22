@@ -2277,6 +2277,9 @@ class _SettingsTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      minLeadingWidth: 24,
+      horizontalTitleGap: 12,
       leading: Icon(icon, color: const Color(0xFF424754)),
       title: Text(title, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
       subtitle: Text(subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785))),
