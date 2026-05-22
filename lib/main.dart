@@ -240,7 +240,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
                             if (_isCalendarView) ...[
                               Text(
                                 '${filteredScreenshots.length}개 스크린샷 · 최신순',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785), fontSize: 13),
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785), fontSize: 13, fontWeight: FontWeight.w400, letterSpacing: 0.05),
                               ),
                               const SizedBox(height: 18),
                               if (_screenshots.isEmpty) const _EmptyState()
@@ -258,7 +258,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
                                   _showSortMenu = false;
                                 }),
                               ),
-                              SizedBox(height: _showSortMenu ? 190 : 26),
+                              const SizedBox(height: 26),
                               if (_screenshots.isEmpty) const _EmptyState()
                               else if (stacks.isEmpty) const _NoResultState()
                               else ...stacks.map((stack) => Padding(
@@ -274,6 +274,25 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
                 ],
               ),
             ),
+            if (_showSortMenu)
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: () => setState(() => _showSortMenu = false),
+                ),
+              ),
+            if (_showSortMenu)
+              Positioned(
+                top: 140,
+                right: 20,
+                child: _SortDropdown(
+                  selected: _sortMode,
+                  onSelect: (mode) => setState(() {
+                    _sortMode = mode;
+                    _showSortMenu = false;
+                  }),
+                ),
+              ),
             _BottomNavBar(
               calendarSelected: _isCalendarView,
               onStacksTap: () => setState(() => _isCalendarView = false),
@@ -359,7 +378,7 @@ class _SummarySortRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 10),
             child: Text(
               '$screenshotCount개 스크린샷 · $stackCount개 Stack',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785), fontSize: 13),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785), fontSize: 13, fontWeight: FontWeight.w400, letterSpacing: 0.05),
             ),
           ),
         ),
@@ -382,17 +401,11 @@ class _SummarySortRow extends StatelessWidget {
                 ),
                 style: TextButton.styleFrom(
                   foregroundColor: const Color(0xFF111111),
-                  textStyle: Theme.of(context).textTheme.bodyMedium,
+                  textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.1),
                   padding: EdgeInsets.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ),
-              if (showSortMenu)
-                Positioned(
-                  top: 42,
-                  right: 0,
-                  child: _SortDropdown(selected: sortMode, onSelect: onSelectSort),
-                ),
             ],
           ),
         ),
@@ -437,7 +450,7 @@ class _SortDropdown extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
                 child: Row(
                   children: [
-                    Expanded(child: Text(item.$2, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF111111)))),
+                    Expanded(child: Text(item.$2, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF111111), fontSize: 14, fontWeight: FontWeight.w500))),
                     if (isSelected) const Icon(Icons.check_rounded, color: Color(0xFF0058BE), size: 18),
                   ],
                 ),
@@ -517,8 +530,10 @@ class _StackCard extends StatelessWidget {
                         '${stack.items.length} images',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: const Color(0xFF424754),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                              fontSize: 13,
+                              height: 16 / 13,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.05,
                             ),
                       ),
                     ],
@@ -607,7 +622,7 @@ class _BottomNavItem extends StatelessWidget {
                     color: color,
                     fontSize: 11,
                     height: 14 / 11,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                     letterSpacing: 0.33,
                   ),
             ),
@@ -645,13 +660,14 @@ class _CalendarTimelineView extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: const Color(0xFF1A1C1C),
                         fontSize: 18,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.1,
                       ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   '${grouped[date]!.length} images',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF424754), fontWeight: FontWeight.w500),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF424754), fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.05),
                 ),
               ],
             ),
