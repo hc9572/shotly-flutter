@@ -1285,10 +1285,10 @@ class _ImageGridSection extends StatelessWidget {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 9 / 16,
+            crossAxisCount: 4,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: 1,
           ),
           itemBuilder: (context, index) => _ActionableThumb(
             item: items[index],
@@ -1316,8 +1316,8 @@ class _ActionableThumb extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onLongPress: () => _showActions(context),
-      borderRadius: BorderRadius.circular(16),
-      child: _Thumb(path: item.thumbnailPath, radius: 8, borderColor: Colors.transparent),
+      borderRadius: BorderRadius.circular(14),
+      child: _Thumb(path: item.thumbnailPath, radius: 14, borderColor: Colors.transparent),
     );
   }
 
