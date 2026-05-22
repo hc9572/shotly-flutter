@@ -366,43 +366,46 @@ class _SummarySortRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: Text(
-            '$screenshotCount개 스크린샷 · $stackCount개 Stack',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785), fontSize: 13, fontWeight: FontWeight.w400, letterSpacing: 0.05),
-          ),
-        ),
-        SizedBox(
-          width: 112,
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.topRight,
-            children: [
-              TextButton.icon(
-                onPressed: onToggleSort,
-                icon: const Icon(Icons.sort_rounded, size: 18),
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('Sort'),
-                    const SizedBox(width: 2),
-                    Icon(showSortMenu ? Icons.expand_less_rounded : Icons.expand_more_rounded, size: 18),
-                  ],
-                ),
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF111111),
-                  textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.1),
-                  padding: EdgeInsets.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
+    return SizedBox(
+      height: 22,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            right: 116,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '$screenshotCount개 스크린샷 · $stackCount개 Stack',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785), fontSize: 13, fontWeight: FontWeight.w400, letterSpacing: 0.05),
               ),
-            ],
+            ),
           ),
-        ),
-      ],
+          Positioned(
+            top: -1,
+            right: 0,
+            child: TextButton.icon(
+              onPressed: onToggleSort,
+              icon: const Icon(Icons.sort_rounded, size: 18),
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Sort'),
+                  const SizedBox(width: 2),
+                  Icon(showSortMenu ? Icons.expand_less_rounded : Icons.expand_more_rounded, size: 18),
+                ],
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF111111),
+                textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.1),
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, 22),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
