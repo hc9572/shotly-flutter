@@ -38,7 +38,7 @@ jobs:
         run: flutter test
 
       - name: Build web
-        run: flutter build web --release --base-href /shotly-flutter/
+        run: flutter build web --release --base-href /shotly-flutter/ --pwa-strategy=none
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

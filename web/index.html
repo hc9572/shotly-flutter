@@ -29,8 +29,19 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>shotly_app</title>
+  <title>Shotly</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    // During active UI iteration, avoid stale Flutter web service-worker caches.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((registration) => registration.unregister());
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then((keys) => keys.forEach((key) => caches.delete(key)));
+    }
+  </script>
 </head>
 <body>
   <!--
