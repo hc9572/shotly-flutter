@@ -1082,12 +1082,28 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF424754))),
-                        const Spacer(),
-                        IconButton(onPressed: () => _showStackActions(context), icon: const Icon(Icons.more_horiz_rounded, color: Color(0xFF424754))),
-                      ],
+                    Transform.translate(
+                      offset: const Offset(-12, 0),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+                            icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF424754)),
+                          ),
+                          const Spacer(),
+                          Transform.translate(
+                            offset: const Offset(24, 0),
+                            child: IconButton(
+                              onPressed: () => _showStackActions(context),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+                              icon: const Icon(Icons.more_horiz_rounded, color: Color(0xFF424754)),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 20),
                     Text(widget.stack.name, style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: const Color(0xFF1A1C1C), fontWeight: FontWeight.w700)),
@@ -1268,9 +1284,16 @@ class _SetDateSection extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Text(dateLabel, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xFF727785))),
+          child: Text(
+            dateLabel,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: const Color(0xFF424754),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                ),
+          ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         for (var index = 0; index < sets.length; index++) ...[
           _SetSection(
             set: sets[index],
