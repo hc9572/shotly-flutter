@@ -503,10 +503,11 @@ class _StackCard extends StatelessWidget {
                       Text(
                         stack.name,
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontSize: 18,
-                              height: 24 / 18,
+                              fontSize: 20,
+                              height: 25 / 20,
                               color: const Color(0xFF1A1C1C),
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.2,
                             ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
