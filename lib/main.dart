@@ -968,10 +968,12 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                   children: [
                     Row(
                       children: [
-                        IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.arrow_back_rounded)),
-                        const Spacer(),
+                        IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF424754))),
+                        Expanded(
+                          child: Text('Shotly', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineLarge?.copyWith(color: const Color(0xFF1A1C1C))),
+                        ),
                         PopupMenuButton<String>(
-                          icon: const Icon(Icons.more_horiz_rounded),
+                          icon: const Icon(Icons.more_horiz_rounded, color: Color(0xFF424754)),
                           onSelected: (value) async {
                             if (value == 'rename') await _renameStack(context);
                             if (value == 'hide') {
@@ -986,10 +988,10 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    Text(widget.stack.name, style: Theme.of(context).textTheme.headlineLarge),
+                    const SizedBox(height: 20),
+                    Text(widget.stack.name, style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: const Color(0xFF1A1C1C))),
                     const SizedBox(height: 4),
-                    Text('${widget.stack.items.length}개 이미지 · ${sets.length}개 Set', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF6B7280))),
+                    Text('${widget.stack.items.length}개 이미지 · ${sets.length}개 Set', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF424754))),
                     const SizedBox(height: 18),
                     _DetailModeSwitch(
                       showSimilar: _showSimilar,
@@ -1010,8 +1012,8 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                     if (similarGroups.isEmpty) return const _EmptyStackDetail(message: '유사 화면 후보가 없어요');
                     final group = similarGroups[index];
                     return _ImageGridSection(
-                      title: 'Similar Set ${index + 1}',
-                      subtitle: '${group.length} images · ${_formatTimeRange(group)}',
+                      title: _formatTimeRange(group),
+                      subtitle: 'Similar Set ${index + 1} · ${group.length} images',
                       items: group,
                       allStackKeys: widget.allStackKeys,
                       stackNames: widget.stackNames,
@@ -1066,13 +1068,13 @@ class _DetailModeSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: const Color(0xFFEDEEF2), borderRadius: BorderRadius.circular(999)),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          Expanded(child: _ModeChip(label: 'Set', selected: !showSimilar, onTap: () => onChanged(false))),
-          Expanded(child: _ModeChip(label: 'Similar', selected: showSimilar, onTap: () => onChanged(true))),
+          _ModeChip(label: '날짜별', selected: !showSimilar, onTap: () => onChanged(false)),
+          const SizedBox(width: 8),
+          _ModeChip(label: '유사 화면', selected: showSimilar, onTap: () => onChanged(true)),
         ],
       ),
     );
@@ -1092,9 +1094,16 @@ class _ModeChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(999),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(color: selected ? Colors.white : Colors.transparent, borderRadius: BorderRadius.circular(999)),
-        child: Text(label, textAlign: TextAlign.center, style: Theme.of(context).textTheme.labelLarge),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF2170E4) : const Color(0xFFEEEEEE),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(color: selected ? Colors.white : const Color(0xFF424754)),
+        ),
       ),
     );
   }
@@ -1139,34 +1148,38 @@ class _SetSectionState extends State<_SetSection> {
   @override
   Widget build(BuildContext context) {
     return _ImageGridSection(
-      title: widget.set.title,
-      subtitle: '${widget.set.items.length} images · ${widget.set.timeRange}',
+      title: widget.set.timeRange,
+      subtitle: widget.set.memo.trim().isEmpty ? '여기에 메모를 추가하세요...' : widget.set.memo.trim(),
       items: widget.set.items,
       allStackKeys: widget.allStackKeys,
       stackNames: widget.stackNames,
       onExcludeImage: widget.onExcludeImage,
       onMoveImage: widget.onMoveImage,
-      footer: Column(
-        children: [
-          const SizedBox(height: 12),
-          TextField(
-            controller: _memoController,
-            minLines: 1,
-            maxLines: 3,
-            style: Theme.of(context).textTheme.bodyMedium,
-            decoration: InputDecoration(
-              hintText: 'Set 메모',
-              isDense: true,
-              filled: true,
-              fillColor: const Color(0xFFF7F7F8),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-            ),
-            onSubmitted: (value) => widget.onSaveMemo(widget.set.key, value.trim()),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(onPressed: () => widget.onSaveMemo(widget.set.key, _memoController.text.trim()), child: const Text('메모 저장')),
-          ),
+      onEditMemo: () async {
+        final memo = await _editMemo(context);
+        if (memo != null) await widget.onSaveMemo(widget.set.key, memo.trim());
+      },
+    );
+  }
+
+  Future<String?> _editMemo(BuildContext context) async {
+    _memoController.text = widget.set.memo;
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text('Set 메모'),
+        content: TextField(
+          controller: _memoController,
+          autofocus: true,
+          minLines: 1,
+          maxLines: 3,
+          decoration: const InputDecoration(hintText: '예: 인스타그램 홈 피드 UI 리서치'),
+          onSubmitted: (value) => Navigator.of(context).pop(value),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('취소')),
+          TextButton(onPressed: () => Navigator.of(context).pop(_memoController.text), child: const Text('저장')),
         ],
       ),
     );
@@ -1182,7 +1195,7 @@ class _ImageGridSection extends StatelessWidget {
     required this.stackNames,
     required this.onExcludeImage,
     required this.onMoveImage,
-    this.footer,
+    this.onEditMemo,
   });
 
   final String title;
@@ -1192,22 +1205,51 @@ class _ImageGridSection extends StatelessWidget {
   final Map<String, String> stackNames;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
-  final Widget? footer;
+  final VoidCallback? onEditMemo;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(child: Text(title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: const Color(0xFF1A1C1C)))),
-            Text(subtitle, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xFF727785))),
-          ],
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF1A1C1C))),
+              const SizedBox(height: 4),
+              InkWell(
+                onTap: onEditMemo,
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          subtitle,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: subtitle == '여기에 메모를 추가하세요...' ? const Color(0xFF727785) : const Color(0xFF424754),
+                                fontStyle: subtitle == '여기에 메모를 추가하세요...' ? FontStyle.italic : FontStyle.normal,
+                              ),
+                        ),
+                      ),
+                      if (onEditMemo != null) ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.edit_outlined, size: 16, color: Color(0xFF727785)),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
         GridView.builder(
+          padding: EdgeInsets.zero,
           itemCount: items.length,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -1215,7 +1257,7 @@ class _ImageGridSection extends StatelessWidget {
             crossAxisCount: 3,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
-            childAspectRatio: 0.78,
+            childAspectRatio: 9 / 16,
           ),
           itemBuilder: (context, index) => _ActionableThumb(
             item: items[index],
@@ -1225,7 +1267,6 @@ class _ImageGridSection extends StatelessWidget {
             onMoveImage: onMoveImage,
           ),
         ),
-        ?footer,
       ],
     );
   }
@@ -1245,7 +1286,7 @@ class _ActionableThumb extends StatelessWidget {
     return InkWell(
       onLongPress: () => _showActions(context),
       borderRadius: BorderRadius.circular(16),
-      child: _Thumb(path: item.thumbnailPath, radius: 16, borderColor: Colors.transparent),
+      child: _Thumb(path: item.thumbnailPath, radius: 8, borderColor: Colors.transparent),
     );
   }
 
