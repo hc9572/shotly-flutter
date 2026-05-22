@@ -40,6 +40,12 @@ jobs:
       - name: Build web
         run: flutter build web --release --base-href /shotly-flutter/ --pwa-strategy=none
 
+      - name: Bust Flutter JS cache
+        run: |
+          VERSION=${GITHUB_SHA}
+          mv build/web/main.dart.js "build/web/main.${VERSION}.dart.js"
+          perl -0pi -e "s/main\\.dart\\.js/main.${VERSION}.dart.js/g" build/web/flutter_bootstrap.js
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

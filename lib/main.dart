@@ -283,7 +283,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
               ),
             if (_showSortMenu)
               Positioned(
-                top: 140,
+                top: 138,
                 right: 20,
                 child: _SortDropdown(
                   selected: _sortMode,
@@ -331,16 +331,12 @@ class _ShotlyTopBarDelegate extends SliverPersistentHeaderDelegate {
             ),
           ),
           IconButton(
-            onPressed: onRefresh,
-            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF424754)),
-          ),
-          IconButton(
             onPressed: () {},
             icon: const Icon(Icons.settings_outlined, color: Color(0xFF424754)),
           ),
           IconButton(
             onPressed: () {},
-            icon: const Icon(Icons.add_rounded, color: Color(0xFF0058BE)),
+            icon: const Icon(Icons.add_rounded, color: Color(0xFF111111)),
           ),
         ],
       ),
@@ -371,19 +367,16 @@ class _SummarySortRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Text(
-              '$screenshotCount개 스크린샷 · $stackCount개 Stack',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785), fontSize: 13, fontWeight: FontWeight.w400, letterSpacing: 0.05),
-            ),
+          child: Text(
+            '$screenshotCount개 스크린샷 · $stackCount개 Stack',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785), fontSize: 13, fontWeight: FontWeight.w400, letterSpacing: 0.05),
           ),
         ),
         SizedBox(
-          width: 156,
+          width: 112,
           child: Stack(
             clipBehavior: Clip.none,
             alignment: Alignment.topRight,
@@ -431,12 +424,12 @@ class _SortDropdown extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: Container(
-        width: 192,
+        width: 178,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFE5E7EB)),
-          boxShadow: const [BoxShadow(color: Color(0x1F000000), blurRadius: 18, offset: Offset(0, 8))],
+          boxShadow: const [BoxShadow(color: Color(0x24000000), blurRadius: 24, offset: Offset(0, 10))],
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -447,7 +440,7 @@ class _SortDropdown extends StatelessWidget {
               onTap: () => onSelect(item.$1),
               child: Container(
                 color: isSelected ? const Color(0xFFF9F9F9) : Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 child: Row(
                   children: [
                     Expanded(child: Text(item.$2, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF111111), fontSize: 14, fontWeight: FontWeight.w500))),
@@ -574,7 +567,7 @@ class _BottomNavBar extends StatelessWidget {
       bottom: 24,
       child: Center(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.95),
             borderRadius: BorderRadius.circular(999),
@@ -585,7 +578,7 @@ class _BottomNavBar extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               _BottomNavItem(icon: Icons.layers_rounded, label: 'Stacks', selected: !calendarSelected, onTap: onStacksTap),
-              const SizedBox(width: 48),
+              const SizedBox(width: 34),
               _BottomNavItem(icon: Icons.calendar_today_outlined, label: 'Calendar', selected: calendarSelected, onTap: onCalendarTap),
             ],
           ),
