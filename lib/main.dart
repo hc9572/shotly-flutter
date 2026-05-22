@@ -847,7 +847,7 @@ class _StackCard extends StatelessWidget {
                 scrollDirection: Axis.horizontal,
                 itemCount: stack.items.take(8).length,
                 separatorBuilder: (context, index) => const SizedBox(width: 8),
-                itemBuilder: (context, index) => _Thumb(path: stack.items[index].thumbnailPath, width: 96, height: 160),
+                itemBuilder: (context, index) => _Thumb(path: stack.items[index].thumbnailPath, width: 96, height: 160, radius: 18),
               ),
             ),
           ],
@@ -979,7 +979,7 @@ class _CalendarTimelineView extends StatelessWidget {
               return InkWell(
                 onTap: () {},
                 borderRadius: BorderRadius.circular(8),
-                child: _Thumb(path: item.thumbnailPath),
+                child: _Thumb(path: item.thumbnailPath, radius: 18),
               );
             },
           ),
@@ -1348,7 +1348,7 @@ class _SetSectionState extends State<_SetSection> {
                     return InkWell(
                       onTap: () => Navigator.of(context).pop(item),
                       borderRadius: BorderRadius.circular(12),
-                      child: SizedBox(width: 72, child: _Thumb(path: item.thumbnailPath, radius: 12, borderColor: Colors.transparent)),
+                      child: SizedBox(width: 72, child: _Thumb(path: item.thumbnailPath, radius: 18, borderColor: Colors.transparent)),
                     );
                   },
                 ),
@@ -1506,7 +1506,7 @@ class _ActionableThumb extends StatelessWidget {
     return InkWell(
       onLongPress: () => _showActions(context),
       borderRadius: BorderRadius.circular(14),
-      child: _Thumb(path: item.thumbnailPath, radius: 14, borderColor: Colors.transparent),
+      child: _Thumb(path: item.thumbnailPath, radius: 18, borderColor: Colors.transparent),
     );
   }
 
@@ -1757,7 +1757,7 @@ String _formatTimeRange(List<ScreenshotItem> items) {
 }
 
 class _Thumb extends StatelessWidget {
-  const _Thumb({required this.path, this.width, this.height, this.radius = 8, this.borderColor = const Color(0xFFC2C6D6)});
+  const _Thumb({required this.path, this.width, this.height, this.radius = 16, this.borderColor = const Color(0xFFC2C6D6)});
 
   final String path;
   final double? width;
@@ -2014,7 +2014,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       final item = _excludedImages[index];
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: _Thumb(path: item.thumbnailPath, width: 44, height: 64, radius: 8),
+                        leading: _Thumb(path: item.thumbnailPath, width: 44, height: 64, radius: 14),
                         title: Text(item.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodyMedium),
                         subtitle: Text(item.appName, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785))),
                         trailing: TextButton(onPressed: () => _restoreImage(index), child: const Text('복구')),
@@ -2081,14 +2081,7 @@ class _SettingsSection extends StatelessWidget {
             padding: const EdgeInsets.only(left: 4, bottom: 8),
             child: Text(title, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xFF727785))),
           ),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
-            ),
-            child: Column(children: children),
-          ),
+          Column(children: children),
         ],
       ),
     );
