@@ -1244,9 +1244,9 @@ class _ImageGridSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF1A1C1C))),
-              const SizedBox(height: 2),
               Text(subtitle, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xFF727785))),
+              const SizedBox(height: 2),
+              Text(title, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF1A1C1C))),
               if (memoText != null) ...[
                 const SizedBox(height: 4),
                 InkWell(
