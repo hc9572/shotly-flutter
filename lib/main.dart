@@ -164,6 +164,12 @@ class ShotlyNative {
     return result ?? false;
   }
 
+  static Future<bool> deleteOriginalImages(List<String> imageIds) async {
+    if (kIsWeb || imageIds.isEmpty) return false;
+    final result = await _channel.invokeMethod<bool>('deleteOriginalImages', {'imageIds': imageIds});
+    return result ?? false;
+  }
+
   static Future<bool> shareImages(List<String> imageIds) async {
     if (kIsWeb || imageIds.isEmpty) return false;
     final result = await _channel.invokeMethod<bool>('shareImages', {'imageIds': imageIds});
@@ -190,6 +196,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   final Map<String, VisualFeature> _visualFeatures = {};
   final Set<String> _hiddenStackKeys = {};
   final Set<String> _excludedImageIds = {};
+  final Set<String> _selectedCalendarImageIds = <String>{};
   bool _isLoading = true;
   bool _hasPermission = false;
   bool _isCalendarView = false;
@@ -425,6 +432,91 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
     }
   }
 
+  Future<bool> _deleteOriginalImages(List<String> imageIds) async {
+    if (imageIds.isEmpty) return false;
+    try {
+      final deleted = await ShotlyNative.deleteOriginalImages(imageIds);
+      if (!deleted) {
+        if (mounted) _showSnack('선택한 원본 파일을 삭제하지 못했어요. 시스템 권한을 확인해줘.');
+        return false;
+      }
+      setState(() {
+        final ids = imageIds.toSet();
+        _screenshots = _screenshots.where((item) => !ids.contains(item.id)).toList();
+        _excludedImageIds.removeAll(ids);
+        for (final id in ids) {
+          _imageAssignments.remove(id);
+          _setAssignments.remove(id);
+          _visualFeatures.remove(id);
+        }
+      });
+      for (final id in imageIds) {
+        await _localStore.excludeImage(id);
+      }
+      if (mounted) _showSnack('${imageIds.length}개 원본 파일을 삭제했어요.');
+      return true;
+    } on PlatformException catch (e) {
+      if (mounted) _showSnack(e.message ?? e.code);
+      return false;
+    }
+  }
+
+  void _toggleCalendarSelection(String imageId) {
+    setState(() {
+      if (!_selectedCalendarImageIds.add(imageId)) _selectedCalendarImageIds.remove(imageId);
+    });
+  }
+
+  Future<void> _openCalendarImageViewer(List<ScreenshotItem> items, int index) async {
+    final deletedId = await Navigator.of(context).push<String>(MaterialPageRoute(
+      builder: (_) => ImageViewerScreen(
+        items: items,
+        initialIndex: index,
+        onDeleteOriginalImage: _deleteOriginalImage,
+      ),
+    ));
+    if (deletedId != null && mounted) setState(() => _selectedCalendarImageIds.remove(deletedId));
+  }
+
+  Future<void> _shareSelectedCalendarImages() async {
+    await ShotlyNative.shareImages(_selectedCalendarImageIds.toList());
+  }
+
+  Future<void> _hideSelectedCalendarImages() async {
+    final selected = _selectedCalendarImageIds.toList();
+    for (final id in selected) {
+      await _excludeImage(id);
+    }
+    if (mounted) setState(_selectedCalendarImageIds.clear);
+  }
+
+  Future<void> _moveSelectedCalendarImages() async {
+    final target = await _showShotlyActionSheet<String>(
+      context,
+      title: '이동할 Stack',
+      items: _stacks.map((stack) => _ShotlyActionItem(value: stack.key, icon: Icons.layers_rounded, title: stack.name)).toList(),
+    );
+    if (target == null) return;
+    final selected = _selectedCalendarImageIds.toList();
+    for (final id in selected) {
+      await _moveImage(id, target);
+    }
+    if (mounted) setState(_selectedCalendarImageIds.clear);
+  }
+
+  Future<void> _deleteSelectedCalendarImages() async {
+    final confirmed = await _showShotlyConfirmDialog(
+      context: context,
+      title: '원본 파일 삭제',
+      body: '선택한 ${_selectedCalendarImageIds.length}장을 Shotly뿐 아니라 기기 앨범 원본에서도 삭제할까요? 이 작업은 되돌릴 수 없어요.',
+      primaryLabel: '삭제',
+      destructive: true,
+    );
+    if (confirmed != true) return;
+    final selected = _selectedCalendarImageIds.toList();
+    if (await _deleteOriginalImages(selected) && mounted) setState(_selectedCalendarImageIds.clear);
+  }
+
   Future<void> _restoreImage(String imageId) async {
     setState(() => _excludedImageIds.remove(imageId));
     await _localStore.restoreImage(imageId);
@@ -507,6 +599,8 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
                           onOpenPhotoSettings: _openPhotoSettings,
                           onRestoreStack: _restoreStack,
                           onRestoreImage: _restoreImage,
+                          onDeleteOriginalImage: _deleteOriginalImage,
+                          onDeleteOriginalImages: _deleteOriginalImages,
                         ),
                       )),
                     ),
@@ -534,7 +628,12 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
                               const SizedBox(height: 18),
                               if (_screenshots.isEmpty) const _EmptyState()
                               else if (filteredScreenshots.isEmpty) const _NoResultState()
-                              else _CalendarTimelineView(items: filteredScreenshots),
+                              else _CalendarTimelineView(
+                            items: filteredScreenshots,
+                            selectedIds: _selectedCalendarImageIds,
+                            onToggleSelection: _toggleCalendarSelection,
+                            onOpenImage: _openCalendarImageViewer,
+                          ),
                             ] else ...[
                               _SummarySortRow(
                                 screenshotCount: filteredScreenshots.length,
@@ -563,6 +662,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
                                       onHideStack: _hideStack,
                                       onExcludeImage: _excludeImage,
                                       onDeleteOriginalImage: _deleteOriginalImage,
+                                      onDeleteOriginalImages: _deleteOriginalImages,
                                       onMoveImage: _moveImage,
                                       onSaveSetMemo: _saveSetMemo,
                                       onAssignImageToSet: _assignImageToSet,
@@ -596,9 +696,26 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
                   }),
                 ),
               ),
+            if (_isCalendarView && _selectedCalendarImageIds.isNotEmpty)
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 96,
+                child: _SelectionActionBar(
+                  count: _selectedCalendarImageIds.length,
+                  onCancel: () => setState(_selectedCalendarImageIds.clear),
+                  onShare: _shareSelectedCalendarImages,
+                  onDelete: _deleteSelectedCalendarImages,
+                  onMove: _moveSelectedCalendarImages,
+                  onHide: _hideSelectedCalendarImages,
+                ),
+              ),
             _BottomNavBar(
               calendarSelected: _isCalendarView,
-              onStacksTap: () => setState(() => _isCalendarView = false),
+              onStacksTap: () => setState(() {
+                _isCalendarView = false;
+                _selectedCalendarImageIds.clear();
+              }),
               onCalendarTap: () => setState(() => _isCalendarView = true),
             ),
           ],
@@ -803,6 +920,7 @@ class _StackCard extends StatelessWidget {
     required this.onHideStack,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
+    required this.onDeleteOriginalImages,
     required this.onMoveImage,
     required this.onSaveSetMemo,
     required this.onAssignImageToSet,
@@ -818,6 +936,7 @@ class _StackCard extends StatelessWidget {
   final Future<void> Function(String stackKey) onHideStack;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
+  final Future<bool> Function(List<String> imageIds) onDeleteOriginalImages;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
   final Future<void> Function(String setKey, String memo) onSaveSetMemo;
   final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
@@ -837,6 +956,7 @@ class _StackCard extends StatelessWidget {
           onHideStack: onHideStack,
           onExcludeImage: onExcludeImage,
           onDeleteOriginalImage: onDeleteOriginalImage,
+          onDeleteOriginalImages: onDeleteOriginalImages,
           onMoveImage: onMoveImage,
           onSaveSetMemo: onSaveSetMemo,
           onAssignImageToSet: onAssignImageToSet,
@@ -969,9 +1089,14 @@ class _BottomNavItem extends StatelessWidget {
 }
 
 class _CalendarTimelineView extends StatelessWidget {
-  const _CalendarTimelineView({required this.items});
+  const _CalendarTimelineView({required this.items, required this.selectedIds, required this.onToggleSelection, required this.onOpenImage});
 
   final List<ScreenshotItem> items;
+  final Set<String> selectedIds;
+  final ValueChanged<String> onToggleSelection;
+  final Future<void> Function(List<ScreenshotItem> items, int index) onOpenImage;
+
+  bool get _isSelecting => selectedIds.isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -1018,11 +1143,14 @@ class _CalendarTimelineView extends StatelessWidget {
               childAspectRatio: 0.6,
             ),
             itemBuilder: (context, index) {
-              final item = grouped[date]![index];
-              return InkWell(
-                onTap: () {},
-                borderRadius: BorderRadius.circular(8),
-                child: _Thumb(path: item.thumbnailPath, radius: 18),
+              final dateItems = grouped[date]!;
+              final item = dateItems[index];
+              return _SelectableThumb(
+                item: item,
+                selected: selectedIds.contains(item.id),
+                selecting: _isSelecting,
+                onTap: () => _isSelecting ? onToggleSelection(item.id) : onOpenImage(items, items.indexWhere((candidate) => candidate.id == item.id)),
+                onLongPress: () => onToggleSelection(item.id),
               );
             },
           ),
@@ -1046,6 +1174,7 @@ class StackDetailScreen extends StatefulWidget {
     required this.onHideStack,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
+    required this.onDeleteOriginalImages,
     required this.onMoveImage,
     required this.onSaveSetMemo,
     required this.onAssignImageToSet,
@@ -1061,6 +1190,7 @@ class StackDetailScreen extends StatefulWidget {
   final Future<void> Function(String stackKey) onHideStack;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
+  final Future<bool> Function(List<String> imageIds) onDeleteOriginalImages;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
   final Future<void> Function(String setKey, String memo) onSaveSetMemo;
   final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
@@ -1072,6 +1202,7 @@ class StackDetailScreen extends StatefulWidget {
 class _StackDetailScreenState extends State<StackDetailScreen> {
   bool _showSimilar = false;
   final Set<String> _deletedImageIds = <String>{};
+  final Set<String> _selectedImageIds = <String>{};
 
   @override
   Widget build(BuildContext context) {
@@ -1081,7 +1212,9 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       body: SafeArea(
-        child: CustomScrollView(
+        child: Stack(
+          children: [
+            CustomScrollView(
           slivers: [
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -1144,6 +1277,9 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                       onExcludeImage: widget.onExcludeImage,
                       onDeleteOriginalImage: _deleteOriginalImage,
                       onMoveImage: widget.onMoveImage,
+                      selectedIds: _selectedImageIds,
+                      onToggleSelection: _toggleSelection,
+                      showLocalActionBar: false,
                     );
                   }
                   final dateGroups = _groupSetsByDate(sets);
@@ -1156,6 +1292,9 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                     onExcludeImage: widget.onExcludeImage,
                     onDeleteOriginalImage: _deleteOriginalImage,
                     onMoveImage: widget.onMoveImage,
+                    selectedIds: _selectedImageIds,
+                    onToggleSelection: _toggleSelection,
+                    showLocalActionBar: false,
                     onSaveMemo: widget.onSaveSetMemo,
                     onAssignImageToSet: widget.onAssignImageToSet,
                   );
@@ -1164,8 +1303,84 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
             ),
           ],
         ),
+            if (_selectedImageIds.isNotEmpty)
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 20,
+                child: _SelectionActionBar(
+                  count: _selectedImageIds.length,
+                  onCancel: () => setState(_selectedImageIds.clear),
+                  onShare: _shareSelected,
+                  onDelete: () => _deleteSelected(context),
+                  onMove: () => _moveSelected(context),
+                  onHide: _hideSelected,
+                ),
+              ),
+          ],
+        ),
       ),
     );
+  }
+
+  void _toggleSelection(String imageId) {
+    setState(() {
+      if (!_selectedImageIds.add(imageId)) _selectedImageIds.remove(imageId);
+    });
+  }
+
+  Future<void> _shareSelected() async {
+    await ShotlyNative.shareImages(_selectedImageIds.toList());
+  }
+
+  Future<void> _hideSelected() async {
+    final selected = _selectedImageIds.toList();
+    for (final id in selected) {
+      await widget.onExcludeImage(id);
+    }
+    if (mounted) {
+      setState(() {
+        _deletedImageIds.addAll(selected);
+        _selectedImageIds.clear();
+      });
+    }
+  }
+
+  Future<void> _moveSelected(BuildContext context) async {
+    final target = await _showShotlyActionSheet<String>(
+      context,
+      title: '이동할 Stack',
+      items: widget.allStackKeys.map((key) => _ShotlyActionItem(value: key, icon: Icons.layers_rounded, title: widget.stackNames[key] ?? key)).toList(),
+    );
+    if (target == null) return;
+    final selected = _selectedImageIds.toList();
+    for (final id in selected) {
+      await widget.onMoveImage(id, target);
+    }
+    if (mounted) {
+      setState(() {
+        _deletedImageIds.addAll(selected);
+        _selectedImageIds.clear();
+      });
+    }
+  }
+
+  Future<void> _deleteSelected(BuildContext context) async {
+    final confirmed = await _showShotlyConfirmDialog(
+      context: context,
+      title: '원본 파일 삭제',
+      body: '선택한 ${_selectedImageIds.length}장을 Shotly뿐 아니라 기기 앨범 원본에서도 삭제할까요? 이 작업은 되돌릴 수 없어요.',
+      primaryLabel: '삭제',
+      destructive: true,
+    );
+    if (confirmed != true) return;
+    final selected = _selectedImageIds.toList();
+    if (await widget.onDeleteOriginalImages(selected) && mounted) {
+      setState(() {
+        _deletedImageIds.addAll(selected);
+        _selectedImageIds.clear();
+      });
+    }
   }
 
   Future<void> _renameStack(BuildContext context) async {
@@ -1270,6 +1485,9 @@ class _SetDateSection extends StatelessWidget {
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
     required this.onMoveImage,
+    required this.selectedIds,
+    required this.onToggleSelection,
+    required this.showLocalActionBar,
     required this.onSaveMemo,
     required this.onAssignImageToSet,
   });
@@ -1281,6 +1499,9 @@ class _SetDateSection extends StatelessWidget {
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
+  final Set<String> selectedIds;
+  final ValueChanged<String> onToggleSelection;
+  final bool showLocalActionBar;
   final Future<void> Function(String setKey, String memo) onSaveMemo;
   final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
 
@@ -1295,7 +1516,7 @@ class _SetDateSection extends StatelessWidget {
             dateLabel,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: const Color(0xFF424754),
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                   letterSpacing: -0.2,
                 ),
           ),
@@ -1309,6 +1530,9 @@ class _SetDateSection extends StatelessWidget {
             onExcludeImage: onExcludeImage,
             onDeleteOriginalImage: onDeleteOriginalImage,
             onMoveImage: onMoveImage,
+            selectedIds: selectedIds,
+            onToggleSelection: onToggleSelection,
+            showLocalActionBar: showLocalActionBar,
             onSaveMemo: onSaveMemo,
             onAssignImageToSet: onAssignImageToSet,
             mergeTarget: index < sets.length - 1 ? sets[index + 1] : null,
@@ -1328,6 +1552,9 @@ class _SetSection extends StatefulWidget {
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
     required this.onMoveImage,
+    required this.selectedIds,
+    required this.onToggleSelection,
+    required this.showLocalActionBar,
     required this.onSaveMemo,
     required this.onAssignImageToSet,
     this.mergeTarget,
@@ -1339,6 +1566,9 @@ class _SetSection extends StatefulWidget {
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
+  final Set<String> selectedIds;
+  final ValueChanged<String> onToggleSelection;
+  final bool showLocalActionBar;
   final Future<void> Function(String setKey, String memo) onSaveMemo;
   final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
   final ScreenshotSet? mergeTarget;
@@ -1373,6 +1603,9 @@ class _SetSectionState extends State<_SetSection> {
       onExcludeImage: widget.onExcludeImage,
       onDeleteOriginalImage: widget.onDeleteOriginalImage,
       onMoveImage: widget.onMoveImage,
+      selectedIds: widget.selectedIds,
+      onToggleSelection: widget.onToggleSelection,
+      showLocalActionBar: widget.showLocalActionBar,
       onSetAction: () => _showSetActions(context),
       onEditMemo: () async {
         final memo = await _editMemo(context);
@@ -1475,6 +1708,9 @@ class _ImageGridSection extends StatefulWidget {
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
     required this.onMoveImage,
+    this.selectedIds,
+    this.onToggleSelection,
+    this.showLocalActionBar = true,
     this.onSetAction,
     this.onEditMemo,
   });
@@ -1488,6 +1724,9 @@ class _ImageGridSection extends StatefulWidget {
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
+  final Set<String>? selectedIds;
+  final ValueChanged<String>? onToggleSelection;
+  final bool showLocalActionBar;
   final VoidCallback? onSetAction;
   final VoidCallback? onEditMemo;
 
@@ -1499,7 +1738,8 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
   final Set<String> _selectedIds = <String>{};
   final Set<String> _locallyHiddenIds = <String>{};
 
-  bool get _isSelecting => _selectedIds.isNotEmpty;
+  Set<String> get _effectiveSelectedIds => widget.selectedIds ?? _selectedIds;
+  bool get _isSelecting => _effectiveSelectedIds.isNotEmpty;
   List<ScreenshotItem> get _visibleItems => widget.items.where((item) => !_locallyHiddenIds.contains(item.id)).toList();
 
   @override
@@ -1576,17 +1816,17 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
             final item = items[index];
             return _SelectableThumb(
               item: item,
-              selected: _selectedIds.contains(item.id),
+              selected: _effectiveSelectedIds.contains(item.id),
               selecting: _isSelecting,
               onTap: () => _isSelecting ? _toggleSelection(item.id) : _openImageViewer(context, items, index),
               onLongPress: () => _toggleSelection(item.id),
             );
           },
         ),
-        if (_isSelecting) ...[
+        if (_isSelecting && widget.showLocalActionBar) ...[
           const SizedBox(height: 12),
           _SelectionActionBar(
-            count: _selectedIds.length,
+            count: _effectiveSelectedIds.length,
             onCancel: () => setState(_selectedIds.clear),
             onShare: _shareSelected,
             onDelete: () => _deleteSelected(context),
@@ -1599,6 +1839,10 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
   }
 
   void _toggleSelection(String imageId) {
+    if (widget.onToggleSelection != null) {
+      widget.onToggleSelection!(imageId);
+      return;
+    }
     setState(() {
       if (!_selectedIds.add(imageId)) _selectedIds.remove(imageId);
     });
@@ -1616,11 +1860,11 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
   }
 
   Future<void> _shareSelected() async {
-    await ShotlyNative.shareImages(_selectedIds.toList());
+    await ShotlyNative.shareImages(_effectiveSelectedIds.toList());
   }
 
   Future<void> _hideSelected() async {
-    final selected = _selectedIds.toList();
+    final selected = _effectiveSelectedIds.toList();
     for (final id in selected) {
       await widget.onExcludeImage(id);
     }
@@ -1637,7 +1881,7 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
       items: widget.allStackKeys.map((key) => _ShotlyActionItem(value: key, icon: Icons.layers_rounded, title: widget.stackNames[key] ?? key)).toList(),
     );
     if (target == null) return;
-    final selected = _selectedIds.toList();
+    final selected = _effectiveSelectedIds.toList();
     for (final id in selected) {
       await widget.onMoveImage(id, target);
     }
@@ -1651,12 +1895,12 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
     final confirmed = await _showShotlyConfirmDialog(
       context: context,
       title: '원본 파일 삭제',
-      body: '선택한 ${_selectedIds.length}장을 Shotly뿐 아니라 기기 앨범 원본에서도 삭제할까요? 이 작업은 되돌릴 수 없어요.',
+      body: '선택한 ${_effectiveSelectedIds.length}장을 Shotly뿐 아니라 기기 앨범 원본에서도 삭제할까요? 이 작업은 되돌릴 수 없어요.',
       primaryLabel: '삭제',
       destructive: true,
     );
     if (confirmed != true) return;
-    final selected = _selectedIds.toList();
+    final selected = _effectiveSelectedIds.toList();
     final deleted = <String>[];
     for (final id in selected) {
       if (await widget.onDeleteOriginalImage(id)) deleted.add(id);
@@ -2467,6 +2711,8 @@ class SettingsScreen extends StatefulWidget {
     required this.onOpenPhotoSettings,
     required this.onRestoreStack,
     required this.onRestoreImage,
+    required this.onDeleteOriginalImage,
+    required this.onDeleteOriginalImages,
   });
 
   final bool hasPermission;
@@ -2475,6 +2721,8 @@ class SettingsScreen extends StatefulWidget {
   final Future<void> Function() onOpenPhotoSettings;
   final Future<void> Function(String stackKey) onRestoreStack;
   final Future<void> Function(String imageId) onRestoreImage;
+  final Future<bool> Function(String imageId) onDeleteOriginalImage;
+  final Future<bool> Function(List<String> imageIds) onDeleteOriginalImages;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -2556,100 +2804,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _showHiddenStacks(BuildContext context) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(child: Container(width: 38, height: 4, decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(99)))),
-              const SizedBox(height: 18),
-              Text('숨긴 Stack', style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 8),
-              if (_hiddenStacks.isEmpty)
-                _EmptyRecoveryMessage(message: '숨긴 Stack이 없어요')
-              else
-                Flexible(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: _hiddenStacks.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFE5E7EB)),
-                    itemBuilder: (context, index) {
-                      final stack = _hiddenStacks[index];
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(stack.name, style: Theme.of(context).textTheme.bodyLarge),
-                        subtitle: Text('${stack.items.length} images', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785))),
-                        trailing: TextButton(onPressed: () => _restoreStack(index), child: const Text('복구')),
-                      );
-                    },
-                  ),
-                ),
-            ],
-          ),
-        ),
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => HiddenStacksPage(
+        stacks: _hiddenStacks,
+        onRestoreStack: (stackKey) async {
+          await widget.onRestoreStack(stackKey);
+          if (mounted) setState(() => _hiddenStacks.removeWhere((stack) => stack.key == stackKey));
+        },
       ),
-    );
+    ));
   }
 
   Future<void> _showExcludedImages(BuildContext context) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(child: Container(width: 38, height: 4, decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(99)))),
-              const SizedBox(height: 18),
-              Text('숨긴 이미지', style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 8),
-              if (_excludedImages.isEmpty)
-                _EmptyRecoveryMessage(message: '숨긴 이미지가 없어요')
-              else
-                Flexible(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: _excludedImages.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFE5E7EB)),
-                    itemBuilder: (context, index) {
-                      final item = _excludedImages[index];
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: _Thumb(path: item.thumbnailPath, width: 44, height: 64, radius: 14),
-                        title: Text(item.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodyMedium),
-                        subtitle: Text(item.appName, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785))),
-                        trailing: TextButton(onPressed: () => _restoreImage(index), child: const Text('복구')),
-                      );
-                    },
-                  ),
-                ),
-            ],
-          ),
-        ),
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => HiddenImagesPage(
+        images: _excludedImages,
+        onRestoreImage: (imageId) async {
+          await widget.onRestoreImage(imageId);
+          if (mounted) setState(() => _excludedImages.removeWhere((item) => item.id == imageId));
+        },
+        onDeleteOriginalImage: (imageId) async {
+          final deleted = await widget.onDeleteOriginalImage(imageId);
+          if (deleted && mounted) setState(() => _excludedImages.removeWhere((item) => item.id == imageId));
+          return deleted;
+        },
+        onDeleteAllOriginalImages: () async {
+          final ids = _excludedImages.map((item) => item.id).toList();
+          final deleted = await widget.onDeleteOriginalImages(ids);
+          if (deleted && mounted) setState(() => _excludedImages.clear());
+          return deleted ? ids.length : 0;
+        },
       ),
-    );
-  }
-
-  Future<void> _restoreStack(int index) async {
-    final stack = _hiddenStacks[index];
-    await widget.onRestoreStack(stack.key);
-    if (mounted) setState(() => _hiddenStacks.removeAt(index));
-  }
-
-  Future<void> _restoreImage(int index) async {
-    final item = _excludedImages[index];
-    await widget.onRestoreImage(item.id);
-    if (mounted) setState(() => _excludedImages.removeAt(index));
+    ));
   }
 
   void _showInfoDialog(BuildContext context) {
@@ -2665,6 +2851,160 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       title: title,
       body: body,
+    );
+  }
+}
+
+class HiddenStacksPage extends StatefulWidget {
+  const HiddenStacksPage({super.key, required this.stacks, required this.onRestoreStack});
+
+  final List<StackItem> stacks;
+  final Future<void> Function(String stackKey) onRestoreStack;
+
+  @override
+  State<HiddenStacksPage> createState() => _HiddenStacksPageState();
+}
+
+class _HiddenStacksPageState extends State<HiddenStacksPage> {
+  late final List<StackItem> _stacks = [...widget.stacks];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFFAFAFA),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          children: [
+            _SettingsPageHeader(title: '숨긴 Stack'),
+            const SizedBox(height: 20),
+            if (_stacks.isEmpty)
+              const _EmptyRecoveryMessage(message: '숨긴 Stack이 없어요')
+            else
+              ..._stacks.map((stack) => ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    leading: const Icon(Icons.layers_clear_rounded, color: Color(0xFF424754)),
+                    title: Text(stack.name, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                    subtitle: Text('${stack.items.length} images', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785))),
+                    trailing: TextButton(onPressed: () => _restore(stack.key), child: const Text('복구')),
+                  )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _restore(String stackKey) async {
+    await widget.onRestoreStack(stackKey);
+    if (mounted) setState(() => _stacks.removeWhere((stack) => stack.key == stackKey));
+  }
+}
+
+class HiddenImagesPage extends StatefulWidget {
+  const HiddenImagesPage({super.key, required this.images, required this.onRestoreImage, required this.onDeleteOriginalImage, required this.onDeleteAllOriginalImages});
+
+  final List<ScreenshotItem> images;
+  final Future<void> Function(String imageId) onRestoreImage;
+  final Future<bool> Function(String imageId) onDeleteOriginalImage;
+  final Future<int> Function() onDeleteAllOriginalImages;
+
+  @override
+  State<HiddenImagesPage> createState() => _HiddenImagesPageState();
+}
+
+class _HiddenImagesPageState extends State<HiddenImagesPage> {
+  late final List<ScreenshotItem> _images = [...widget.images];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFFAFAFA),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          children: [
+            _SettingsPageHeader(
+              title: '숨긴 이미지',
+              action: _images.isEmpty
+                  ? null
+                  : TextButton.icon(
+                      onPressed: _deleteAll,
+                      icon: const Icon(Icons.delete_rounded, size: 18, color: Color(0xFFB42318)),
+                      label: const Text('전체 삭제', style: TextStyle(color: Color(0xFFB42318))),
+                    ),
+            ),
+            const SizedBox(height: 20),
+            if (_images.isEmpty)
+              const _EmptyRecoveryMessage(message: '숨긴 이미지가 없어요')
+            else
+              ..._images.map((item) => ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    leading: _Thumb(path: item.thumbnailPath, width: 44, height: 64, radius: 14),
+                    title: Text(item.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                    subtitle: Text(item.appName, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785))),
+                    trailing: Wrap(
+                      spacing: 4,
+                      children: [
+                        TextButton(onPressed: () => _restore(item.id), child: const Text('복구')),
+                        IconButton(onPressed: () => _deleteOne(item.id), icon: const Icon(Icons.delete_rounded, color: Color(0xFFB42318))),
+                      ],
+                    ),
+                  )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _restore(String imageId) async {
+    await widget.onRestoreImage(imageId);
+    if (mounted) setState(() => _images.removeWhere((item) => item.id == imageId));
+  }
+
+  Future<void> _deleteOne(String imageId) async {
+    final confirmed = await _showShotlyConfirmDialog(
+      context: context,
+      title: '원본 파일 삭제',
+      body: '이 이미지를 기기 앨범 원본에서도 삭제할까요? 이 작업은 되돌릴 수 없어요.',
+      primaryLabel: '삭제',
+      destructive: true,
+    );
+    if (confirmed == true && await widget.onDeleteOriginalImage(imageId) && mounted) {
+      setState(() => _images.removeWhere((item) => item.id == imageId));
+    }
+  }
+
+  Future<void> _deleteAll() async {
+    final confirmed = await _showShotlyConfirmDialog(
+      context: context,
+      title: '숨긴 이미지 전체 삭제',
+      body: '숨긴 이미지 ${_images.length}장을 기기 앨범 원본에서도 모두 삭제할까요? 이 작업은 되돌릴 수 없어요.',
+      primaryLabel: '전체 삭제',
+      destructive: true,
+    );
+    if (confirmed != true) return;
+    final deletedCount = await widget.onDeleteAllOriginalImages();
+    if (mounted) {
+      setState(() => _images.clear());
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$deletedCount개 원본 파일을 삭제했어요.')));
+    }
+  }
+}
+
+class _SettingsPageHeader extends StatelessWidget {
+  const _SettingsPageHeader({required this.title, this.action});
+
+  final String title;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF424754))),
+        Expanded(child: Text(title, style: Theme.of(context).textTheme.headlineMedium)),
+        ?action,
+      ],
     );
   }
 }
@@ -2704,7 +3044,7 @@ class _PermissionStatusTile extends StatelessWidget {
     return _SettingsTile(
       icon: hasPermission ? Icons.check_circle_outline_rounded : Icons.error_outline_rounded,
       title: '사진 접근 권한',
-      subtitle: hasPermission ? '허용됨 · 시스템 설정에서 접근 범위를 바꿀 수 있어요' : '권한 필요 · 시스템 사진 권한으로 이동해요',
+      subtitle: hasPermission ? '허용됨' : '허용 안 됨',
       trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFF727785)),
       onTap: onOpenSettings,
     );

@@ -39,6 +39,9 @@ import UIKit
       case "deleteOriginalImage":
         let imageId = (call.arguments as? [String: Any])?["imageId"] as? String
         self.deleteOriginalImage(imageId: imageId, result: result)
+      case "deleteOriginalImages":
+        let imageIds = (call.arguments as? [String: Any])?["imageIds"] as? [String]
+        self.deleteOriginalImages(imageIds: imageIds, result: result)
       case "shareImages":
         let imageIds = (call.arguments as? [String: Any])?["imageIds"] as? [String]
         self.shareImages(imageIds: imageIds, result: result)
@@ -131,6 +134,34 @@ import UIKit
   }
 
   private func deleteOriginalImage(imageId: String?, result: @escaping FlutterResult) {
+    deleteOriginalImages(imageIds: imageId.map { [$0] }, result: result)
+  }
+
+  private func deleteOriginalImages(imageIds: [String]?, result: @escaping FlutterResult) {
+    let ids = imageIds ?? []
+    guard !ids.isEmpty else {
+      result(FlutterError(code: "invalid_image_id", message: "삭제할 원본 이미지를 찾을 수 없어요.", details: nil))
+      return
+    }
+    let assets = PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil)
+    guard assets.count > 0 else {
+      result(FlutterError(code: "asset_not_found", message: "삭제할 원본 이미지를 찾을 수 없어요.", details: nil))
+      return
+    }
+    PHPhotoLibrary.shared().performChanges({
+      PHAssetChangeRequest.deleteAssets(assets)
+    }) { success, error in
+      DispatchQueue.main.async {
+        if let error {
+          result(FlutterError(code: "delete_failed", message: error.localizedDescription, details: nil))
+        } else {
+          result(success)
+        }
+      }
+    }
+  }
+
+  private func deleteOriginalImageLegacy(imageId: String?, result: @escaping FlutterResult) {
     guard let imageId else {
       result(FlutterError(code: "invalid_image_id", message: "삭제할 원본 이미지를 찾을 수 없어요.", details: nil))
       return

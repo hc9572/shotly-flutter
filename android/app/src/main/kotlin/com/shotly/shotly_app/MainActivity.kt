@@ -30,6 +30,7 @@ class MainActivity : FlutterActivity() {
     private var pendingPickImageResult: MethodChannel.Result? = null
     private var pendingDeleteImageResult: MethodChannel.Result? = null
     private var pendingDeleteImageUri: Uri? = null
+    private var pendingDeleteImageUris: List<Uri>? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -41,6 +42,7 @@ class MainActivity : FlutterActivity() {
                 "pickImage" -> pickImage(result)
                 "getImagePreview" -> getImagePreview(call.argument<String>("imageId"), result)
                 "deleteOriginalImage" -> deleteOriginalImage(call.argument<String>("imageId"), result)
+                "deleteOriginalImages" -> deleteOriginalImages(call.argument<List<String>>("imageIds"), result)
                 "shareImages" -> shareImages(call.argument<List<String>>("imageIds"), result)
                 else -> result.notImplemented()
             }
@@ -121,9 +123,11 @@ class MainActivity : FlutterActivity() {
             pendingPickImageResult = null
         }
         if (requestCode == deleteImageRequestCode) {
-            pendingDeleteImageResult?.success(resultCode == RESULT_OK || pendingDeleteImageUri?.let { !doesImageExist(it) } == true)
+            val uris = pendingDeleteImageUris ?: pendingDeleteImageUri?.let { listOf(it) }.orEmpty()
+            pendingDeleteImageResult?.success(resultCode == RESULT_OK || uris.all { !doesImageExist(it) })
             pendingDeleteImageResult = null
             pendingDeleteImageUri = null
+            pendingDeleteImageUris = null
         }
     }
 
@@ -137,6 +141,37 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun deleteOriginalImage(imageId: String?, result: MethodChannel.Result) {
+        deleteOriginalImages(listOfNotNull(imageId), result)
+    }
+
+    private fun deleteOriginalImages(imageIds: List<String>?, result: MethodChannel.Result) {
+        val uris = imageIds.orEmpty().mapNotNull { imageUriForId(it) }
+        if (uris.isEmpty()) {
+            result.error("invalid_image_id", "삭제할 원본 이미지를 찾을 수 없어요.", null)
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            pendingDeleteImageResult = result
+            pendingDeleteImageUris = uris
+            val request = MediaStore.createDeleteRequest(contentResolver, uris)
+            return try {
+                startIntentSenderForResult(request.intentSender, deleteImageRequestCode, null, 0, 0, 0, null)
+            } catch (e: IntentSender.SendIntentException) {
+                pendingDeleteImageResult = null
+                pendingDeleteImageUri = null
+                pendingDeleteImageUris = null
+                result.error("delete_failed", "원본 파일 삭제 요청을 열 수 없어요.", null)
+            }
+        }
+        try {
+            val rows = uris.sumOf { contentResolver.delete(it, null, null) }
+            result.success(rows > 0)
+        } catch (e: SecurityException) {
+            result.error("delete_permission_denied", "원본 파일 삭제 권한이 필요해요.", null)
+        }
+    }
+
+    private fun deleteOriginalImageLegacy(imageId: String?, result: MethodChannel.Result) {
         val uri = imageUriForId(imageId)
         if (uri == null) {
             result.error("invalid_image_id", "삭제할 원본 이미지를 찾을 수 없어요.", null)
