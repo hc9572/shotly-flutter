@@ -1279,7 +1279,7 @@ class _SetSectionState extends State<_SetSection> {
   Widget build(BuildContext context) {
     return _ImageGridSection(
       title: widget.set.timeRange,
-      memoText: widget.set.memo.trim().isEmpty ? '여기에 메모를 추가하세요...' : widget.set.memo.trim(),
+      memoText: widget.set.memo.trim().isEmpty ? '메모 추가' : widget.set.memo.trim(),
       items: widget.set.items,
       allStackKeys: widget.allStackKeys,
       stackNames: widget.stackNames,
@@ -1445,20 +1445,19 @@ class _ImageGridSection extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Expanded(
-                          child: Text(
-                            memoText!,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: memoText == '여기에 메모를 추가하세요...' ? const Color(0xFF727785) : const Color(0xFF424754),
-                                  fontStyle: memoText == '여기에 메모를 추가하세요...' ? FontStyle.italic : FontStyle.normal,
-                                ),
-                          ),
+                        Text(
+                          memoText!,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: memoText == '메모 추가' ? const Color(0xFF727785) : const Color(0xFF424754),
+                                fontStyle: memoText == '메모 추가' ? FontStyle.italic : FontStyle.normal,
+                              ),
                         ),
                         if (onEditMemo != null) ...[
-                          const SizedBox(width: 6),
-                          const Icon(Icons.edit_outlined, size: 16, color: Color(0xFF727785)),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.edit_outlined, size: 15, color: Color(0xFF727785)),
                         ],
                       ],
                     ),
