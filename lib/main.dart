@@ -969,9 +969,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                     Row(
                       children: [
                         IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF424754))),
-                        Expanded(
-                          child: Text('Shotly', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineLarge?.copyWith(color: const Color(0xFF1A1C1C))),
-                        ),
+                        const Spacer(),
                         PopupMenuButton<String>(
                           icon: const Icon(Icons.more_horiz_rounded, color: Color(0xFF424754)),
                           onSelected: (value) async {
@@ -1072,7 +1070,7 @@ class _DetailModeSwitch extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _ModeChip(label: '날짜별', selected: !showSimilar, onTap: () => onChanged(false)),
+          _ModeChip(label: '시간별', selected: !showSimilar, onTap: () => onChanged(false)),
           const SizedBox(width: 8),
           _ModeChip(label: '유사 화면', selected: showSimilar, onTap: () => onChanged(true)),
         ],
