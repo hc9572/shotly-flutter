@@ -4,6 +4,7 @@ class LocalShotlyState {
     this.stackNames = const {},
     this.imageAssignments = const {},
     this.setMemos = const {},
+    this.setAssignments = const {},
     this.hiddenStackKeys = const {},
     this.excludedImageIds = const {},
   });
@@ -12,6 +13,7 @@ class LocalShotlyState {
   final Map<String, String> stackNames;
   final Map<String, String> imageAssignments;
   final Map<String, String> setMemos;
+  final Map<String, String> setAssignments;
   final Set<String> hiddenStackKeys;
   final Set<String> excludedImageIds;
 }
@@ -26,4 +28,6 @@ abstract class LocalStore {
   Future<void> restoreImage(String imageId);
   Future<void> moveImage(String imageId, String stackKey);
   Future<void> saveSetMemo(String setKey, String memo);
+  Future<void> assignImageToSet(String imageId, String setKey);
 }
+

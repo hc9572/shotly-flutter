@@ -11,6 +11,7 @@ class ShotlyLocalStore implements LocalStore {
   static const _excludedImagesPrefsKey = 'shotly.excludedImages';
   static const _imageAssignmentsPrefsKey = 'shotly.imageAssignments';
   static const _setMemosPrefsKey = 'shotly.setMemos';
+  static const _setAssignmentsPrefsKey = 'shotly.setAssignments';
 
   @override
   Future<LocalShotlyState> load() async {
@@ -20,6 +21,7 @@ class ShotlyLocalStore implements LocalStore {
       stackNames: _decodeStringMap(prefs.getString(_stackNamesPrefsKey)),
       imageAssignments: _decodeStringMap(prefs.getString(_imageAssignmentsPrefsKey)),
       setMemos: _decodeStringMap(prefs.getString(_setMemosPrefsKey)),
+      setAssignments: _decodeStringMap(prefs.getString(_setAssignmentsPrefsKey)),
       hiddenStackKeys: (prefs.getStringList(_hiddenStacksPrefsKey) ?? const []).toSet(),
       excludedImageIds: (prefs.getStringList(_excludedImagesPrefsKey) ?? const []).toSet(),
     );
@@ -54,6 +56,9 @@ class ShotlyLocalStore implements LocalStore {
 
   @override
   Future<void> saveSetMemo(String setKey, String memo) => _updateMap(_setMemosPrefsKey, setKey, memo);
+
+  @override
+  Future<void> assignImageToSet(String imageId, String setKey) => _updateMap(_setAssignmentsPrefsKey, imageId, setKey);
 
   Future<void> _updateList(String key, String value) async {
     final prefs = await SharedPreferences.getInstance();

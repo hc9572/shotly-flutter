@@ -17,6 +17,7 @@ class ShotlyLocalStore implements LocalStore {
   static const _excludedImagesPrefsKey = 'shotly.excludedImages';
   static const _imageAssignmentsPrefsKey = 'shotly.imageAssignments';
   static const _setMemosPrefsKey = 'shotly.setMemos';
+  static const _setAssignmentsPrefsKey = 'shotly.setAssignments';
   static const _migrationPrefsKey = 'shotly.driftMigration.v1';
 
   final ShotlyDatabase _db;
@@ -30,6 +31,7 @@ class ShotlyLocalStore implements LocalStore {
     final stackRows = await _db.customSelect('SELECT stack_key, name FROM stack_customizations').get();
     final assignmentRows = await _db.customSelect('SELECT image_id, stack_key FROM image_assignments').get();
     final memoRows = await _db.customSelect('SELECT set_key, memo FROM set_memos').get();
+    final setAssignmentRows = await _db.customSelect('SELECT image_id, set_key FROM set_assignments').get();
     final hiddenRows = await _db.customSelect('SELECT stack_key FROM hidden_stacks').get();
     final excludedRows = await _db.customSelect('SELECT image_id FROM excluded_images').get();
 
@@ -38,6 +40,7 @@ class ShotlyLocalStore implements LocalStore {
       stackNames: {for (final row in stackRows) row.read<String>('stack_key'): row.read<String>('name')},
       imageAssignments: {for (final row in assignmentRows) row.read<String>('image_id'): row.read<String>('stack_key')},
       setMemos: {for (final row in memoRows) row.read<String>('set_key'): row.read<String>('memo')},
+      setAssignments: {for (final row in setAssignmentRows) row.read<String>('image_id'): row.read<String>('set_key')},
       hiddenStackKeys: {for (final row in hiddenRows) row.read<String>('stack_key')},
       excludedImageIds: {for (final row in excludedRows) row.read<String>('image_id')},
     );
@@ -110,6 +113,15 @@ class ShotlyLocalStore implements LocalStore {
     );
   }
 
+  @override
+  Future<void> assignImageToSet(String imageId, String setKey) async {
+    await _db.ensureOpen();
+    await _db.customStatement(
+      'INSERT OR REPLACE INTO set_assignments(image_id, set_key, updated_at) VALUES (?, ?, ?)',
+      [imageId, setKey, DateTime.now().millisecondsSinceEpoch],
+    );
+  }
+
   Future<void> _migrateSharedPreferencesIfNeeded() async {
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool(_migrationPrefsKey) ?? false) return;
@@ -128,6 +140,9 @@ class ShotlyLocalStore implements LocalStore {
     }
     for (final entry in _decodeStringMap(prefs.getString(_setMemosPrefsKey)).entries) {
       await _db.customStatement('INSERT OR REPLACE INTO set_memos(set_key, memo, updated_at) VALUES (?, ?, ?)', [entry.key, entry.value, now]);
+    }
+    for (final entry in _decodeStringMap(prefs.getString(_setAssignmentsPrefsKey)).entries) {
+      await _db.customStatement('INSERT OR REPLACE INTO set_assignments(image_id, set_key, updated_at) VALUES (?, ?, ?)', [entry.key, entry.value, now]);
     }
     for (final stackKey in prefs.getStringList(_hiddenStacksPrefsKey) ?? const <String>[]) {
       await _db.customStatement('INSERT OR IGNORE INTO hidden_stacks(stack_key, created_at) VALUES (?, ?)', [stackKey, now]);
@@ -183,6 +198,13 @@ class ShotlyDatabase extends GeneratedDatabase {
       CREATE TABLE IF NOT EXISTS set_memos (
         set_key TEXT PRIMARY KEY NOT NULL,
         memo TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS set_assignments (
+        image_id TEXT PRIMARY KEY NOT NULL,
+        set_key TEXT NOT NULL,
         updated_at INTEGER NOT NULL
       )
     ''');

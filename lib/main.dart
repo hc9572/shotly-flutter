@@ -162,6 +162,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   final Map<String, String> _stackNames = {};
   final Map<String, String> _imageAssignments = {};
   final Map<String, String> _setMemos = {};
+  final Map<String, String> _setAssignments = {};
   final Map<String, VisualFeature> _visualFeatures = {};
   final Set<String> _hiddenStackKeys = {};
   final Set<String> _excludedImageIds = {};
@@ -202,6 +203,9 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
       _setMemos
         ..clear()
         ..addAll(state.setMemos);
+      _setAssignments
+        ..clear()
+        ..addAll(state.setAssignments);
       _hiddenStackKeys
         ..clear()
         ..addAll(state.hiddenStackKeys);
@@ -236,7 +240,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
     }
   }
 
-  List<ScreenshotItem> get _filteredScreenshots {
+  List<ScreenshotItem> get _calendarScreenshots {
     Iterable<ScreenshotItem> items = _screenshots.where((item) => !_excludedImageIds.contains(item.id));
     if (_query.trim().isNotEmpty) {
       items = items.where((item) => item.matches(_query.trim()));
@@ -244,9 +248,12 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
     return items.toList();
   }
 
+  List<ScreenshotItem> get _filteredScreenshots => _calendarScreenshots;
+
   List<StackItem> get _stacks {
+    final q = _query.trim();
     final grouped = <String, List<ScreenshotItem>>{};
-    for (final item in _filteredScreenshots) {
+    for (final item in _screenshots.where((item) => !_excludedImageIds.contains(item.id))) {
       final stackKey = _stackKeyFor(item);
       if (_hiddenStackKeys.contains(stackKey)) continue;
       grouped.putIfAbsent(stackKey, () => []).add(item);
@@ -257,9 +264,10 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
               name: _stackNames[entry.key] ?? entry.key,
               items: entry.value..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis)),
             ))
+        .where((stack) => q.isEmpty || _stackMatchesQuery(stack, q))
         .toList();
     for (final name in _manualStackNames) {
-      final matchesQuery = _query.trim().isEmpty || name.toLowerCase().contains(_query.trim().toLowerCase());
+      final matchesQuery = q.isEmpty || _textMatches(name, q) || _textMatches(_stackNames[name] ?? '', q);
       if (matchesQuery && !grouped.containsKey(name) && !_hiddenStackKeys.contains(name)) {
         stacks.add(StackItem(key: name, name: _stackNames[name] ?? name, items: const []));
       }
@@ -342,6 +350,10 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
         if (mounted) _showSnack('웹 미리보기에서는 앨범 열기를 지원하지 않아요. Android 앱에서 동작해.');
         return;
       }
+      if (_screenshots.any((item) => item.id == image.id || item.thumbnailPath == image.thumbnailPath)) {
+        if (mounted) _showSnack('이미 추가된 이미지예요. 중복 추가하지 않았어.');
+        return;
+      }
       setState(() {
         _screenshots = [image, ..._screenshots]..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
       });
@@ -393,6 +405,20 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
     await _localStore.saveSetMemo(setKey, memo);
   }
 
+  Future<void> _assignImageToSet(String imageId, String setKey) async {
+    setState(() => _setAssignments[imageId] = setKey);
+    await _localStore.assignImageToSet(imageId, setKey);
+  }
+
+  bool _stackMatchesQuery(StackItem stack, String query) {
+    if (_textMatches(stack.name, query) || _textMatches(stack.key, query)) return true;
+    if (stack.items.any((item) => item.matches(query))) return true;
+    final sets = _buildScreenshotSets(stack.key, stack.items, _setMemos, _setAssignments);
+    return sets.any((set) => _textMatches(set.memo, query) || _textMatches(set.timeRange, query) || _textMatches(_formatSetDate(set.items.first.date), query));
+  }
+
+  bool _textMatches(String text, String query) => text.toLowerCase().contains(query.toLowerCase());
+
   Future<void> _showAddMenu() async {
     final action = await showModalBottomSheet<String>(
       context: context,
@@ -419,7 +445,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredScreenshots = _filteredScreenshots..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
+    final filteredScreenshots = (_isCalendarView ? _calendarScreenshots : _filteredScreenshots)..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
     final stacks = _stacks;
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
@@ -493,12 +519,14 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
                                       allStackKeys: _stacks.map((item) => item.key).toList(),
                                       stackNames: _stackNames,
                                       setMemos: _setMemos,
+                                      setAssignments: _setAssignments,
                                       visualFeatures: _visualFeatures,
                                       onRenameStack: _renameStack,
                                       onHideStack: _hideStack,
                                       onExcludeImage: _excludeImage,
                                       onMoveImage: _moveImage,
                                       onSaveSetMemo: _saveSetMemo,
+                                      onAssignImageToSet: _assignImageToSet,
                                     ),
                                   )),
                             ],
@@ -730,24 +758,28 @@ class _StackCard extends StatelessWidget {
     required this.allStackKeys,
     required this.stackNames,
     required this.setMemos,
+    required this.setAssignments,
     required this.visualFeatures,
     required this.onRenameStack,
     required this.onHideStack,
     required this.onExcludeImage,
     required this.onMoveImage,
     required this.onSaveSetMemo,
+    required this.onAssignImageToSet,
   });
 
   final StackItem stack;
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
   final Map<String, String> setMemos;
+  final Map<String, String> setAssignments;
   final Map<String, VisualFeature> visualFeatures;
   final Future<void> Function(String stackKey, String name) onRenameStack;
   final Future<void> Function(String stackKey) onHideStack;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
   final Future<void> Function(String setKey, String memo) onSaveSetMemo;
+  final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
 
   @override
   Widget build(BuildContext context) {
@@ -758,12 +790,14 @@ class _StackCard extends StatelessWidget {
           allStackKeys: allStackKeys,
           stackNames: stackNames,
           setMemos: setMemos,
+          setAssignments: setAssignments,
           visualFeatures: visualFeatures,
           onRenameStack: onRenameStack,
           onHideStack: onHideStack,
           onExcludeImage: onExcludeImage,
           onMoveImage: onMoveImage,
           onSaveSetMemo: onSaveSetMemo,
+          onAssignImageToSet: onAssignImageToSet,
         ),
       )),
       borderRadius: BorderRadius.circular(12),
@@ -963,24 +997,28 @@ class StackDetailScreen extends StatefulWidget {
     required this.allStackKeys,
     required this.stackNames,
     required this.setMemos,
+    required this.setAssignments,
     required this.visualFeatures,
     required this.onRenameStack,
     required this.onHideStack,
     required this.onExcludeImage,
     required this.onMoveImage,
     required this.onSaveSetMemo,
+    required this.onAssignImageToSet,
   });
 
   final StackItem stack;
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
   final Map<String, String> setMemos;
+  final Map<String, String> setAssignments;
   final Map<String, VisualFeature> visualFeatures;
   final Future<void> Function(String stackKey, String name) onRenameStack;
   final Future<void> Function(String stackKey) onHideStack;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
   final Future<void> Function(String setKey, String memo) onSaveSetMemo;
+  final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
 
   @override
   State<StackDetailScreen> createState() => _StackDetailScreenState();
@@ -991,7 +1029,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final sets = _buildScreenshotSets(widget.stack.key, widget.stack.items, widget.setMemos);
+    final sets = _buildScreenshotSets(widget.stack.key, widget.stack.items, widget.setMemos, widget.setAssignments);
     final similarGroups = _buildSimilarGroups(widget.stack.items, widget.visualFeatures);
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
@@ -1067,6 +1105,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                     onExcludeImage: widget.onExcludeImage,
                     onMoveImage: widget.onMoveImage,
                     onSaveMemo: widget.onSaveSetMemo,
+                    onAssignImageToSet: widget.onAssignImageToSet,
                   );
                 },
               ),
@@ -1156,6 +1195,7 @@ class _SetDateSection extends StatelessWidget {
     required this.onExcludeImage,
     required this.onMoveImage,
     required this.onSaveMemo,
+    required this.onAssignImageToSet,
   });
 
   final String dateLabel;
@@ -1165,6 +1205,7 @@ class _SetDateSection extends StatelessWidget {
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
   final Future<void> Function(String setKey, String memo) onSaveMemo;
+  final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
 
   @override
   Widget build(BuildContext context) {
@@ -1184,6 +1225,8 @@ class _SetDateSection extends StatelessWidget {
             onExcludeImage: onExcludeImage,
             onMoveImage: onMoveImage,
             onSaveMemo: onSaveMemo,
+            onAssignImageToSet: onAssignImageToSet,
+            mergeTarget: index < sets.length - 1 ? sets[index + 1] : null,
           ),
           if (index != sets.length - 1) const SizedBox(height: 28),
         ],
@@ -1200,6 +1243,8 @@ class _SetSection extends StatefulWidget {
     required this.onExcludeImage,
     required this.onMoveImage,
     required this.onSaveMemo,
+    required this.onAssignImageToSet,
+    this.mergeTarget,
   });
 
   final ScreenshotSet set;
@@ -1208,6 +1253,8 @@ class _SetSection extends StatefulWidget {
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
   final Future<void> Function(String setKey, String memo) onSaveMemo;
+  final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
+  final ScreenshotSet? mergeTarget;
 
   @override
   State<_SetSection> createState() => _SetSectionState();
@@ -1238,11 +1285,80 @@ class _SetSectionState extends State<_SetSection> {
       stackNames: widget.stackNames,
       onExcludeImage: widget.onExcludeImage,
       onMoveImage: widget.onMoveImage,
+      onSetAction: () => _showSetActions(context),
       onEditMemo: () async {
         final memo = await _editMemo(context);
         if (memo != null) await widget.onSaveMemo(widget.set.key, memo.trim());
       },
     );
+  }
+
+  Future<void> _showSetActions(BuildContext context) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 38, height: 4, decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(99))),
+              const SizedBox(height: 12),
+              if (widget.mergeTarget != null) _AddMenuTile(icon: Icons.call_merge_rounded, title: '아래 Set과 합치기', onTap: () => Navigator.of(context).pop('merge')),
+              if (widget.set.items.length > 1) _AddMenuTile(icon: Icons.call_split_rounded, title: '이미지 하나를 새 Set으로 분리', onTap: () => Navigator.of(context).pop('split')),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (action == 'merge' && widget.mergeTarget != null) {
+      for (final item in widget.mergeTarget!.items) {
+        await widget.onAssignImageToSet(item.id, widget.set.key);
+      }
+    }
+    if (action == 'split' && context.mounted) await _splitOneImage(context);
+  }
+
+  Future<void> _splitOneImage(BuildContext context) async {
+    final image = await showModalBottomSheet<ScreenshotItem>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(width: 38, height: 4, decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(99))),
+              const SizedBox(height: 16),
+              Text('새 Set으로 분리할 이미지', style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 96,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: widget.set.items.length,
+                  separatorBuilder: (_, index) => const SizedBox(width: 10),
+                  itemBuilder: (context, index) {
+                    final item = widget.set.items[index];
+                    return InkWell(
+                      onTap: () => Navigator.of(context).pop(item),
+                      borderRadius: BorderRadius.circular(12),
+                      child: SizedBox(width: 72, child: _Thumb(path: item.thumbnailPath, radius: 12, borderColor: Colors.transparent)),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (image != null) await widget.onAssignImageToSet(image.id, '${widget.set.key}::split::${image.id}');
   }
 
   Future<String?> _editMemo(BuildContext context) async {
@@ -1279,6 +1395,7 @@ class _ImageGridSection extends StatelessWidget {
     required this.stackNames,
     required this.onExcludeImage,
     required this.onMoveImage,
+    this.onSetAction,
     this.onEditMemo,
   });
 
@@ -1290,6 +1407,7 @@ class _ImageGridSection extends StatelessWidget {
   final Map<String, String> stackNames;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
+  final VoidCallback? onSetAction;
   final VoidCallback? onEditMemo;
 
   @override
@@ -1306,7 +1424,19 @@ class _ImageGridSection extends StatelessWidget {
                 Text(subtitle!, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xFF727785))),
                 const SizedBox(height: 2),
               ],
-              Text(title, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF1A1C1C))),
+              Row(
+                children: [
+                  Expanded(child: Text(title, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF1A1C1C)))),
+                  if (onSetAction != null)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      icon: const Icon(Icons.more_horiz_rounded, size: 18, color: Color(0xFF727785)),
+                      onPressed: onSetAction,
+                    ),
+                ],
+              ),
               if (memoText != null) ...[
                 const SizedBox(height: 4),
                 InkWell(
@@ -1469,15 +1599,26 @@ List<_SetDateGroup> _groupSetsByDate(List<ScreenshotSet> sets) {
   return grouped.entries.map((entry) => _SetDateGroup(dateLabel: entry.key, sets: entry.value)).toList();
 }
 
-List<ScreenshotSet> _buildScreenshotSets(String stackKey, List<ScreenshotItem> items, Map<String, String> setMemos) {
+List<ScreenshotSet> _buildScreenshotSets(String stackKey, List<ScreenshotItem> items, Map<String, String> setMemos, [Map<String, String> setAssignments = const {}]) {
   if (items.isEmpty) return const [];
   final sorted = [...items]..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
-  final sets = <List<ScreenshotItem>>[];
+  final manualGroups = <String, List<ScreenshotItem>>{};
+  final autoItems = <ScreenshotItem>[];
+  for (final item in sorted) {
+    final manualKey = setAssignments[item.id];
+    if (manualKey == null) {
+      autoItems.add(item);
+    } else {
+      manualGroups.putIfAbsent(manualKey, () => []).add(item);
+    }
+  }
+
+  final keyedSets = <MapEntry<String?, List<ScreenshotItem>>>[];
   var current = <ScreenshotItem>[];
   var firstTime = 0;
   const oneHourMillis = 60 * 60 * 1000;
 
-  for (final item in sorted) {
+  for (final item in autoItems) {
     if (current.isEmpty) {
       current = [item];
       firstTime = item.dateTakenMillis;
@@ -1488,17 +1629,21 @@ List<ScreenshotSet> _buildScreenshotSets(String stackKey, List<ScreenshotItem> i
     if (withinOneHour && sameDay) {
       current.add(item);
     } else {
-      sets.add(current);
+      keyedSets.add(MapEntry(null, current));
       current = [item];
       firstTime = item.dateTakenMillis;
     }
   }
-  if (current.isNotEmpty) sets.add(current);
+  if (current.isNotEmpty) keyedSets.add(MapEntry(null, current));
+  keyedSets.addAll(manualGroups.entries.map((entry) => MapEntry(entry.key, entry.value)));
 
-  return sets.map((setItems) {
-    final key = _buildSetKey(stackKey, setItems);
+  final sets = keyedSets.map((entry) {
+    final setItems = [...entry.value]..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
+    final key = entry.key ?? _buildSetKey(stackKey, setItems);
     return ScreenshotSet(key: key, title: _formatSetTitle(setItems.first.date), timeRange: _formatTimeRange(setItems), items: setItems, memo: setMemos[key] ?? '');
   }).toList();
+  sets.sort((a, b) => b.items.first.dateTakenMillis.compareTo(a.items.first.dateTakenMillis));
+  return sets;
 }
 
 
