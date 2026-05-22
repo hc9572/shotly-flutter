@@ -1,11 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import 'local_store.dart';
 import 'mock_data.dart';
 
 void main() {
@@ -156,14 +154,8 @@ class ShotlyHomeScreen extends StatefulWidget {
 }
 
 class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
-  static const _manualStacksPrefsKey = 'shotly.manualStacks';
-  static const _stackNamesPrefsKey = 'shotly.stackNames';
-  static const _hiddenStacksPrefsKey = 'shotly.hiddenStacks';
-  static const _excludedImagesPrefsKey = 'shotly.excludedImages';
-  static const _imageAssignmentsPrefsKey = 'shotly.imageAssignments';
-  static const _setMemosPrefsKey = 'shotly.setMemos';
-
   final _searchController = TextEditingController();
+  final _localStore = ShotlyLocalStore();
   List<ScreenshotItem> _screenshots = const [];
   final List<String> _manualStackNames = [];
   final Map<String, String> _stackNames = {};
@@ -193,47 +185,28 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   }
 
   Future<void> _restoreLocalState() async {
-    final prefs = await SharedPreferences.getInstance();
-    final names = prefs.getStringList(_manualStacksPrefsKey) ?? const [];
+    final state = await _localStore.load();
     if (!mounted) return;
     setState(() {
       _manualStackNames
         ..clear()
-        ..addAll(names);
+        ..addAll(state.manualStackNames);
       _stackNames
         ..clear()
-        ..addAll(_decodeStringMap(prefs.getString(_stackNamesPrefsKey)));
+        ..addAll(state.stackNames);
       _imageAssignments
         ..clear()
-        ..addAll(_decodeStringMap(prefs.getString(_imageAssignmentsPrefsKey)));
+        ..addAll(state.imageAssignments);
       _setMemos
         ..clear()
-        ..addAll(_decodeStringMap(prefs.getString(_setMemosPrefsKey)));
+        ..addAll(state.setMemos);
       _hiddenStackKeys
         ..clear()
-        ..addAll(prefs.getStringList(_hiddenStacksPrefsKey) ?? const []);
+        ..addAll(state.hiddenStackKeys);
       _excludedImageIds
         ..clear()
-        ..addAll(prefs.getStringList(_excludedImagesPrefsKey) ?? const []);
+        ..addAll(state.excludedImageIds);
     });
-  }
-
-  Future<void> _saveLocalState() async {
-    final prefs = await SharedPreferences.getInstance();
-    await Future.wait([
-      prefs.setStringList(_manualStacksPrefsKey, _manualStackNames),
-      prefs.setString(_stackNamesPrefsKey, jsonEncode(_stackNames)),
-      prefs.setString(_imageAssignmentsPrefsKey, jsonEncode(_imageAssignments)),
-      prefs.setString(_setMemosPrefsKey, jsonEncode(_setMemos)),
-      prefs.setStringList(_hiddenStacksPrefsKey, _hiddenStackKeys.toList()),
-      prefs.setStringList(_excludedImagesPrefsKey, _excludedImageIds.toList()),
-    ]);
-  }
-
-  Map<String, String> _decodeStringMap(String? raw) {
-    if (raw == null || raw.isEmpty) return {};
-    final decoded = jsonDecode(raw) as Map<String, dynamic>;
-    return decoded.map((key, value) => MapEntry(key, '$value'));
   }
 
   Future<void> _load() async {
@@ -324,7 +297,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
     setState(() {
       if (!_manualStackNames.contains(trimmed)) _manualStackNames.add(trimmed);
     });
-    await _saveLocalState();
+    await _localStore.upsertManualStack(trimmed);
   }
 
   Future<void> _pickImageFromAlbum() async {
@@ -347,18 +320,19 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   }
 
   Future<void> _renameStack(String stackKey, String name) async {
-    setState(() => _stackNames[stackKey] = name.trim().isEmpty ? stackKey : name.trim());
-    await _saveLocalState();
+    final trimmed = name.trim().isEmpty ? stackKey : name.trim();
+    setState(() => _stackNames[stackKey] = trimmed);
+    await _localStore.renameStack(stackKey, trimmed);
   }
 
   Future<void> _hideStack(String stackKey) async {
     setState(() => _hiddenStackKeys.add(stackKey));
-    await _saveLocalState();
+    await _localStore.hideStack(stackKey);
   }
 
   Future<void> _excludeImage(String imageId) async {
     setState(() => _excludedImageIds.add(imageId));
-    await _saveLocalState();
+    await _localStore.excludeImage(imageId);
   }
 
   Future<void> _moveImage(String imageId, String stackKey) async {
@@ -366,12 +340,12 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
     if (!_manualStackNames.contains(stackKey) && !_stacks.any((stack) => stack.key == stackKey)) {
       _manualStackNames.add(stackKey);
     }
-    await _saveLocalState();
+    await _localStore.moveImage(imageId, stackKey);
   }
 
   Future<void> _saveSetMemo(String setKey, String memo) async {
     setState(() => _setMemos[setKey] = memo);
-    await _saveLocalState();
+    await _localStore.saveSetMemo(setKey, memo);
   }
 
   Future<void> _showAddMenu() async {

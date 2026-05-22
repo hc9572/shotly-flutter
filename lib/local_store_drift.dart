@@ -1,0 +1,209 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
+import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'local_store_models.dart';
+
+class ShotlyLocalStore implements LocalStore {
+  ShotlyLocalStore() : _db = ShotlyDatabase(_openConnection());
+
+  static const _manualStacksPrefsKey = 'shotly.manualStacks';
+  static const _stackNamesPrefsKey = 'shotly.stackNames';
+  static const _hiddenStacksPrefsKey = 'shotly.hiddenStacks';
+  static const _excludedImagesPrefsKey = 'shotly.excludedImages';
+  static const _imageAssignmentsPrefsKey = 'shotly.imageAssignments';
+  static const _setMemosPrefsKey = 'shotly.setMemos';
+  static const _migrationPrefsKey = 'shotly.driftMigration.v1';
+
+  final ShotlyDatabase _db;
+
+  @override
+  Future<LocalShotlyState> load() async {
+    await _db.ensureOpen();
+    await _migrateSharedPreferencesIfNeeded();
+
+    final manualStacks = await _db.customSelect('SELECT name FROM manual_stacks ORDER BY created_at ASC').get();
+    final stackRows = await _db.customSelect('SELECT stack_key, name FROM stack_customizations').get();
+    final assignmentRows = await _db.customSelect('SELECT image_id, stack_key FROM image_assignments').get();
+    final memoRows = await _db.customSelect('SELECT set_key, memo FROM set_memos').get();
+    final hiddenRows = await _db.customSelect('SELECT stack_key FROM hidden_stacks').get();
+    final excludedRows = await _db.customSelect('SELECT image_id FROM excluded_images').get();
+
+    return LocalShotlyState(
+      manualStackNames: [for (final row in manualStacks) row.read<String>('name')],
+      stackNames: {for (final row in stackRows) row.read<String>('stack_key'): row.read<String>('name')},
+      imageAssignments: {for (final row in assignmentRows) row.read<String>('image_id'): row.read<String>('stack_key')},
+      setMemos: {for (final row in memoRows) row.read<String>('set_key'): row.read<String>('memo')},
+      hiddenStackKeys: {for (final row in hiddenRows) row.read<String>('stack_key')},
+      excludedImageIds: {for (final row in excludedRows) row.read<String>('image_id')},
+    );
+  }
+
+  @override
+  Future<void> upsertManualStack(String name) async {
+    await _db.ensureOpen();
+    await _db.customStatement(
+      'INSERT OR IGNORE INTO manual_stacks(name, created_at) VALUES (?, ?)',
+      [name, DateTime.now().millisecondsSinceEpoch],
+    );
+  }
+
+  @override
+  Future<void> renameStack(String stackKey, String name) async {
+    await _db.ensureOpen();
+    await _db.customStatement(
+      'INSERT OR REPLACE INTO stack_customizations(stack_key, name, updated_at) VALUES (?, ?, ?)',
+      [stackKey, name, DateTime.now().millisecondsSinceEpoch],
+    );
+  }
+
+  @override
+  Future<void> hideStack(String stackKey) async {
+    await _db.ensureOpen();
+    await _db.customStatement(
+      'INSERT OR IGNORE INTO hidden_stacks(stack_key, created_at) VALUES (?, ?)',
+      [stackKey, DateTime.now().millisecondsSinceEpoch],
+    );
+  }
+
+  @override
+  Future<void> excludeImage(String imageId) async {
+    await _db.ensureOpen();
+    await _db.customStatement(
+      'INSERT OR IGNORE INTO excluded_images(image_id, created_at) VALUES (?, ?)',
+      [imageId, DateTime.now().millisecondsSinceEpoch],
+    );
+  }
+
+  @override
+  Future<void> moveImage(String imageId, String stackKey) async {
+    await _db.ensureOpen();
+    await _db.customStatement(
+      'INSERT OR REPLACE INTO image_assignments(image_id, stack_key, updated_at) VALUES (?, ?, ?)',
+      [imageId, stackKey, DateTime.now().millisecondsSinceEpoch],
+    );
+    await upsertManualStack(stackKey);
+  }
+
+  @override
+  Future<void> saveSetMemo(String setKey, String memo) async {
+    await _db.ensureOpen();
+    await _db.customStatement(
+      'INSERT OR REPLACE INTO set_memos(set_key, memo, updated_at) VALUES (?, ?, ?)',
+      [setKey, memo, DateTime.now().millisecondsSinceEpoch],
+    );
+  }
+
+  Future<void> _migrateSharedPreferencesIfNeeded() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_migrationPrefsKey) ?? false) return;
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final manualStacks = prefs.getStringList(_manualStacksPrefsKey) ?? const [];
+    for (final name in manualStacks) {
+      await _db.customStatement('INSERT OR IGNORE INTO manual_stacks(name, created_at) VALUES (?, ?)', [name, now]);
+    }
+
+    for (final entry in _decodeStringMap(prefs.getString(_stackNamesPrefsKey)).entries) {
+      await _db.customStatement('INSERT OR REPLACE INTO stack_customizations(stack_key, name, updated_at) VALUES (?, ?, ?)', [entry.key, entry.value, now]);
+    }
+    for (final entry in _decodeStringMap(prefs.getString(_imageAssignmentsPrefsKey)).entries) {
+      await _db.customStatement('INSERT OR REPLACE INTO image_assignments(image_id, stack_key, updated_at) VALUES (?, ?, ?)', [entry.key, entry.value, now]);
+    }
+    for (final entry in _decodeStringMap(prefs.getString(_setMemosPrefsKey)).entries) {
+      await _db.customStatement('INSERT OR REPLACE INTO set_memos(set_key, memo, updated_at) VALUES (?, ?, ?)', [entry.key, entry.value, now]);
+    }
+    for (final stackKey in prefs.getStringList(_hiddenStacksPrefsKey) ?? const <String>[]) {
+      await _db.customStatement('INSERT OR IGNORE INTO hidden_stacks(stack_key, created_at) VALUES (?, ?)', [stackKey, now]);
+    }
+    for (final imageId in prefs.getStringList(_excludedImagesPrefsKey) ?? const <String>[]) {
+      await _db.customStatement('INSERT OR IGNORE INTO excluded_images(image_id, created_at) VALUES (?, ?)', [imageId, now]);
+    }
+
+    await prefs.setBool(_migrationPrefsKey, true);
+  }
+
+  static Map<String, String> _decodeStringMap(String? raw) {
+    if (raw == null || raw.isEmpty) return {};
+    final decoded = jsonDecode(raw) as Map<String, dynamic>;
+    return decoded.map((key, value) => MapEntry(key, '$value'));
+  }
+}
+
+class ShotlyDatabase extends GeneratedDatabase {
+  ShotlyDatabase(super.e);
+
+  bool _opened = false;
+
+  @override
+  int get schemaVersion => 1;
+
+  @override
+  Iterable<TableInfo<Table, Object?>> get allTables => const [];
+
+  Future<void> ensureOpen() async {
+    if (_opened) return;
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS manual_stacks (
+        name TEXT PRIMARY KEY NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS stack_customizations (
+        stack_key TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS image_assignments (
+        image_id TEXT PRIMARY KEY NOT NULL,
+        stack_key TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS set_memos (
+        set_key TEXT PRIMARY KEY NOT NULL,
+        memo TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS hidden_stacks (
+        stack_key TEXT PRIMARY KEY NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS excluded_images (
+        image_id TEXT PRIMARY KEY NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    _opened = true;
+  }
+}
+
+LazyDatabase _openConnection() {
+  return LazyDatabase(() async {
+    final dir = await _databaseDirectory();
+    if (!await dir.exists()) await dir.create(recursive: true);
+    final file = File(p.join(dir.path, 'shotly.sqlite'));
+    return NativeDatabase.createInBackground(file);
+  });
+}
+
+Future<Directory> _databaseDirectory() async {
+  final override = Platform.environment['SHOTLY_DB_DIR'];
+  if (override != null && override.isNotEmpty) return Directory(override);
+  if (Platform.isAndroid) return Directory('/data/data/com.shotly.shotly_app/files');
+  final home = Platform.environment['HOME'];
+  if (home != null && home.isNotEmpty) return Directory(p.join(home, 'Documents'));
+  return Directory.systemTemp;
+}
