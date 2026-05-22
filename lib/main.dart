@@ -31,13 +31,17 @@ class ShotlyApp extends StatelessWidget {
           outline: const Color(0xFF727785),
         ),
         textTheme: const TextTheme(
-          headlineLarge: TextStyle(fontSize: 28, height: 1.21, fontWeight: FontWeight.w700, letterSpacing: -0.56),
-          headlineMedium: TextStyle(fontSize: 22, height: 1.27, fontWeight: FontWeight.w600, letterSpacing: -0.22),
-          titleLarge: TextStyle(fontSize: 22, height: 1.25, fontWeight: FontWeight.w700),
-          titleMedium: TextStyle(fontSize: 18, height: 1.3, fontWeight: FontWeight.w600),
-          bodyLarge: TextStyle(fontSize: 16, height: 1.45, fontWeight: FontWeight.w400),
-          bodyMedium: TextStyle(fontSize: 15, height: 1.45, fontWeight: FontWeight.w400),
-          bodySmall: TextStyle(fontSize: 13, height: 1.35, fontWeight: FontWeight.w400),
+          headlineLarge: TextStyle(fontSize: 28, height: 34 / 28, fontWeight: FontWeight.w700, letterSpacing: -0.56),
+          headlineMedium: TextStyle(fontSize: 22, height: 28 / 22, fontWeight: FontWeight.w600, letterSpacing: -0.22),
+          headlineSmall: TextStyle(fontSize: 18, height: 24 / 18, fontWeight: FontWeight.w600),
+          titleLarge: TextStyle(fontSize: 22, height: 28 / 22, fontWeight: FontWeight.w600, letterSpacing: -0.22),
+          titleMedium: TextStyle(fontSize: 18, height: 24 / 18, fontWeight: FontWeight.w600),
+          bodyLarge: TextStyle(fontSize: 16, height: 24 / 16, fontWeight: FontWeight.w400),
+          bodyMedium: TextStyle(fontSize: 14, height: 20 / 14, fontWeight: FontWeight.w400),
+          bodySmall: TextStyle(fontSize: 12, height: 16 / 12, fontWeight: FontWeight.w500),
+          labelLarge: TextStyle(fontSize: 14, height: 18 / 14, fontWeight: FontWeight.w600, letterSpacing: 0.14),
+          labelMedium: TextStyle(fontSize: 12, height: 16 / 12, fontWeight: FontWeight.w500),
+          labelSmall: TextStyle(fontSize: 11, height: 14 / 11, fontWeight: FontWeight.w500, letterSpacing: 0.33),
         ).apply(
           bodyColor: const Color(0xFF1A1C1C),
           displayColor: const Color(0xFF1A1C1C),
@@ -354,7 +358,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
                             if (_isCalendarView) ...[
                               Text(
                                 '${filteredScreenshots.length}개 스크린샷 · 최신순',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785), fontSize: 13, fontWeight: FontWeight.w400, letterSpacing: 0.05),
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785)),
                               ),
                               const SizedBox(height: 18),
                               if (_screenshots.isEmpty) const _EmptyState()
@@ -491,7 +495,7 @@ class _SummarySortRow extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: Text(
                 '$screenshotCount개 스크린샷 · $stackCount개 Stack',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785), fontSize: 13, fontWeight: FontWeight.w400, letterSpacing: 0.05),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785)),
               ),
             ),
           ),
@@ -511,7 +515,7 @@ class _SummarySortRow extends StatelessWidget {
               ),
               style: TextButton.styleFrom(
                 foregroundColor: const Color(0xFF111111),
-                textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0),
+                textStyle: Theme.of(context).textTheme.labelLarge,
                 padding: EdgeInsets.zero,
                 minimumSize: const Size(0, 22),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -560,7 +564,7 @@ class _SortDropdown extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 child: Row(
                   children: [
-                    Expanded(child: Text(item.$2, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF111111), fontSize: 14, fontWeight: FontWeight.w500))),
+                    Expanded(child: Text(item.$2, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF111111)))),
                     if (isSelected) const Icon(Icons.check_rounded, color: Color(0xFF0058BE), size: 18),
                   ],
                 ),
@@ -627,10 +631,9 @@ class _StackCard extends StatelessWidget {
                         stack.name,
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontSize: 18,
-                              height: 23 / 18,
+                              height: 24 / 18,
                               color: const Color(0xFF1A1C1C),
                               fontWeight: FontWeight.w600,
-                              letterSpacing: -0.18,
                             ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -643,7 +646,6 @@ class _StackCard extends StatelessWidget {
                               fontSize: 12,
                               height: 16 / 12,
                               fontWeight: FontWeight.w500,
-                              letterSpacing: 0,
                             ),
                       ),
                     ],
@@ -728,13 +730,7 @@ class _BottomNavItem extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: color,
-                    fontSize: 11,
-                    height: 14 / 11,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.22,
-                  ),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
             ),
           ],
         ),
@@ -770,14 +766,14 @@ class _CalendarTimelineView extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: const Color(0xFF1A1C1C),
                         fontSize: 18,
+                        height: 24 / 18,
                         fontWeight: FontWeight.w600,
-                        letterSpacing: -0.1,
                       ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   '${grouped[date]!.length} images',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF424754), fontSize: 12, fontWeight: FontWeight.w500),
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xFF424754)),
                 ),
               ],
             ),
@@ -874,12 +870,12 @@ class _SetSection extends StatelessWidget {
         children: [
           Text(
             set.title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: -0.1),
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: const Color(0xFF1A1C1C)),
           ),
           const SizedBox(height: 3),
           Text(
             '${set.items.length} images · ${set.timeRange}',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF424754), fontSize: 12, fontWeight: FontWeight.w500),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xFF424754)),
           ),
           const SizedBox(height: 12),
           GridView.builder(
@@ -926,7 +922,7 @@ class _AddMenuTile extends StatelessWidget {
     return ListTile(
       onTap: onTap,
       leading: Icon(icon, color: const Color(0xFF111111)),
-      title: Text(title, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+      title: Text(title, style: Theme.of(context).textTheme.labelLarge),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     );
   }
