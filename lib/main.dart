@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'mock_data.dart';
 
@@ -146,6 +147,8 @@ class ShotlyHomeScreen extends StatefulWidget {
 }
 
 class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
+  static const _manualStacksPrefsKey = 'shotly.manualStacks';
+
   final _searchController = TextEditingController();
   List<ScreenshotItem> _screenshots = const [];
   final List<String> _manualStackNames = [];
@@ -160,6 +163,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(_restoreLocalState());
     unawaited(_load());
   }
 
@@ -167,6 +171,22 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _restoreLocalState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final names = prefs.getStringList(_manualStacksPrefsKey) ?? const [];
+    if (!mounted) return;
+    setState(() {
+      _manualStackNames
+        ..clear()
+        ..addAll(names);
+    });
+  }
+
+  Future<void> _saveManualStacks() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_manualStacksPrefsKey, _manualStackNames);
   }
 
   Future<void> _load() async {
@@ -251,6 +271,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
     setState(() {
       if (!_manualStackNames.contains(trimmed)) _manualStackNames.add(trimmed);
     });
+    await _saveManualStacks();
   }
 
   Future<void> _pickImageFromAlbum() async {
