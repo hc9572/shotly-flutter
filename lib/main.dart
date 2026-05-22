@@ -316,25 +316,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
 
 
   Future<void> _showCreateStackDialog() async {
-    final controller = TextEditingController();
-    final name = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('Stack 추가'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: 'Stack 이름'),
-          onSubmitted: (value) => Navigator.of(context).pop(value),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('취소')),
-          TextButton(onPressed: () => Navigator.of(context).pop(controller.text), child: const Text('추가')),
-        ],
-      ),
-    );
-    controller.dispose();
+    final name = await _showShotlyTextDialog(context: context, title: 'Stack 추가', hintText: 'Stack 이름', primaryLabel: '추가');
     final trimmed = name?.trim();
     if (trimmed == null || trimmed.isEmpty) return;
     setState(() {
@@ -1046,20 +1028,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                       children: [
                         IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF424754))),
                         const Spacer(),
-                        PopupMenuButton<String>(
-                          icon: const Icon(Icons.more_horiz_rounded, color: Color(0xFF424754)),
-                          onSelected: (value) async {
-                            if (value == 'rename') await _renameStack(context);
-                            if (value == 'hide') {
-                              await widget.onHideStack(widget.stack.key);
-                              if (context.mounted) Navigator.of(context).pop();
-                            }
-                          },
-                          itemBuilder: (context) => const [
-                            PopupMenuItem(value: 'rename', child: Text('Stack 이름 수정')),
-                            PopupMenuItem(value: 'hide', child: Text('Stack 숨기기')),
-                          ],
-                        ),
+                        IconButton(onPressed: () => _showStackActions(context), icon: const Icon(Icons.more_horiz_rounded, color: Color(0xFF424754))),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -1117,23 +1086,26 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   }
 
   Future<void> _renameStack(BuildContext context) async {
-    final controller = TextEditingController(text: widget.stack.name);
-    final name = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('Stack 이름 수정'),
-        content: TextField(controller: controller, autofocus: true),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('취소')),
-          TextButton(onPressed: () => Navigator.of(context).pop(controller.text), child: const Text('저장')),
-        ],
-      ),
-    );
-    controller.dispose();
+    final name = await _showShotlyTextDialog(context: context, title: 'Stack 이름 수정', initialValue: widget.stack.name, hintText: 'Stack 이름', primaryLabel: '저장');
     if (name == null) return;
     await widget.onRenameStack(widget.stack.key, name);
     if (mounted) setState(() {});
+  }
+
+  Future<void> _showStackActions(BuildContext context) async {
+    final action = await _showShotlyActionSheet<String>(
+      context,
+      items: const [
+        _ShotlyActionItem(value: 'rename', icon: Icons.edit_outlined, title: 'Stack 이름 수정'),
+        _ShotlyActionItem(value: 'hide', icon: Icons.visibility_off_outlined, title: 'Stack 숨기기'),
+      ],
+    );
+    if (!context.mounted) return;
+    if (action == 'rename') await _renameStack(context);
+    if (action == 'hide') {
+      await widget.onHideStack(widget.stack.key);
+      if (context.mounted) Navigator.of(context).pop();
+    }
   }
 }
 
@@ -1362,26 +1334,17 @@ class _SetSectionState extends State<_SetSection> {
   }
 
   Future<String?> _editMemo(BuildContext context) async {
-    _memoController.text = widget.set.memo;
-    return showDialog<String>(
+    final value = await _showShotlyTextDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('Set 메모'),
-        content: TextField(
-          controller: _memoController,
-          autofocus: true,
-          minLines: 1,
-          maxLines: 3,
-          decoration: const InputDecoration(hintText: '예: 인스타그램 홈 피드 UI 리서치'),
-          onSubmitted: (value) => Navigator.of(context).pop(value),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('취소')),
-          TextButton(onPressed: () => Navigator.of(context).pop(_memoController.text), child: const Text('저장')),
-        ],
-      ),
+      title: 'Set 메모',
+      initialValue: widget.set.memo,
+      hintText: '예: 온보딩 플로우',
+      primaryLabel: '저장',
+      minLines: 1,
+      maxLines: 3,
     );
+    if (value != null) _memoController.text = value;
+    return value;
   }
 }
 
@@ -1535,13 +1498,10 @@ class _ActionableThumb extends StatelessWidget {
   }
 
   Future<void> _pickTargetStack(BuildContext context) async {
-    final target = await showDialog<String>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        backgroundColor: Colors.white,
-        title: const Text('이동할 Stack'),
-        children: allStackKeys.map((key) => SimpleDialogOption(onPressed: () => Navigator.of(context).pop(key), child: Text(stackNames[key] ?? key))).toList(),
-      ),
+    final target = await _showShotlyActionSheet<String>(
+      context,
+      title: '이동할 Stack',
+      items: allStackKeys.map((key) => _ShotlyActionItem(value: key, icon: Icons.layers_rounded, title: stackNames[key] ?? key)).toList(),
     );
     if (target != null) await onMoveImage(item.id, target);
   }
@@ -1558,6 +1518,166 @@ class _EmptyStackDetail extends StatelessWidget {
       padding: const EdgeInsets.only(top: 80),
       child: Center(
         child: Text(message, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785))),
+      ),
+    );
+  }
+}
+
+class _ShotlyActionItem<T> {
+  const _ShotlyActionItem({required this.value, required this.icon, required this.title});
+
+  final T value;
+  final IconData icon;
+  final String title;
+}
+
+Future<T?> _showShotlyActionSheet<T>(BuildContext context, {String? title, required List<_ShotlyActionItem<T>> items}) {
+  return showModalBottomSheet<T>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.18),
+    builder: (context) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.10), blurRadius: 24, offset: const Offset(0, 10))],
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (title != null) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
+                  child: Text(title, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xFF727785))),
+                ),
+              ],
+              ...items.map((item) => _ShotlyMenuRow(icon: item.icon, title: item.title, onTap: () => Navigator.of(context).pop(item.value))),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+Future<String?> _showShotlyTextDialog({required BuildContext context, required String title, String initialValue = '', required String hintText, required String primaryLabel, int minLines = 1, int maxLines = 1}) async {
+  final controller = TextEditingController(text: initialValue);
+  final result = await showDialog<String>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.18),
+    builder: (context) => Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 28, offset: const Offset(0, 12))],
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: const Color(0xFF1A1C1C))),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              minLines: minLines,
+              maxLines: maxLines,
+              style: Theme.of(context).textTheme.bodyMedium,
+              decoration: InputDecoration(
+                hintText: hintText,
+                hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785)),
+                filled: true,
+                fillColor: const Color(0xFFF7F7F8),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF1A1C1C), width: 1)),
+              ),
+              onSubmitted: maxLines == 1 ? (value) => Navigator.of(context).pop(value) : null,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('취소')),
+                const SizedBox(width: 8),
+                FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFF111111), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999))),
+                  onPressed: () => Navigator.of(context).pop(controller.text),
+                  child: Text(primaryLabel),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+  controller.dispose();
+  return result;
+}
+
+Future<void> _showShotlyInfoDialog({required BuildContext context, required String title, required String body}) {
+  return showDialog<void>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.18),
+    builder: (context) => Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Container(
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 28, offset: const Offset(0, 12))]),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 10),
+            Text(body, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF424754))),
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF111111), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999))),
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('확인'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _ShotlyMenuRow extends StatelessWidget {
+  const _ShotlyMenuRow({required this.icon, required this.title, required this.onTap});
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: const Color(0xFF424754)),
+            const SizedBox(width: 12),
+            Expanded(child: Text(title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF1A1C1C)))),
+          ],
+        ),
       ),
     );
   }
@@ -2042,24 +2162,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showInfoDialog(BuildContext context) {
-    showAboutDialog(
+    _showShotlyInfoDialog(
       context: context,
-      applicationName: 'Shotly',
-      applicationVersion: '1.0.0',
-      applicationIcon: const Icon(Icons.layers_rounded, size: 32),
-      children: const [Text('기획자를 위한 로컬 기반 스크린샷 정리 앱')],
+      title: 'Shotly',
+      body: 'Shotly 1.0.0\n기획자를 위한 로컬 기반 스크린샷 정리 앱',
     );
   }
 
   void _showPolicyDialog(BuildContext context, String title, String body) {
-    showDialog<void>(
+    _showShotlyInfoDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: Text(title),
-        content: Text(body),
-        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('확인'))],
-      ),
+      title: title,
+      body: body,
     );
   }
 }
