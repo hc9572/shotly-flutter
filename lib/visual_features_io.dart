@@ -5,19 +5,27 @@ import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
 class VisualFeature {
-  const VisualFeature({required this.aHash, required this.dHash, required this.histogram});
+  const VisualFeature({
+    required this.aHash,
+    required this.dHash,
+    required this.histogram,
+  });
 
   final int aHash;
   final int dHash;
   final List<double> histogram;
 }
 
-Future<Map<String, VisualFeature>> extractVisualFeatures(Map<String, String> imagePathsById) async {
+Future<Map<String, VisualFeature>> extractVisualFeatures(
+  Map<String, String> imagePathsById,
+) async {
   if (imagePathsById.isEmpty) return const {};
   return compute(_extractVisualFeaturesSync, imagePathsById);
 }
 
-Map<String, VisualFeature> _extractVisualFeaturesSync(Map<String, String> imagePathsById) {
+Map<String, VisualFeature> _extractVisualFeaturesSync(
+  Map<String, String> imagePathsById,
+) {
   final features = <String, VisualFeature>{};
   for (final entry in imagePathsById.entries) {
     final path = entry.value;
@@ -47,11 +55,22 @@ img.Image _cropSystemBars(img.Image source) {
   final top = (source.height * 0.08).round();
   final bottom = (source.height * 0.08).round();
   final cropHeight = math.max(1, source.height - top - bottom);
-  return img.copyCrop(source, x: 0, y: top, width: source.width, height: cropHeight);
+  return img.copyCrop(
+    source,
+    x: 0,
+    y: top,
+    width: source.width,
+    height: cropHeight,
+  );
 }
 
 int _averageHash(img.Image source) {
-  final resized = img.copyResize(source, width: 8, height: 8, interpolation: img.Interpolation.average);
+  final resized = img.copyResize(
+    source,
+    width: 8,
+    height: 8,
+    interpolation: img.Interpolation.average,
+  );
   final values = <int>[];
   for (var y = 0; y < 8; y++) {
     for (var x = 0; x < 8; x++) {
@@ -68,7 +87,12 @@ int _averageHash(img.Image source) {
 }
 
 int _differenceHash(img.Image source) {
-  final resized = img.copyResize(source, width: 9, height: 8, interpolation: img.Interpolation.average);
+  final resized = img.copyResize(
+    source,
+    width: 9,
+    height: 8,
+    interpolation: img.Interpolation.average,
+  );
   var hash = 0;
   for (var y = 0; y < 8; y++) {
     for (var x = 0; x < 8; x++) {
@@ -81,7 +105,12 @@ int _differenceHash(img.Image source) {
 }
 
 List<double> _colorHistogram(img.Image source) {
-  final resized = img.copyResize(source, width: 32, height: 32, interpolation: img.Interpolation.average);
+  final resized = img.copyResize(
+    source,
+    width: 32,
+    height: 32,
+    interpolation: img.Interpolation.average,
+  );
   final bins = List<double>.filled(24, 0);
   for (final pixel in resized) {
     bins[(pixel.r / 32).floor().clamp(0, 7)] += 1;
@@ -92,7 +121,8 @@ List<double> _colorHistogram(img.Image source) {
   return [for (final value in bins) value / total];
 }
 
-int _luma(img.Pixel pixel) => (0.299 * pixel.r + 0.587 * pixel.g + 0.114 * pixel.b).round();
+int _luma(img.Pixel pixel) =>
+    (0.299 * pixel.r + 0.587 * pixel.g + 0.114 * pixel.b).round();
 
 double visualSimilarity(VisualFeature a, VisualFeature b) {
   final aHashSimilarity = 1 - (_hammingDistance(a.aHash, b.aHash) / 64);

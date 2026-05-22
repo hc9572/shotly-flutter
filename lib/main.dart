@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'local_image.dart';
 import 'local_store.dart';
 import 'mock_data.dart';
 import 'visual_features.dart';
@@ -21,33 +24,83 @@ class ShotlyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFFAFAFA),
+        scaffoldBackgroundColor: const Color(0xFFF8F9FA),
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF0058BE),
           brightness: Brightness.light,
           primary: const Color(0xFF0058BE),
-          surface: const Color(0xFFFAFAFA),
+          surface: const Color(0xFFF8F9FA),
           surfaceContainerHighest: const Color(0xFFE2E2E2),
           outline: const Color(0xFF727785),
         ),
-        textTheme: const TextTheme(
-          headlineLarge: TextStyle(fontSize: 28, height: 34 / 28, fontWeight: FontWeight.w700, letterSpacing: -0.56),
-          headlineMedium: TextStyle(fontSize: 22, height: 28 / 22, fontWeight: FontWeight.w600, letterSpacing: -0.22),
-          headlineSmall: TextStyle(fontSize: 18, height: 24 / 18, fontWeight: FontWeight.w600),
-          titleLarge: TextStyle(fontSize: 22, height: 28 / 22, fontWeight: FontWeight.w600, letterSpacing: -0.22),
-          titleMedium: TextStyle(fontSize: 18, height: 24 / 18, fontWeight: FontWeight.w600),
-          bodyLarge: TextStyle(fontSize: 16, height: 24 / 16, fontWeight: FontWeight.w400),
-          bodyMedium: TextStyle(fontSize: 14, height: 20 / 14, fontWeight: FontWeight.w400),
-          bodySmall: TextStyle(fontSize: 12, height: 16 / 12, fontWeight: FontWeight.w500),
-          labelLarge: TextStyle(fontSize: 14, height: 18 / 14, fontWeight: FontWeight.w600, letterSpacing: 0.14),
-          labelMedium: TextStyle(fontSize: 12, height: 16 / 12, fontWeight: FontWeight.w500),
-          labelSmall: TextStyle(fontSize: 11, height: 14 / 11, fontWeight: FontWeight.w500, letterSpacing: 0.33),
-        ).apply(
-          bodyColor: const Color(0xFF1A1C1C),
-          displayColor: const Color(0xFF1A1C1C),
-          fontFamily: 'Inter',
-          fontFamilyFallback: ['Pretendard'],
-        ),
+        textTheme:
+            const TextTheme(
+              headlineLarge: TextStyle(
+                fontSize: 28,
+                height: 34 / 28,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.56,
+              ),
+              headlineMedium: TextStyle(
+                fontSize: 22,
+                height: 28 / 22,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.22,
+              ),
+              headlineSmall: TextStyle(
+                fontSize: 18,
+                height: 24 / 18,
+                fontWeight: FontWeight.w600,
+              ),
+              titleLarge: TextStyle(
+                fontSize: 22,
+                height: 28 / 22,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.22,
+              ),
+              titleMedium: TextStyle(
+                fontSize: 18,
+                height: 24 / 18,
+                fontWeight: FontWeight.w600,
+              ),
+              bodyLarge: TextStyle(
+                fontSize: 16,
+                height: 24 / 16,
+                fontWeight: FontWeight.w400,
+              ),
+              bodyMedium: TextStyle(
+                fontSize: 14,
+                height: 20 / 14,
+                fontWeight: FontWeight.w400,
+              ),
+              bodySmall: TextStyle(
+                fontSize: 12,
+                height: 16 / 12,
+                fontWeight: FontWeight.w500,
+              ),
+              labelLarge: TextStyle(
+                fontSize: 14,
+                height: 18 / 14,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.14,
+              ),
+              labelMedium: TextStyle(
+                fontSize: 12,
+                height: 16 / 12,
+                fontWeight: FontWeight.w500,
+              ),
+              labelSmall: TextStyle(
+                fontSize: 11,
+                height: 14 / 11,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.33,
+              ),
+            ).apply(
+              bodyColor: const Color(0xFF1A1C1C),
+              displayColor: const Color(0xFF1A1C1C),
+              fontFamily: 'Inter',
+              fontFamilyFallback: ['Pretendard'],
+            ),
       ),
       home: const ShotlyHomeScreen(),
     );
@@ -84,7 +137,9 @@ class ScreenshotItem {
   static List<String> _aliases(String name) {
     final n = name.toLowerCase();
     if (n.contains('kakao')) return ['카카오톡', '카톡', 'KakaoTalk'];
-    if (n.contains('karrot') || n.contains('carrot')) return ['당근', '당근마켓', 'Karrot'];
+    if (n.contains('karrot') || n.contains('carrot')) {
+      return ['당근', '당근마켓', 'Karrot'];
+    }
     if (n.contains('instagram')) return ['인스타그램', '인스타', 'Instagram'];
     if (n.contains('smartthings')) return ['스마트싱스', 'SmartThings'];
     return const [];
@@ -104,6 +159,14 @@ class ScreenshotItem {
 
 enum StackSortMode { latest, name, mostImages, fewestImages }
 
+StackSortMode? _sortModeFromName(String? name) {
+  if (name == null) return null;
+  for (final mode in StackSortMode.values) {
+    if (mode.name == name) return mode;
+  }
+  return null;
+}
+
 class StackItem {
   const StackItem({required this.key, required this.name, required this.items});
 
@@ -113,13 +176,21 @@ class StackItem {
 }
 
 class ScreenshotSet {
-  const ScreenshotSet({required this.key, required this.title, required this.timeRange, required this.items, this.memo = ''});
+  const ScreenshotSet({
+    required this.key,
+    required this.title,
+    required this.timeRange,
+    required this.items,
+    this.memo = '',
+    this.folderName,
+  });
 
   final String key;
   final String title;
   final String timeRange;
   final List<ScreenshotItem> items;
   final String memo;
+  final String? folderName;
 }
 
 class ShotlyNative {
@@ -147,32 +218,45 @@ class ShotlyNative {
 
   static Future<ScreenshotItem?> pickImage() async {
     if (kIsWeb) return null;
-    final result = await _channel.invokeMethod<Map<dynamic, dynamic>>('pickImage');
+    final result = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+      'pickImage',
+    );
     if (result == null) return null;
     return ScreenshotItem.fromMap(result);
   }
 
-  static Future<String?> getImagePreview(String imageId, String fallbackPath) async {
+  static Future<String?> getImagePreview(
+    String imageId,
+    String fallbackPath,
+  ) async {
     if (kIsWeb) return fallbackPath;
-    final result = await _channel.invokeMethod<String>('getImagePreview', {'imageId': imageId});
+    final result = await _channel.invokeMethod<String>('getImagePreview', {
+      'imageId': imageId,
+    });
     return result?.isEmpty == true ? fallbackPath : result ?? fallbackPath;
   }
 
   static Future<bool> deleteOriginalImage(String imageId) async {
     if (kIsWeb) return false;
-    final result = await _channel.invokeMethod<bool>('deleteOriginalImage', {'imageId': imageId});
+    final result = await _channel.invokeMethod<bool>('deleteOriginalImage', {
+      'imageId': imageId,
+    });
     return result ?? false;
   }
 
   static Future<bool> deleteOriginalImages(List<String> imageIds) async {
     if (kIsWeb || imageIds.isEmpty) return false;
-    final result = await _channel.invokeMethod<bool>('deleteOriginalImages', {'imageIds': imageIds});
+    final result = await _channel.invokeMethod<bool>('deleteOriginalImages', {
+      'imageIds': imageIds,
+    });
     return result ?? false;
   }
 
   static Future<bool> shareImages(List<String> imageIds) async {
     if (kIsWeb || imageIds.isEmpty) return false;
-    final result = await _channel.invokeMethod<bool>('shareImages', {'imageIds': imageIds});
+    final result = await _channel.invokeMethod<bool>('shareImages', {
+      'imageIds': imageIds,
+    });
     return result ?? false;
   }
 }
@@ -192,14 +276,15 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   final Map<String, String> _stackNames = {};
   final Map<String, String> _imageAssignments = {};
   final Map<String, String> _setMemos = {};
+  final Map<String, String> _folderNames = {};
   final Map<String, String> _setAssignments = {};
   final Map<String, VisualFeature> _visualFeatures = {};
   final Set<String> _hiddenStackKeys = {};
   final Set<String> _excludedImageIds = {};
-  final Set<String> _selectedCalendarImageIds = <String>{};
+  final List<String> _pinnedStackKeys = [];
   bool _isLoading = true;
   bool _hasPermission = false;
-  bool _isCalendarView = false;
+  DateTime? _selectedDate;
   String _query = '';
   String? _error;
   bool _showSortMenu = false;
@@ -234,6 +319,9 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
       _setMemos
         ..clear()
         ..addAll(state.setMemos);
+      _folderNames
+        ..clear()
+        ..addAll(state.folderNames);
       _setAssignments
         ..clear()
         ..addAll(state.setAssignments);
@@ -243,6 +331,10 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
       _excludedImageIds
         ..clear()
         ..addAll(state.excludedImageIds);
+      _pinnedStackKeys
+        ..clear()
+        ..addAll(state.pinnedStackKeys);
+      _sortMode = _sortModeFromName(state.sortModeName) ?? _sortMode;
     });
   }
 
@@ -255,12 +347,11 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
       _hasPermission = await ShotlyNative.requestPhotoPermission();
       if (_hasPermission) {
         final screenshots = await ShotlyNative.getScreenshots();
-        screenshots.sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
-        final features = await extractVisualFeatures({for (final item in screenshots) item.id: item.thumbnailPath});
+        screenshots.sort(
+          (a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis),
+        );
         _screenshots = screenshots;
-        _visualFeatures
-          ..clear()
-          ..addAll(features);
+        _visualFeatures.clear();
       }
     } on PlatformException catch (e) {
       _error = e.message ?? e.code;
@@ -272,7 +363,12 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   }
 
   List<ScreenshotItem> get _calendarScreenshots {
-    Iterable<ScreenshotItem> items = _screenshots.where((item) => !_excludedImageIds.contains(item.id));
+    Iterable<ScreenshotItem> items = _screenshots.where(
+      (item) => !_excludedImageIds.contains(item.id),
+    );
+    if (_selectedDate != null) {
+      items = items.where((item) => _isSameDay(item.date, _selectedDate!));
+    }
     if (_query.trim().isNotEmpty) {
       items = items.where((item) => item.matches(_query.trim()));
     }
@@ -281,57 +377,140 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
 
   List<ScreenshotItem> get _filteredScreenshots => _calendarScreenshots;
 
-  List<StackItem> get _stacks {
-    final q = _query.trim();
+  List<StackItem> get _searchSourceStacks {
     final grouped = <String, List<ScreenshotItem>>{};
-    for (final item in _screenshots.where((item) => !_excludedImageIds.contains(item.id))) {
+    for (final item in _screenshots.where(
+      (item) => !_excludedImageIds.contains(item.id),
+    )) {
+      if (_selectedDate != null && !_isSameDay(item.date, _selectedDate!)) {
+        continue;
+      }
       final stackKey = _stackKeyFor(item);
       if (_hiddenStackKeys.contains(stackKey)) continue;
       grouped.putIfAbsent(stackKey, () => []).add(item);
     }
     final stacks = grouped.entries
-        .map((entry) => StackItem(
-              key: entry.key,
-              name: _stackNames[entry.key] ?? entry.key,
-              items: entry.value..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis)),
-            ))
-        .where((stack) => q.isEmpty || _stackMatchesQuery(stack, q))
+        .map(
+          (entry) => StackItem(
+            key: entry.key,
+            name: _stackNames[entry.key] ?? entry.key,
+            items: entry.value
+              ..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis)),
+          ),
+        )
         .toList();
     for (final name in _manualStackNames) {
-      final matchesQuery = q.isEmpty || _textMatches(name, q) || _textMatches(_stackNames[name] ?? '', q);
-      if (matchesQuery && !grouped.containsKey(name) && !_hiddenStackKeys.contains(name)) {
-        stacks.add(StackItem(key: name, name: _stackNames[name] ?? name, items: const []));
+      if (_selectedDate == null &&
+          !grouped.containsKey(name) &&
+          !_hiddenStackKeys.contains(name)) {
+        stacks.add(
+          StackItem(
+            key: name,
+            name: _stackNames[name] ?? name,
+            items: const [],
+          ),
+        );
       }
-    }
-    switch (_sortMode) {
-      case StackSortMode.latest:
-        stacks.sort((a, b) => (b.items.isEmpty ? 0 : b.items.first.dateTakenMillis).compareTo(a.items.isEmpty ? 0 : a.items.first.dateTakenMillis));
-      case StackSortMode.name:
-        stacks.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-      case StackSortMode.mostImages:
-        stacks.sort((a, b) => b.items.length.compareTo(a.items.length));
-      case StackSortMode.fewestImages:
-        stacks.sort((a, b) => a.items.length.compareTo(b.items.length));
     }
     return stacks;
   }
 
-  List<StackItem> get _hiddenStacks {
+  List<StackItem> get _stacks {
+    final q = _query.trim();
     final grouped = <String, List<ScreenshotItem>>{};
-    for (final item in _screenshots.where((item) => !_excludedImageIds.contains(item.id))) {
+    for (final item in _calendarScreenshots) {
       final stackKey = _stackKeyFor(item);
-      if (_hiddenStackKeys.contains(stackKey)) grouped.putIfAbsent(stackKey, () => []).add(item);
+      if (_hiddenStackKeys.contains(stackKey)) continue;
+      grouped.putIfAbsent(stackKey, () => []).add(item);
     }
     final stacks = grouped.entries
-        .map((entry) => StackItem(
-              key: entry.key,
-              name: _stackNames[entry.key] ?? entry.key,
-              items: entry.value..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis)),
-            ))
+        .map(
+          (entry) => StackItem(
+            key: entry.key,
+            name: _stackNames[entry.key] ?? entry.key,
+            items: entry.value
+              ..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis)),
+          ),
+        )
+        .where((stack) => q.isEmpty || _stackMatchesQuery(stack, q))
+        .toList();
+    for (final name in _manualStackNames) {
+      final matchesQuery =
+          q.isEmpty ||
+          _textMatches(name, q) ||
+          _textMatches(_stackNames[name] ?? '', q);
+      if (_selectedDate == null &&
+          matchesQuery &&
+          !grouped.containsKey(name) &&
+          !_hiddenStackKeys.contains(name)) {
+        stacks.add(
+          StackItem(
+            key: name,
+            name: _stackNames[name] ?? name,
+            items: const [],
+          ),
+        );
+      }
+    }
+    void sortByMode(List<StackItem> target) {
+      switch (_sortMode) {
+        case StackSortMode.latest:
+          target.sort(
+            (a, b) => (b.items.isEmpty ? 0 : b.items.first.dateTakenMillis)
+                .compareTo(a.items.isEmpty ? 0 : a.items.first.dateTakenMillis),
+          );
+        case StackSortMode.name:
+          target.sort(
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+          );
+        case StackSortMode.mostImages:
+          target.sort((a, b) => b.items.length.compareTo(a.items.length));
+        case StackSortMode.fewestImages:
+          target.sort((a, b) => a.items.length.compareTo(b.items.length));
+      }
+    }
+
+    final stackByKey = {for (final stack in stacks) stack.key: stack};
+    final pinned = _pinnedStackKeys
+        .where(stackByKey.containsKey)
+        .map((key) => stackByKey[key]!)
+        .toList();
+    final unpinned = stacks
+        .where((stack) => !_pinnedStackKeys.contains(stack.key))
+        .toList();
+    sortByMode(unpinned);
+    return [...pinned, ...unpinned];
+  }
+
+  List<StackItem> get _hiddenStacks {
+    final grouped = <String, List<ScreenshotItem>>{};
+    for (final item in _screenshots.where(
+      (item) => !_excludedImageIds.contains(item.id),
+    )) {
+      final stackKey = _stackKeyFor(item);
+      if (_hiddenStackKeys.contains(stackKey)) {
+        grouped.putIfAbsent(stackKey, () => []).add(item);
+      }
+    }
+    final stacks = grouped.entries
+        .map(
+          (entry) => StackItem(
+            key: entry.key,
+            name: _stackNames[entry.key] ?? entry.key,
+            items: entry.value
+              ..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis)),
+          ),
+        )
         .toList();
     for (final name in _manualStackNames) {
       if (_hiddenStackKeys.contains(name) && !grouped.containsKey(name)) {
-        stacks.add(StackItem(key: name, name: _stackNames[name] ?? name, items: const []));
+        stacks.add(
+          StackItem(
+            key: name,
+            name: _stackNames[name] ?? name,
+            items: const [],
+          ),
+        );
       }
     }
     stacks.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
@@ -339,15 +518,37 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   }
 
   List<ScreenshotItem> get _excludedImages {
-    return _screenshots.where((item) => _excludedImageIds.contains(item.id)).toList()
+    return _screenshots
+        .where((item) => _excludedImageIds.contains(item.id))
+        .toList()
       ..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
   }
 
-  String _stackKeyFor(ScreenshotItem item) => _imageAssignments[item.id] ?? (item.appName.isEmpty ? 'Unknown' : item.appName);
-
+  String _stackKeyFor(ScreenshotItem item) =>
+      _imageAssignments[item.id] ??
+      (item.appName.isEmpty ? 'Unknown' : item.appName);
 
   Future<void> _showCreateStackDialog() async {
-    final name = await _showShotlyTextDialog(context: context, title: 'Stack 추가', hintText: 'Stack 이름', primaryLabel: '추가');
+    final name = await _showShotlyTextDialog(
+      context: context,
+      title: 'Stack 추가',
+      hintText: 'Stack 이름',
+      primaryLabel: '추가',
+      validator: (value) {
+        final trimmed = value.trim();
+        if (trimmed.isEmpty) return null;
+        final exists =
+            _manualStackNames.any(
+              (name) => name.toLowerCase() == trimmed.toLowerCase(),
+            ) ||
+            _stacks.any(
+              (stack) =>
+                  stack.name.toLowerCase() == trimmed.toLowerCase() ||
+                  stack.key.toLowerCase() == trimmed.toLowerCase(),
+            );
+        return exists ? '이미 같은 이름의 Stack이 있어요.' : null;
+      },
+    );
     final trimmed = name?.trim();
     if (trimmed == null || trimmed.isEmpty) return;
     setState(() {
@@ -363,20 +564,52 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
         if (mounted) _showSnack('웹 미리보기에서는 앨범 열기를 지원하지 않아요. Android 앱에서 동작해.');
         return;
       }
-      if (_screenshots.any((item) => item.id == image.id || item.thumbnailPath == image.thumbnailPath)) {
+      if (_screenshots.any(
+        (item) =>
+            item.id == image.id || item.thumbnailPath == image.thumbnailPath,
+      )) {
         if (mounted) _showSnack('이미 추가된 이미지예요. 중복 추가하지 않았어.');
         return;
       }
       setState(() {
-        _screenshots = [image, ..._screenshots]..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
+        _screenshots = [image, ..._screenshots]
+          ..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
       });
     } on PlatformException catch (e) {
       if (mounted) _showSnack(e.message ?? e.code);
     }
   }
 
+  Future<ScreenshotItem?> _pickAndAddImageToStack(String stackKey) async {
+    try {
+      final image = await ShotlyNative.pickImage();
+      if (image == null) {
+        if (mounted) _showSnack('웹 미리보기에서는 앨범 열기를 지원하지 않아요. Android 앱에서 동작해.');
+        return null;
+      }
+      if (_screenshots.any(
+        (item) =>
+            item.id == image.id || item.thumbnailPath == image.thumbnailPath,
+      )) {
+        await _moveImage(image.id, stackKey);
+        return image;
+      }
+      setState(() {
+        _screenshots = [image, ..._screenshots]
+          ..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
+      });
+      await _moveImage(image.id, stackKey);
+      return image;
+    } on PlatformException catch (e) {
+      if (mounted) _showSnack(e.message ?? e.code);
+      return null;
+    }
+  }
+
   void _showSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _openPhotoSettings() async {
@@ -399,6 +632,22 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
     await _localStore.hideStack(stackKey);
   }
 
+  Future<void> _togglePinStack(String stackKey) async {
+    final shouldPin = !_pinnedStackKeys.contains(stackKey);
+    setState(() {
+      if (shouldPin) {
+        _pinnedStackKeys.add(stackKey);
+      } else {
+        _pinnedStackKeys.remove(stackKey);
+      }
+    });
+    if (shouldPin) {
+      await _localStore.pinStack(stackKey);
+    } else {
+      await _localStore.unpinStack(stackKey);
+    }
+  }
+
   Future<void> _restoreStack(String stackKey) async {
     setState(() => _hiddenStackKeys.remove(stackKey));
     await _localStore.restoreStack(stackKey);
@@ -417,7 +666,9 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
         return false;
       }
       setState(() {
-        _screenshots = _screenshots.where((item) => item.id != imageId).toList();
+        _screenshots = _screenshots
+            .where((item) => item.id != imageId)
+            .toList();
         _excludedImageIds.remove(imageId);
         _imageAssignments.remove(imageId);
         _setAssignments.remove(imageId);
@@ -442,7 +693,9 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
       }
       setState(() {
         final ids = imageIds.toSet();
-        _screenshots = _screenshots.where((item) => !ids.contains(item.id)).toList();
+        _screenshots = _screenshots
+            .where((item) => !ids.contains(item.id))
+            .toList();
         _excludedImageIds.removeAll(ids);
         for (final id in ids) {
           _imageAssignments.remove(id);
@@ -461,60 +714,62 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
     }
   }
 
-  void _toggleCalendarSelection(String imageId) {
-    setState(() {
-      if (!_selectedCalendarImageIds.add(imageId)) _selectedCalendarImageIds.remove(imageId);
-    });
-  }
-
-  Future<void> _openCalendarImageViewer(List<ScreenshotItem> items, int index) async {
-    final deletedId = await Navigator.of(context).push<String>(MaterialPageRoute(
-      builder: (_) => ImageViewerScreen(
-        items: items,
-        initialIndex: index,
-        onDeleteOriginalImage: _deleteOriginalImage,
-      ),
-    ));
-    if (deletedId != null && mounted) setState(() => _selectedCalendarImageIds.remove(deletedId));
-  }
-
-  Future<void> _shareSelectedCalendarImages() async {
-    await ShotlyNative.shareImages(_selectedCalendarImageIds.toList());
-  }
-
-  Future<void> _hideSelectedCalendarImages() async {
-    final selected = _selectedCalendarImageIds.toList();
-    for (final id in selected) {
-      await _excludeImage(id);
-    }
-    if (mounted) setState(_selectedCalendarImageIds.clear);
-  }
-
-  Future<void> _moveSelectedCalendarImages() async {
-    final target = await _showShotlyActionSheet<String>(
-      context,
-      title: '이동할 Stack',
-      items: _stacks.map((stack) => _ShotlyActionItem(value: stack.key, icon: Icons.layers_rounded, title: stack.name)).toList(),
-    );
-    if (target == null) return;
-    final selected = _selectedCalendarImageIds.toList();
-    for (final id in selected) {
-      await _moveImage(id, target);
-    }
-    if (mounted) setState(_selectedCalendarImageIds.clear);
-  }
-
-  Future<void> _deleteSelectedCalendarImages() async {
-    final confirmed = await _showShotlyConfirmDialog(
+  Future<void> _pickDateFilter() async {
+    final activeScreenshots = _screenshots
+        .where((item) => !_excludedImageIds.contains(item.id))
+        .toList();
+    final earliest = activeScreenshots.isEmpty
+        ? DateTime(DateTime.now().year - 5)
+        : activeScreenshots
+              .map((item) => item.date)
+              .reduce((a, b) => a.isBefore(b) ? a : b);
+    final picked = await showDialog<DateTime>(
       context: context,
-      title: '원본 파일 삭제',
-      body: '선택한 ${_selectedCalendarImageIds.length}장을 Shotly뿐 아니라 기기 앨범 원본에서도 삭제할까요? 이 작업은 되돌릴 수 없어요.',
-      primaryLabel: '삭제',
-      destructive: true,
+      barrierColor: Colors.black.withValues(alpha: 0.10),
+      builder: (context) => _ShotlyCalendarDialog(
+        initialDate: _selectedDate ?? DateTime.now(),
+        firstDate: DateTime(earliest.year, earliest.month, 1),
+        lastDate: DateTime.now().add(const Duration(days: 1)),
+        screenshotDates: activeScreenshots
+            .map(
+              (item) =>
+                  DateTime(item.date.year, item.date.month, item.date.day),
+            )
+            .toSet(),
+      ),
     );
-    if (confirmed != true) return;
-    final selected = _selectedCalendarImageIds.toList();
-    if (await _deleteOriginalImages(selected) && mounted) setState(_selectedCalendarImageIds.clear);
+    if (picked != null && mounted) setState(() => _selectedDate = picked);
+  }
+
+  Future<void> _openSearchPage() async {
+    final query = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => _SearchPage(
+          initialQuery: _query,
+          stacks: _searchSourceStacks,
+          allStackKeys: _stacks.map((item) => item.key).toList(),
+          stackNames: _stackNames,
+          setMemos: _setMemos,
+          folderNames: _folderNames,
+          setAssignments: _setAssignments,
+          stackMatchesQuery: _stackMatchesQuery,
+          onRenameStack: _renameStack,
+          onHideStack: _hideStack,
+          onExcludeImage: _excludeImage,
+          onDeleteOriginalImage: _deleteOriginalImage,
+          onDeleteOriginalImages: _deleteOriginalImages,
+          onMoveImage: _moveImage,
+          onAddImageToStack: _pickAndAddImageToStack,
+          onSaveSetMemo: _saveSetMemo,
+          onSaveFolderName: _saveFolderName,
+          onAssignImageToSet: _assignImageToSet,
+        ),
+      ),
+    );
+    if (query != null && mounted) {
+      setState(() => _query = query);
+      _searchController.text = query;
+    }
   }
 
   Future<void> _restoreImage(String imageId) async {
@@ -523,11 +778,16 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   }
 
   Future<void> _moveImage(String imageId, String stackKey) async {
-    setState(() => _imageAssignments[imageId] = stackKey);
-    if (!_manualStackNames.contains(stackKey) && !_stacks.any((stack) => stack.key == stackKey)) {
+    setState(() {
+      _imageAssignments[imageId] = stackKey;
+      _setAssignments.remove(imageId);
+    });
+    if (!_manualStackNames.contains(stackKey) &&
+        !_stacks.any((stack) => stack.key == stackKey)) {
       _manualStackNames.add(stackKey);
     }
     await _localStore.moveImage(imageId, stackKey);
+    await _localStore.assignImageToSet(imageId, '');
   }
 
   Future<void> _saveSetMemo(String setKey, String memo) async {
@@ -535,35 +795,102 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
     await _localStore.saveSetMemo(setKey, memo);
   }
 
+  Future<void> _saveFolderName(String folderKey, String name) async {
+    setState(() {
+      if (name.trim().isEmpty) {
+        _folderNames.remove(folderKey);
+      } else {
+        _folderNames[folderKey] = name;
+      }
+    });
+    await _localStore.saveFolderName(folderKey, name);
+  }
+
+  Future<void> _saveSortMode(StackSortMode mode) async {
+    setState(() {
+      _sortMode = mode;
+      _showSortMenu = false;
+    });
+    await _localStore.saveSortMode(mode.name);
+  }
+
   Future<void> _assignImageToSet(String imageId, String setKey) async {
-    setState(() => _setAssignments[imageId] = setKey);
-    await _localStore.assignImageToSet(imageId, setKey);
+    final current = _setAssignments[imageId];
+    final next = setKey.startsWith(_removeAssignmentPrefix)
+        ? _removeAssignmentKey(
+            current,
+            setKey.substring(_removeAssignmentPrefix.length),
+          )
+        : setKey.isEmpty
+        ? null
+        : _addAssignmentKey(current, setKey);
+    setState(() {
+      if (next == null || next.isEmpty) {
+        _setAssignments.remove(imageId);
+      } else {
+        _setAssignments[imageId] = next;
+      }
+    });
+    await _localStore.assignImageToSet(imageId, next ?? '');
   }
 
   bool _stackMatchesQuery(StackItem stack, String query) {
-    if (_textMatches(stack.name, query) || _textMatches(stack.key, query)) return true;
+    if (_textMatches(stack.name, query) || _textMatches(stack.key, query)) {
+      return true;
+    }
     if (stack.items.any((item) => item.matches(query))) return true;
-    final sets = _buildScreenshotSets(stack.key, stack.items, _setMemos, _setAssignments);
-    return sets.any((set) => _textMatches(set.memo, query) || _textMatches(set.timeRange, query) || _textMatches(_formatSetDate(set.items.first.date), query));
+    final sets = _buildScreenshotSets(
+      stack.key,
+      stack.items,
+      _setMemos,
+      _folderNames,
+      _setAssignments,
+    );
+    return sets.any(
+      (set) =>
+          _textMatches(set.memo, query) ||
+          (_isFolderSetKey(set.key) && _textMatches(_folderName(set), query)) ||
+          _textMatches(set.timeRange, query) ||
+          (set.items.isNotEmpty &&
+              _textMatches(_formatSetDate(set.items.first.date), query)),
+    );
   }
 
-  bool _textMatches(String text, String query) => text.toLowerCase().contains(query.toLowerCase());
+  bool _textMatches(String text, String query) =>
+      text.toLowerCase().contains(query.toLowerCase());
 
   Future<void> _showAddMenu() async {
     final action = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (context) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(width: 38, height: 4, decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(99))),
+              Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
               const SizedBox(height: 16),
-              _AddMenuTile(icon: Icons.layers_rounded, title: 'Stack 추가', onTap: () => Navigator.of(context).pop('stack')),
-              _AddMenuTile(icon: Icons.photo_library_rounded, title: '이미지 추가', onTap: () => Navigator.of(context).pop('image')),
+              _AddMenuTile(
+                icon: Icons.layers_rounded,
+                title: 'Stack 추가',
+                onTap: () => Navigator.of(context).pop('stack'),
+              ),
+              _AddMenuTile(
+                icon: Icons.photo_library_rounded,
+                title: '이미지 추가',
+                onTap: () => Navigator.of(context).pop('image'),
+              ),
             ],
           ),
         ),
@@ -575,10 +902,11 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredScreenshots = (_isCalendarView ? _calendarScreenshots : _filteredScreenshots)..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
+    final filteredScreenshots = _filteredScreenshots
+      ..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
     final stacks = _stacks;
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: const Color(0xFFF8F9FA),
       body: SafeArea(
         child: Stack(
           children: [
@@ -590,85 +918,88 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
                   SliverPersistentHeader(
                     pinned: true,
                     delegate: _ShotlyTopBarDelegate(
+                      searchController: _searchController,
+                      onSearchTap: _openSearchPage,
+                      selectedDate: _selectedDate,
+                      onPickDate: _pickDateFilter,
+                      onClearDate: () => setState(() => _selectedDate = null),
                       onAdd: _showAddMenu,
-                      onSettings: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => SettingsScreen(
-                          hasPermission: _hasPermission,
-                          hiddenStacks: _hiddenStacks,
-                          excludedImages: _excludedImages,
-                          onOpenPhotoSettings: _openPhotoSettings,
-                          onRestoreStack: _restoreStack,
-                          onRestoreImage: _restoreImage,
-                          onDeleteOriginalImage: _deleteOriginalImage,
-                          onDeleteOriginalImages: _deleteOriginalImages,
+                      onSettings: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => SettingsScreen(
+                            hasPermission: _hasPermission,
+                            hiddenStacks: _hiddenStacks,
+                            excludedImages: _excludedImages,
+                            onOpenPhotoSettings: _openPhotoSettings,
+                            onRestoreStack: _restoreStack,
+                            onRestoreImage: _restoreImage,
+                            onDeleteOriginalImage: _deleteOriginalImage,
+                            onDeleteOriginalImages: _deleteOriginalImages,
+                          ),
                         ),
-                      )),
+                      ),
                     ),
                   ),
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 118),
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
                     sliver: SliverToBoxAdapter(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (_isLoading) const _LoadingState()
-                          else if (!_hasPermission) _PermissionState(onRequest: _load)
-                          else if (_error != null) _ErrorState(message: _error!, onRetry: _load)
+                          if (_isLoading)
+                            const _LoadingState()
+                          else if (!_hasPermission)
+                            _PermissionState(onRequest: _load)
+                          else if (_error != null)
+                            _ErrorState(message: _error!, onRetry: _load)
                           else ...[
-                            _SearchField(
-                              controller: _searchController,
-                              onChanged: (value) => setState(() => _query = value),
+                            _SummarySortRow(
+                              screenshotCount: filteredScreenshots.length,
+                              stackCount: stacks.length,
+                              sortMode: _sortMode,
+                              showSortMenu: _showSortMenu,
+                              onToggleSort: () => setState(
+                                () => _showSortMenu = !_showSortMenu,
+                              ),
+                              onSelectSort: _saveSortMode,
                             ),
-                            const SizedBox(height: 16),
-                            if (_isCalendarView) ...[
-                              Text(
-                                '${filteredScreenshots.length}개 스크린샷 · 최신순',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785)),
-                              ),
-                              const SizedBox(height: 18),
-                              if (_screenshots.isEmpty) const _EmptyState()
-                              else if (filteredScreenshots.isEmpty) const _NoResultState()
-                              else _CalendarTimelineView(
-                            items: filteredScreenshots,
-                            selectedIds: _selectedCalendarImageIds,
-                            onToggleSelection: _toggleCalendarSelection,
-                            onOpenImage: _openCalendarImageViewer,
-                          ),
-                            ] else ...[
-                              _SummarySortRow(
-                                screenshotCount: filteredScreenshots.length,
-                                stackCount: stacks.length,
-                                sortMode: _sortMode,
-                                showSortMenu: _showSortMenu,
-                                onToggleSort: () => setState(() => _showSortMenu = !_showSortMenu),
-                                onSelectSort: (mode) => setState(() {
-                                  _sortMode = mode;
-                                  _showSortMenu = false;
-                                }),
-                              ),
-                              const SizedBox(height: 26),
-                              if (_screenshots.isEmpty) const _EmptyState()
-                              else if (stacks.isEmpty) const _NoResultState()
-                              else ...stacks.map((stack) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 26),
-                                    child: _StackCard(
-                                      stack: stack,
-                                      allStackKeys: _stacks.map((item) => item.key).toList(),
-                                      stackNames: _stackNames,
-                                      setMemos: _setMemos,
-                                      setAssignments: _setAssignments,
-                                      visualFeatures: _visualFeatures,
-                                      onRenameStack: _renameStack,
-                                      onHideStack: _hideStack,
-                                      onExcludeImage: _excludeImage,
-                                      onDeleteOriginalImage: _deleteOriginalImage,
-                                      onDeleteOriginalImages: _deleteOriginalImages,
-                                      onMoveImage: _moveImage,
-                                      onSaveSetMemo: _saveSetMemo,
-                                      onAssignImageToSet: _assignImageToSet,
+                            const SizedBox(height: 26),
+                            if (_screenshots.isEmpty && stacks.isEmpty)
+                              const _EmptyState()
+                            else if (stacks.isEmpty)
+                              const _NoResultState()
+                            else
+                              ...stacks.map(
+                                (stack) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 26),
+                                  child: _StackCard(
+                                    stack: stack,
+                                    allStackKeys: _stacks
+                                        .map((item) => item.key)
+                                        .toList(),
+                                    stackNames: _stackNames,
+                                    setMemos: _setMemos,
+                                    folderNames: _folderNames,
+                                    setAssignments: _setAssignments,
+                                    visualFeatures: _visualFeatures,
+                                    onRenameStack: _renameStack,
+                                    onHideStack: _hideStack,
+                                    onTogglePinStack: _togglePinStack,
+                                    pinned: _pinnedStackKeys.contains(
+                                      stack.key,
                                     ),
-                                  )),
-                            ],
+                                    onExcludeImage: _excludeImage,
+                                    onDeleteOriginalImage: _deleteOriginalImage,
+                                    onDeleteOriginalImages:
+                                        _deleteOriginalImages,
+                                    onMoveImage: _moveImage,
+                                    onAddImageToStack: _pickAndAddImageToStack,
+                                    onSaveSetMemo: _saveSetMemo,
+                                    onSaveFolderName: _saveFolderName,
+                                    onAssignImageToSet: _assignImageToSet,
+                                  ),
+                                ),
+                              ),
                           ],
                         ],
                       ),
@@ -690,34 +1021,9 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
                 right: 20,
                 child: _SortDropdown(
                   selected: _sortMode,
-                  onSelect: (mode) => setState(() {
-                    _sortMode = mode;
-                    _showSortMenu = false;
-                  }),
+                  onSelect: _saveSortMode,
                 ),
               ),
-            if (_isCalendarView && _selectedCalendarImageIds.isNotEmpty)
-              Positioned(
-                left: 20,
-                right: 20,
-                bottom: 96,
-                child: _SelectionActionBar(
-                  count: _selectedCalendarImageIds.length,
-                  onCancel: () => setState(_selectedCalendarImageIds.clear),
-                  onShare: _shareSelectedCalendarImages,
-                  onDelete: _deleteSelectedCalendarImages,
-                  onMove: _moveSelectedCalendarImages,
-                  onHide: _hideSelectedCalendarImages,
-                ),
-              ),
-            _BottomNavBar(
-              calendarSelected: _isCalendarView,
-              onStacksTap: () => setState(() {
-                _isCalendarView = false;
-                _selectedCalendarImageIds.clear();
-              }),
-              onCalendarTap: () => setState(() => _isCalendarView = true),
-            ),
           ],
         ),
       ),
@@ -726,38 +1032,66 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
 }
 
 class _ShotlyTopBarDelegate extends SliverPersistentHeaderDelegate {
-  const _ShotlyTopBarDelegate({required this.onAdd, required this.onSettings});
+  const _ShotlyTopBarDelegate({
+    required this.searchController,
+    required this.onSearchTap,
+    required this.selectedDate,
+    required this.onPickDate,
+    required this.onClearDate,
+    required this.onAdd,
+    required this.onSettings,
+  });
 
+  final TextEditingController searchController;
+  final VoidCallback onSearchTap;
+  final DateTime? selectedDate;
+  final VoidCallback onPickDate;
+  final VoidCallback onClearDate;
   final VoidCallback onAdd;
   final VoidCallback onSettings;
 
   @override
-  double get minExtent => 64;
+  double get minExtent => selectedDate == null ? 70 : 104;
 
   @override
-  double get maxExtent => 64;
+  double get maxExtent => minExtent;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return Container(
-      height: 64,
-      color: const Color(0xFFFAFAFA).withValues(alpha: 0.96),
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      height: maxExtent,
+      color: const Color(0xFFF8F9FA).withValues(alpha: 0.96),
+      padding: const EdgeInsets.fromLTRB(20, 10, 18, 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Text(
-              'Shotly',
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(color: const Color(0xFF1A1C1C)),
+            child: _SearchField(
+              controller: searchController,
+              onTap: onSearchTap,
+              selectedDate: selectedDate,
+              onPickDate: onPickDate,
+              onClearDate: onClearDate,
             ),
           ),
-          IconButton(
-            onPressed: onSettings,
-            icon: const Icon(Icons.settings_rounded, color: Color(0xFF424754)),
-          ),
-          IconButton(
-            onPressed: onAdd,
-            icon: const Icon(Icons.add_rounded, color: Color(0xFF111111)),
+          const SizedBox(width: 8),
+          SizedBox(
+            height: 44,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _TopIconButton(icon: Icons.add_rounded, onTap: onAdd),
+                const SizedBox(width: 2),
+                _TopIconButton(
+                  icon: Icons.more_vert_rounded,
+                  onTap: onSettings,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -765,7 +1099,34 @@ class _ShotlyTopBarDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  bool shouldRebuild(covariant _ShotlyTopBarDelegate oldDelegate) => onAdd != oldDelegate.onAdd || onSettings != oldDelegate.onSettings;
+  bool shouldRebuild(covariant _ShotlyTopBarDelegate oldDelegate) =>
+      searchController != oldDelegate.searchController ||
+      onSearchTap != oldDelegate.onSearchTap ||
+      selectedDate != oldDelegate.selectedDate ||
+      onPickDate != oldDelegate.onPickDate ||
+      onClearDate != oldDelegate.onClearDate ||
+      onAdd != oldDelegate.onAdd ||
+      onSettings != oldDelegate.onSettings;
+}
+
+class _TopIconButton extends StatelessWidget {
+  const _TopIconButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: SizedBox(
+        width: 36,
+        height: 44,
+        child: Icon(icon, size: 23, color: const Color(0xFF111111)),
+      ),
+    );
+  }
 }
 
 class _SummarySortRow extends StatelessWidget {
@@ -787,41 +1148,58 @@ class _SummarySortRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isFiltered = sortMode != StackSortMode.latest;
     return SizedBox(
       height: 22,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Positioned.fill(
-            right: 116,
+            right: 44,
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 '$screenshotCount개 스크린샷 · $stackCount개 Stack',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785)),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF727785),
+                ),
               ),
             ),
           ),
           Positioned(
             top: -1,
             right: 0,
-            child: TextButton.icon(
-              onPressed: onToggleSort,
-              icon: const Icon(Icons.sort_rounded, size: 18),
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Sort'),
-                  const SizedBox(width: 2),
-                  Icon(showSortMenu ? Icons.expand_less_rounded : Icons.expand_more_rounded, size: 18),
-                ],
-              ),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF111111),
-                textStyle: Theme.of(context).textTheme.labelLarge,
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(0, 22),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            child: InkWell(
+              onTap: onToggleSort,
+              borderRadius: BorderRadius.circular(999),
+              child: SizedBox(
+                width: 32,
+                height: 32,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Center(
+                      child: Icon(
+                        Icons.tune_rounded,
+                        size: 22,
+                        color: Color(0xFF111111),
+                      ),
+                    ),
+                    if (isFiltered)
+                      Positioned(
+                        right: 0,
+                        top: 1,
+                        child: Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0058BE),
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -853,7 +1231,13 @@ class _SortDropdown extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFE5E7EB)),
-          boxShadow: const [BoxShadow(color: Color(0x24000000), blurRadius: 24, offset: Offset(0, 10))],
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x24000000),
+              blurRadius: 24,
+              offset: Offset(0, 10),
+            ),
+          ],
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -864,11 +1248,26 @@ class _SortDropdown extends StatelessWidget {
               onTap: () => onSelect(item.$1),
               child: Container(
                 color: isSelected ? const Color(0xFFF9F9F9) : Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 child: Row(
                   children: [
-                    Expanded(child: Text(item.$2, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF111111)))),
-                    if (isSelected) const Icon(Icons.check_rounded, color: Color(0xFF0058BE), size: 18),
+                    Expanded(
+                      child: Text(
+                        item.$2,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: const Color(0xFF111111),
+                        ),
+                      ),
+                    ),
+                    if (isSelected)
+                      const Icon(
+                        Icons.check_rounded,
+                        color: Color(0xFF0058BE),
+                        size: 18,
+                      ),
                   ],
                 ),
               ),
@@ -880,30 +1279,1246 @@ class _SortDropdown extends StatelessWidget {
   }
 }
 
-class _SearchField extends StatelessWidget {
-  const _SearchField({required this.controller, required this.onChanged});
+class _ShotlyCalendarDialog extends StatefulWidget {
+  const _ShotlyCalendarDialog({
+    required this.initialDate,
+    required this.firstDate,
+    required this.lastDate,
+    required this.screenshotDates,
+  });
 
-  final TextEditingController controller;
-  final ValueChanged<String> onChanged;
+  final DateTime initialDate;
+  final DateTime firstDate;
+  final DateTime lastDate;
+  final Set<DateTime> screenshotDates;
+
+  @override
+  State<_ShotlyCalendarDialog> createState() => _ShotlyCalendarDialogState();
+}
+
+class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
+  late DateTime _selectedDate;
+  late DateTime _visibleMonth;
+
+  static const _monthNames = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = _dateOnly(widget.initialDate);
+    _visibleMonth = DateTime(_selectedDate.year, _selectedDate.month);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      onChanged: onChanged,
-      style: Theme.of(context).textTheme.bodyMedium,
-      decoration: InputDecoration(
-        hintText: '앱 이름, 파일명, 날짜 검색',
-        hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785)),
-        prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF727785)),
-        prefixIconConstraints: const BoxConstraints(minWidth: 28, minHeight: 40),
-        filled: false,
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 0),
-        border: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFC2C6D6))),
-        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFC2C6D6))),
-        focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF0058BE), width: 1.2)),
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+      child: Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFC2C6D6)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x10000000),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 22, 20, 14),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: _pickYear,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 2,
+                              vertical: 4,
+                            ),
+                            child: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    '${_monthNames[_visibleMonth.month - 1]} ${_visibleMonth.year}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontSize: 18,
+                                          height: 24 / 18,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF1A1C1C),
+                                        ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  size: 22,
+                                  color: Color(0xFF424754),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      _CalendarNavButton(
+                        icon: Icons.chevron_left_rounded,
+                        onTap: _canMoveMonth(-1) ? () => _moveMonth(-1) : null,
+                      ),
+                      const SizedBox(width: 8),
+                      _CalendarNavButton(
+                        icon: Icons.chevron_right_rounded,
+                        onTap: _canMoveMonth(1) ? () => _moveMonth(1) : null,
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: GridView.count(
+                    crossAxisCount: 7,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    childAspectRatio: 1.25,
+                    children: const ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+                        .map(
+                          (day) => Center(
+                            child: Text(
+                              day,
+                              style: TextStyle(
+                                fontSize: 11,
+                                height: 14 / 11,
+                                letterSpacing: 0.33,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF424754),
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
+                  child: GridView.count(
+                    crossAxisCount: 7,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: 4,
+                    childAspectRatio: 1,
+                    children: _calendarDates()
+                        .map((date) => _buildDateCell(context, date))
+                        .toList(),
+                  ),
+                ),
+                Container(
+                  color: const Color(0xFFF3F3F3),
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF0058BE),
+                          textStyle: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text('취소'),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: () =>
+                            Navigator.of(context).pop(_selectedDate),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF0058BE),
+                          foregroundColor: Colors.white,
+                          textStyle: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 8,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text('적용'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
+    );
+  }
+
+  Widget _buildDateCell(BuildContext context, DateTime? date) {
+    if (date == null) return const SizedBox.shrink();
+    final isCurrentMonth = date.month == _visibleMonth.month;
+    final isSelected = _isSameDate(date, _selectedDate);
+    final hasScreenshots = widget.screenshotDates.contains(_dateOnly(date));
+    final enabled =
+        isCurrentMonth &&
+        !_dateOnly(date).isBefore(_dateOnly(widget.firstDate)) &&
+        !_dateOnly(date).isAfter(_dateOnly(widget.lastDate));
+    final textColor = !enabled
+        ? const Color(0xFF727785)
+        : isSelected
+        ? Colors.white
+        : const Color(0xFF1A1C1C);
+
+    return Center(
+      child: InkWell(
+        onTap: enabled
+            ? () => setState(() => _selectedDate = _dateOnly(date))
+            : null,
+        borderRadius: BorderRadius.circular(999),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF0058BE) : Colors.transparent,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Text(
+                '${date.day}',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: textColor,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+              if (hasScreenshots)
+                Positioned(
+                  bottom: 6,
+                  child: Container(
+                    width: 4,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Colors.white
+                          : const Color(0xFF0058BE),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<DateTime?> _calendarDates() {
+    final firstOfMonth = DateTime(_visibleMonth.year, _visibleMonth.month);
+    final leadingBlanks = firstOfMonth.weekday % 7;
+    final daysInMonth = DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month + 1,
+      0,
+    ).day;
+    final cells = <DateTime?>[
+      for (var i = 0; i < leadingBlanks; i++) null,
+      for (var day = 1; day <= daysInMonth; day++)
+        DateTime(_visibleMonth.year, _visibleMonth.month, day),
+    ];
+    while (cells.length % 7 != 0) {
+      cells.add(null);
+    }
+    return cells;
+  }
+
+  Future<void> _pickYear() async {
+    final picked = await showModalBottomSheet<DateTime>(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return _MonthYearPickerSheet(
+          initialMonth: _visibleMonth,
+          firstDate: widget.firstDate,
+          lastDate: widget.lastDate,
+          monthNames: _monthNames,
+        );
+      },
+    );
+    if (picked == null) return;
+    setState(() {
+      final month = picked.month;
+      final maxDay = DateTime(picked.year, month + 1, 0).day;
+      final day = _selectedDate.day.clamp(1, maxDay).toInt();
+      var selected = DateTime(picked.year, month, day);
+      if (selected.isBefore(_dateOnly(widget.firstDate))) {
+        selected = _dateOnly(widget.firstDate);
+      }
+      if (selected.isAfter(_dateOnly(widget.lastDate))) {
+        selected = _dateOnly(widget.lastDate);
+      }
+      _visibleMonth = DateTime(selected.year, selected.month);
+      _selectedDate = selected;
+    });
+  }
+
+  bool _canMoveMonth(int delta) {
+    final next = DateTime(_visibleMonth.year, _visibleMonth.month + delta);
+    final firstAllowedMonth = DateTime(
+      widget.firstDate.year,
+      widget.firstDate.month,
+    );
+    final lastAllowedMonth = DateTime(
+      widget.lastDate.year,
+      widget.lastDate.month,
+    );
+    return !next.isBefore(firstAllowedMonth) && !next.isAfter(lastAllowedMonth);
+  }
+
+  void _moveMonth(int delta) {
+    setState(() {
+      _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month + delta);
+    });
+  }
+
+  static DateTime _dateOnly(DateTime date) =>
+      DateTime(date.year, date.month, date.day);
+  static bool _isSameDate(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+}
+
+class _MonthYearPickerSheet extends StatefulWidget {
+  const _MonthYearPickerSheet({
+    required this.initialMonth,
+    required this.firstDate,
+    required this.lastDate,
+    required this.monthNames,
+  });
+
+  final DateTime initialMonth;
+  final DateTime firstDate;
+  final DateTime lastDate;
+  final List<String> monthNames;
+
+  @override
+  State<_MonthYearPickerSheet> createState() => _MonthYearPickerSheetState();
+}
+
+class _MonthYearPickerSheetState extends State<_MonthYearPickerSheet> {
+  late int _year = widget.initialMonth.year;
+
+  @override
+  Widget build(BuildContext context) {
+    final firstYear = widget.firstDate.year;
+    final lastYear = widget.lastDate.year;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 38,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE5E7EB),
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                _CalendarNavButton(
+                  icon: Icons.chevron_left_rounded,
+                  onTap: _year > firstYear
+                      ? () => setState(() => _year--)
+                      : null,
+                ),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      '$_year',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1A1C1C),
+                      ),
+                    ),
+                  ),
+                ),
+                _CalendarNavButton(
+                  icon: Icons.chevron_right_rounded,
+                  onTap: _year < lastYear
+                      ? () => setState(() => _year++)
+                      : null,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            GridView.count(
+              crossAxisCount: 3,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: 2.3,
+              children: [
+                for (var month = 1; month <= 12; month++)
+                  _MonthTile(
+                    label: widget.monthNames[month - 1].substring(0, 3),
+                    selected:
+                        _year == widget.initialMonth.year &&
+                        month == widget.initialMonth.month,
+                    enabled: _monthEnabled(_year, month),
+                    onTap: () =>
+                        Navigator.of(context).pop(DateTime(_year, month)),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _monthEnabled(int year, int month) {
+    final candidate = DateTime(year, month);
+    final first = DateTime(widget.firstDate.year, widget.firstDate.month);
+    final last = DateTime(widget.lastDate.year, widget.lastDate.month);
+    return !candidate.isBefore(first) && !candidate.isAfter(last);
+  }
+}
+
+class _MonthTile extends StatelessWidget {
+  const _MonthTile({
+    required this.label,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(14),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF0058BE) : const Color(0xFFF3F3F3),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? const Color(0xFF0058BE) : const Color(0xFFE5E7EB),
+          ),
+        ),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: !enabled
+                ? const Color(0xFFC2C6D6)
+                : selected
+                ? Colors.white
+                : const Color(0xFF1A1C1C),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CalendarNavButton extends StatelessWidget {
+  const _CalendarNavButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: SizedBox(
+        width: 32,
+        height: 32,
+        child: Icon(
+          icon,
+          size: 24,
+          color: onTap == null
+              ? const Color(0xFFC2C6D6)
+              : const Color(0xFF424754),
+        ),
+      ),
+    );
+  }
+}
+
+enum _SearchResultKind { stack, set, image }
+
+class _SearchResult {
+  const _SearchResult.stack(this.stack)
+    : kind = _SearchResultKind.stack,
+      set = null,
+      image = null;
+
+  const _SearchResult.set(this.stack, this.set)
+    : kind = _SearchResultKind.set,
+      image = null;
+
+  const _SearchResult.image(this.stack, this.image)
+    : kind = _SearchResultKind.image,
+      set = null;
+
+  final _SearchResultKind kind;
+  final StackItem stack;
+  final ScreenshotSet? set;
+  final ScreenshotItem? image;
+}
+
+class _SearchPage extends StatefulWidget {
+  const _SearchPage({
+    required this.initialQuery,
+    required this.stacks,
+    required this.allStackKeys,
+    required this.stackNames,
+    required this.setMemos,
+    required this.folderNames,
+    required this.setAssignments,
+    required this.stackMatchesQuery,
+    required this.onRenameStack,
+    required this.onHideStack,
+    required this.onExcludeImage,
+    required this.onDeleteOriginalImage,
+    required this.onDeleteOriginalImages,
+    required this.onMoveImage,
+    this.onAddImageToStack,
+    required this.onSaveSetMemo,
+    required this.onSaveFolderName,
+    required this.onAssignImageToSet,
+  });
+
+  final String initialQuery;
+  final List<StackItem> stacks;
+  final List<String> allStackKeys;
+  final Map<String, String> stackNames;
+  final Map<String, String> setMemos;
+  final Map<String, String> folderNames;
+  final Map<String, String> setAssignments;
+  final bool Function(StackItem stack, String query) stackMatchesQuery;
+  final Future<void> Function(String stackKey, String name) onRenameStack;
+  final Future<void> Function(String stackKey) onHideStack;
+  final Future<void> Function(String imageId) onExcludeImage;
+  final Future<bool> Function(String imageId) onDeleteOriginalImage;
+  final Future<bool> Function(List<String> imageIds) onDeleteOriginalImages;
+  final Future<void> Function(String imageId, String stackKey) onMoveImage;
+  final Future<ScreenshotItem?> Function(String stackKey)? onAddImageToStack;
+  final Future<void> Function(String setKey, String memo) onSaveSetMemo;
+  final Future<void> Function(String folderKey, String name) onSaveFolderName;
+  final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
+
+  @override
+  State<_SearchPage> createState() => _SearchPageState();
+}
+
+class _SearchPageState extends State<_SearchPage> {
+  late final TextEditingController _controller;
+  late String _query;
+  bool _showAllStacks = false;
+  bool _showAllSets = false;
+  bool _showAllImages = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _query = widget.initialQuery;
+    _controller = TextEditingController(text: _query);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmed = _query.trim();
+    final results = trimmed.isEmpty
+        ? const <_SearchResult>[]
+        : _results(trimmed);
+    final stackResults = results
+        .where((result) => result.kind == _SearchResultKind.stack)
+        .toList();
+    final setResults = results
+        .where((result) => result.kind == _SearchResultKind.set)
+        .toList();
+    final imageResults = results
+        .where((result) => result.kind == _SearchResultKind.image)
+        .toList();
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 10, 20, 12),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(_query.trim()),
+                    icon: const Icon(Icons.arrow_back_rounded),
+                  ),
+                  Expanded(
+                    child: Container(
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEDEFF2),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: TextField(
+                        controller: _controller,
+                        autofocus: true,
+                        onChanged: (value) => setState(() => _query = value),
+                        onSubmitted: (value) =>
+                            Navigator.of(context).pop(value.trim()),
+                        textInputAction: TextInputAction.search,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                        decoration: InputDecoration(
+                          hintText: '앱 이름, 파일명, 경로 검색',
+                          hintStyle: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: const Color(0xFF727785)),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            color: Color(0xFF727785),
+                          ),
+                          suffixIcon: _query.isEmpty
+                              ? null
+                              : IconButton(
+                                  onPressed: () {
+                                    _controller.clear();
+                                    setState(() => _query = '');
+                                  },
+                                  icon: const Icon(
+                                    Icons.close_rounded,
+                                    color: Color(0xFF727785),
+                                  ),
+                                ),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 13,
+                            horizontal: 0,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: trimmed.isEmpty
+                  ? const _SearchEmptyHint()
+                  : results.isEmpty
+                  ? const _SearchNoResults()
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                      children: [
+                        _SearchResultSection(
+                          title: 'Stack',
+                          results: stackResults,
+                          expanded: _showAllStacks,
+                          onToggleExpanded: () =>
+                              setState(() => _showAllStacks = !_showAllStacks),
+                          onOpen: _openResult,
+                        ),
+                        _SearchResultSection(
+                          title: 'Set / 그룹',
+                          results: setResults,
+                          expanded: _showAllSets,
+                          onToggleExpanded: () =>
+                              setState(() => _showAllSets = !_showAllSets),
+                          onOpen: _openResult,
+                        ),
+                        _SearchResultSection(
+                          title: '사진',
+                          results: imageResults,
+                          expanded: _showAllImages,
+                          onToggleExpanded: () =>
+                              setState(() => _showAllImages = !_showAllImages),
+                          onOpen: _openResult,
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<_SearchResult> _results(String query) {
+    final results = <_SearchResult>[];
+    final imageIds = <String>{};
+    final setKeys = <String>{};
+    for (final stack in widget.stacks) {
+      if (widget.stackMatchesQuery(stack, query)) {
+        results.add(_SearchResult.stack(stack));
+      }
+      final sets = _buildScreenshotSets(
+        stack.key,
+        stack.items,
+        widget.setMemos,
+        widget.folderNames,
+        widget.setAssignments,
+      );
+      for (final set in sets) {
+        final setMatches =
+            _matches(set.memo, query) ||
+            (_isFolderSetKey(set.key) && _matches(_folderName(set), query)) ||
+            _matches(set.timeRange, query) ||
+            (set.items.isNotEmpty &&
+                _matches(_formatSetDate(set.items.first.date), query));
+        if (setMatches && setKeys.add(set.key)) {
+          results.add(_SearchResult.set(stack, set));
+        }
+      }
+      for (final image in stack.items) {
+        if (image.matches(query) && imageIds.add(image.id)) {
+          results.add(_SearchResult.image(stack, image));
+        }
+      }
+    }
+    return results;
+  }
+
+  bool _matches(String text, String query) =>
+      text.toLowerCase().contains(query.toLowerCase());
+
+  Future<void> _openResult(_SearchResult result) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) {
+          switch (result.kind) {
+            case _SearchResultKind.stack:
+              return StackDetailScreen(
+                stack: result.stack,
+                allStackKeys: widget.allStackKeys,
+                stackNames: widget.stackNames,
+                setMemos: widget.setMemos,
+                folderNames: widget.folderNames,
+                setAssignments: widget.setAssignments,
+                visualFeatures: const {},
+                onRenameStack: widget.onRenameStack,
+                onHideStack: widget.onHideStack,
+                onExcludeImage: widget.onExcludeImage,
+                onDeleteOriginalImage: widget.onDeleteOriginalImage,
+                onDeleteOriginalImages: widget.onDeleteOriginalImages,
+                onMoveImage: widget.onMoveImage,
+                onAddImageToStack: widget.onAddImageToStack,
+                onSaveSetMemo: widget.onSaveSetMemo,
+                onSaveFolderName: widget.onSaveFolderName,
+                onAssignImageToSet: widget.onAssignImageToSet,
+              );
+            case _SearchResultKind.set:
+              return _SearchSetResultScreen(
+                stack: result.stack,
+                set: result.set!,
+                allStackKeys: widget.allStackKeys,
+                stackNames: widget.stackNames,
+                onExcludeImage: widget.onExcludeImage,
+                onDeleteOriginalImage: widget.onDeleteOriginalImage,
+                onMoveImage: widget.onMoveImage,
+                onSaveSetMemo: widget.onSaveSetMemo,
+                onAssignImageToSet: widget.onAssignImageToSet,
+              );
+            case _SearchResultKind.image:
+              final images = result.stack.items;
+              final index = images.indexWhere(
+                (item) => item.id == result.image!.id,
+              );
+              return ImageViewerScreen(
+                items: images,
+                initialIndex: index < 0 ? 0 : index,
+                onDeleteOriginalImage: widget.onDeleteOriginalImage,
+              );
+          }
+        },
+      ),
+    );
+  }
+}
+
+class _SearchEmptyHint extends StatelessWidget {
+  const _SearchEmptyHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        '찾고 싶은 앱, 파일명, 경로를 검색해보세요.',
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785)),
+      ),
+    );
+  }
+}
+
+class _SearchNoResults extends StatelessWidget {
+  const _SearchNoResults();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        '검색 결과가 없습니다.',
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785)),
+      ),
+    );
+  }
+}
+
+class _SearchResultSection extends StatelessWidget {
+  const _SearchResultSection({
+    required this.title,
+    required this.results,
+    required this.expanded,
+    required this.onToggleExpanded,
+    required this.onOpen,
+  });
+
+  final String title;
+  final List<_SearchResult> results;
+  final bool expanded;
+  final VoidCallback onToggleExpanded;
+  final ValueChanged<_SearchResult> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    if (results.isEmpty) return const SizedBox.shrink();
+    final visible = expanded ? results : results.take(3).toList();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1A1C1C),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '${results.length}',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: const Color(0xFF727785),
+                ),
+              ),
+              const Spacer(),
+              if (results.length > 3)
+                TextButton(
+                  onPressed: onToggleExpanded,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(expanded ? '접기' : '더보기'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...visible.map(
+            (result) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _SearchResultCard(
+                result: result,
+                onTap: () => onOpen(result),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchResultCard extends StatelessWidget {
+  const _SearchResultCard({required this.result, required this.onTap});
+
+  final _SearchResult result;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final stack = result.stack;
+    final image = result.image;
+    final set = result.set;
+    final title = switch (result.kind) {
+      _SearchResultKind.stack => stack.name,
+      _SearchResultKind.set =>
+        _isFolderSetKey(set!.key)
+            ? _folderName(set)
+            : (set.memo.trim().isEmpty ? 'Set' : set.memo.trim()),
+      _SearchResultKind.image =>
+        image!.displayName.isEmpty ? stack.name : image.displayName,
+    };
+    final subtitle = switch (result.kind) {
+      _SearchResultKind.stack => '${stack.items.length} images',
+      _SearchResultKind.set => '${stack.name} · ${set!.items.length} images',
+      _SearchResultKind.image =>
+        '${stack.name} · ${_formatSearchDate(image!.date)}',
+    };
+    final thumbs = switch (result.kind) {
+      _SearchResultKind.stack => stack.items.take(8).toList(),
+      _SearchResultKind.set => set!.items.take(8).toList(),
+      _SearchResultKind.image => [image!],
+    };
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEDEFF2),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    switch (result.kind) {
+                      _SearchResultKind.stack => 'Stack',
+                      _SearchResultKind.set =>
+                        _isFolderSetKey(set!.key) ? '그룹' : 'Set',
+                      _SearchResultKind.image => '사진',
+                    },
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: const Color(0xFF424754),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Color(0xFF727785),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontSize: 18,
+                height: 24 / 18,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF1A1C1C),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(color: const Color(0xFF727785)),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 132,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: thumbs.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 5),
+                itemBuilder: (context, index) => _Thumb(
+                  path: thumbs[index].thumbnailPath,
+                  width: 80,
+                  height: 132,
+                  radius: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _formatSearchDate(DateTime date) =>
+      '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+}
+
+class _SearchSetResultScreen extends StatelessWidget {
+  const _SearchSetResultScreen({
+    required this.stack,
+    required this.set,
+    required this.allStackKeys,
+    required this.stackNames,
+    required this.onExcludeImage,
+    required this.onDeleteOriginalImage,
+    required this.onMoveImage,
+    required this.onSaveSetMemo,
+    required this.onAssignImageToSet,
+    this.onDeleteFolder,
+  });
+
+  final StackItem stack;
+  final ScreenshotSet set;
+  final List<String> allStackKeys;
+  final Map<String, String> stackNames;
+  final Future<void> Function(String imageId) onExcludeImage;
+  final Future<bool> Function(String imageId) onDeleteOriginalImage;
+  final Future<void> Function(String imageId, String stackKey) onMoveImage;
+  final Future<void> Function(String setKey, String memo) onSaveSetMemo;
+  final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
+  final Future<void> Function()? onDeleteFolder;
+
+  @override
+  Widget build(BuildContext context) {
+    final isFolder = _isFolderSetKey(set.key);
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      body: SafeArea(
+        child: CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(8, 12, 20, 20),
+              sliver: SliverToBoxAdapter(
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.arrow_back_rounded),
+                    ),
+                    Expanded(
+                      child: Text(
+                        isFolder
+                            ? _folderName(set)
+                            : (set.memo.trim().isEmpty
+                                  ? stack.name
+                                  : set.memo.trim()),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF1A1C1C),
+                            ),
+                      ),
+                    ),
+                    if (isFolder && onDeleteFolder != null)
+                      IconButton(
+                        onPressed: () async {
+                          await onDeleteFolder!();
+                          if (context.mounted) Navigator.of(context).pop();
+                        },
+                        icon: const Icon(
+                          Icons.more_vert_rounded,
+                          color: Color(0xFF424754),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+              sliver: SliverToBoxAdapter(
+                child: _SetSection(
+                  set: set,
+                  allStackKeys: allStackKeys,
+                  stackNames: stackNames,
+                  onExcludeImage: onExcludeImage,
+                  onDeleteOriginalImage: onDeleteOriginalImage,
+                  onMoveImage: onMoveImage,
+                  selectedIds: const {},
+                  onToggleSelection: (_) {},
+                  showLocalActionBar: true,
+                  onSaveMemo: isFolder ? (_, _) async {} : onSaveSetMemo,
+                  onAssignImageToSet: onAssignImageToSet,
+                  suppressHeader: isFolder,
+                  showTitle: false,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchField extends StatelessWidget {
+  const _SearchField({
+    required this.controller,
+    required this.onTap,
+    required this.selectedDate,
+    required this.onPickDate,
+    required this.onClearDate,
+  });
+
+  final TextEditingController controller;
+  final VoidCallback onTap;
+  final DateTime? selectedDate;
+  final VoidCallback onPickDate;
+  final VoidCallback onClearDate;
+
+  @override
+  Widget build(BuildContext context) {
+    final date = selectedDate;
+    final dateText = date == null
+        ? null
+        : '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 44,
+          decoration: BoxDecoration(
+            color: const Color(0xFFEDEFF2),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: TextField(
+            controller: controller,
+            readOnly: true,
+            onTap: onTap,
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: InputDecoration(
+              hintText: '검색',
+              hintStyle: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785)),
+              prefixIcon: const Icon(
+                Icons.search_rounded,
+                color: Color(0xFF727785),
+              ),
+              prefixIconConstraints: const BoxConstraints(
+                minWidth: 42,
+                minHeight: 44,
+              ),
+              suffixIcon: InkWell(
+                onTap: onPickDate,
+                borderRadius: BorderRadius.circular(999),
+                child: Icon(
+                  Icons.calendar_today_rounded,
+                  size: 20,
+                  color: date == null
+                      ? const Color(0xFF727785)
+                      : const Color(0xFF111111),
+                ),
+              ),
+              suffixIconConstraints: const BoxConstraints(
+                minWidth: 42,
+                minHeight: 44,
+              ),
+              filled: false,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 12,
+                horizontal: 0,
+              ),
+              border: InputBorder.none,
+            ),
+          ),
+        ),
+        if (dateText != null) ...[
+          const SizedBox(height: 10),
+          InkWell(
+            onTap: onClearDate,
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE5E7EB),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    dateText,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: const Color(0xFF424754),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.close_rounded,
+                    size: 16,
+                    color: Color(0xFF727785),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -914,15 +2529,20 @@ class _StackCard extends StatelessWidget {
     required this.allStackKeys,
     required this.stackNames,
     required this.setMemos,
+    required this.folderNames,
     required this.setAssignments,
     required this.visualFeatures,
     required this.onRenameStack,
     required this.onHideStack,
+    required this.onTogglePinStack,
+    required this.pinned,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
     required this.onDeleteOriginalImages,
     required this.onMoveImage,
+    this.onAddImageToStack,
     required this.onSaveSetMemo,
+    required this.onSaveFolderName,
     required this.onAssignImageToSet,
   });
 
@@ -930,38 +2550,49 @@ class _StackCard extends StatelessWidget {
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
   final Map<String, String> setMemos;
+  final Map<String, String> folderNames;
   final Map<String, String> setAssignments;
   final Map<String, VisualFeature> visualFeatures;
   final Future<void> Function(String stackKey, String name) onRenameStack;
   final Future<void> Function(String stackKey) onHideStack;
+  final Future<void> Function(String stackKey) onTogglePinStack;
+  final bool pinned;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
   final Future<bool> Function(List<String> imageIds) onDeleteOriginalImages;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
+  final Future<ScreenshotItem?> Function(String stackKey)? onAddImageToStack;
   final Future<void> Function(String setKey, String memo) onSaveSetMemo;
+  final Future<void> Function(String folderKey, String name) onSaveFolderName;
   final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => StackDetailScreen(
-          stack: stack,
-          allStackKeys: allStackKeys,
-          stackNames: stackNames,
-          setMemos: setMemos,
-          setAssignments: setAssignments,
-          visualFeatures: visualFeatures,
-          onRenameStack: onRenameStack,
-          onHideStack: onHideStack,
-          onExcludeImage: onExcludeImage,
-          onDeleteOriginalImage: onDeleteOriginalImage,
-          onDeleteOriginalImages: onDeleteOriginalImages,
-          onMoveImage: onMoveImage,
-          onSaveSetMemo: onSaveSetMemo,
-          onAssignImageToSet: onAssignImageToSet,
+      onLongPress: () => _showStackQuickActions(context),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => StackDetailScreen(
+            stack: stack,
+            allStackKeys: allStackKeys,
+            stackNames: stackNames,
+            setMemos: setMemos,
+            folderNames: folderNames,
+            setAssignments: setAssignments,
+            visualFeatures: visualFeatures,
+            onRenameStack: onRenameStack,
+            onHideStack: onHideStack,
+            onExcludeImage: onExcludeImage,
+            onDeleteOriginalImage: onDeleteOriginalImage,
+            onDeleteOriginalImages: onDeleteOriginalImages,
+            onMoveImage: onMoveImage,
+            onAddImageToStack: onAddImageToStack,
+            onSaveSetMemo: onSaveSetMemo,
+            onSaveFolderName: onSaveFolderName,
+            onAssignImageToSet: onAssignImageToSet,
+          ),
         ),
-      )),
+      ),
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -975,31 +2606,49 @@ class _StackCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        stack.name,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontSize: 18,
-                              height: 24 / 18,
-                              color: const Color(0xFF1A1C1C),
-                              fontWeight: FontWeight.w700,
+                      Row(
+                        children: [
+                          if (pinned) ...[
+                            const Icon(
+                              Icons.push_pin_rounded,
+                              size: 16,
+                              color: Color(0xFF424754),
                             ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                            const SizedBox(width: 5),
+                          ],
+                          Expanded(
+                            child: Text(
+                              stack.name,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    fontSize: 18,
+                                    height: 24 / 18,
+                                    color: const Color(0xFF1A1C1C),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '${stack.items.length} images',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: const Color(0xFF424754),
-                              fontSize: 12,
-                              height: 16 / 12,
-                              fontWeight: FontWeight.w500,
-                            ),
+                          color: const Color(0xFF424754),
+                          fontSize: 12,
+                          height: 16 / 12,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right_rounded, color: Color(0xFF727785)),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Color(0xFF727785),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -1008,8 +2657,14 @@ class _StackCard extends StatelessWidget {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: stack.items.take(8).length,
-                separatorBuilder: (context, index) => const SizedBox(width: 8),
-                itemBuilder: (context, index) => _Thumb(path: stack.items[index].thumbnailPath, width: 96, height: 160, radius: 18),
+                separatorBuilder: (context, index) => const SizedBox(width: 5),
+                itemBuilder: (context, index) => _Thumb(
+                  path: stack.items[index].thumbnailPath,
+                  width: 96,
+                  height: 160,
+                  radius: 12,
+                  borderColor: Colors.transparent,
+                ),
               ),
             ),
           ],
@@ -1017,147 +2672,40 @@ class _StackCard extends StatelessWidget {
       ),
     );
   }
-}
 
-class _BottomNavBar extends StatelessWidget {
-  const _BottomNavBar({required this.calendarSelected, required this.onStacksTap, required this.onCalendarTap});
-
-  final bool calendarSelected;
-  final VoidCallback onStacksTap;
-  final VoidCallback onCalendarTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: 0,
-      right: 0,
-      bottom: 24,
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.95),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: const Color(0x4DC2C6D6)),
-            boxShadow: const [BoxShadow(color: Color(0x26000000), blurRadius: 24, offset: Offset(0, 12))],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _BottomNavItem(icon: Icons.layers_outlined, selectedIcon: Icons.layers_rounded, label: 'Stacks', selected: !calendarSelected, onTap: onStacksTap),
-              const SizedBox(width: 34),
-              _BottomNavItem(icon: Icons.calendar_today_outlined, selectedIcon: Icons.calendar_today_rounded, label: 'Calendar', selected: calendarSelected, onTap: onCalendarTap),
-            ],
-          ),
+  Future<void> _showStackQuickActions(BuildContext context) async {
+    final action = await _showShotlyActionSheet<String>(
+      context,
+      items: [
+        _ShotlyActionItem(
+          value: 'pin',
+          icon: pinned ? Icons.push_pin_outlined : Icons.push_pin_rounded,
+          title: pinned ? '고정 해제' : '고정 하기',
         ),
-      ),
-    );
-  }
-}
-
-class _BottomNavItem extends StatelessWidget {
-  const _BottomNavItem({required this.icon, required this.selectedIcon, required this.label, required this.selected, required this.onTap});
-
-  final IconData icon;
-  final IconData selectedIcon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = selected ? const Color(0xFF0058BE) : const Color(0xFF424754);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(selected ? selectedIcon : icon, color: color, size: 24),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
-            ),
-          ],
+        const _ShotlyActionItem(
+          value: 'rename',
+          icon: Icons.edit_rounded,
+          title: 'Stack 이름 수정',
         ),
-      ),
-    );
-  }
-}
-
-class _CalendarTimelineView extends StatelessWidget {
-  const _CalendarTimelineView({required this.items, required this.selectedIds, required this.onToggleSelection, required this.onOpenImage});
-
-  final List<ScreenshotItem> items;
-  final Set<String> selectedIds;
-  final ValueChanged<String> onToggleSelection;
-  final Future<void> Function(List<ScreenshotItem> items, int index) onOpenImage;
-
-  bool get _isSelecting => selectedIds.isNotEmpty;
-
-  @override
-  Widget build(BuildContext context) {
-    final grouped = <DateTime, List<ScreenshotItem>>{};
-    for (final item in items) {
-      final date = DateTime(item.date.year, item.date.month, item.date.day);
-      grouped.putIfAbsent(date, () => []).add(item);
-    }
-    final dates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final date in dates) ...[
-          Padding(
-            padding: const EdgeInsets.only(top: 6, bottom: 12),
-            child: Row(
-              children: [
-                Text(
-                  _formatTimelineDate(date),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: const Color(0xFF1A1C1C),
-                        fontSize: 18,
-                        height: 24 / 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${grouped[date]!.length} images',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xFF424754)),
-                ),
-              ],
-            ),
-          ),
-          GridView.builder(
-            itemCount: grouped[date]!.length,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-              childAspectRatio: 0.6,
-            ),
-            itemBuilder: (context, index) {
-              final dateItems = grouped[date]!;
-              final item = dateItems[index];
-              return _SelectableThumb(
-                item: item,
-                selected: selectedIds.contains(item.id),
-                selecting: _isSelecting,
-                onTap: () => _isSelecting ? onToggleSelection(item.id) : onOpenImage(items, items.indexWhere((candidate) => candidate.id == item.id)),
-                onLongPress: () => onToggleSelection(item.id),
-              );
-            },
-          ),
-          const SizedBox(height: 24),
-        ],
+        const _ShotlyActionItem(
+          value: 'hide',
+          icon: Icons.visibility_off_rounded,
+          title: 'Stack 숨기기',
+        ),
       ],
     );
+    if (action == 'pin') await onTogglePinStack(stack.key);
+    if (action == 'rename' && context.mounted) {
+      final name = await _showShotlyTextDialog(
+        context: context,
+        title: 'Stack 이름 수정',
+        initialValue: stack.name,
+        hintText: 'Stack 이름',
+        primaryLabel: '저장',
+      );
+      if (name != null) await onRenameStack(stack.key, name);
+    }
+    if (action == 'hide') await onHideStack(stack.key);
   }
 }
 
@@ -1168,6 +2716,7 @@ class StackDetailScreen extends StatefulWidget {
     required this.allStackKeys,
     required this.stackNames,
     required this.setMemos,
+    required this.folderNames,
     required this.setAssignments,
     required this.visualFeatures,
     required this.onRenameStack,
@@ -1176,7 +2725,9 @@ class StackDetailScreen extends StatefulWidget {
     required this.onDeleteOriginalImage,
     required this.onDeleteOriginalImages,
     required this.onMoveImage,
+    this.onAddImageToStack,
     required this.onSaveSetMemo,
+    required this.onSaveFolderName,
     required this.onAssignImageToSet,
   });
 
@@ -1184,6 +2735,7 @@ class StackDetailScreen extends StatefulWidget {
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
   final Map<String, String> setMemos;
+  final Map<String, String> folderNames;
   final Map<String, String> setAssignments;
   final Map<String, VisualFeature> visualFeatures;
   final Future<void> Function(String stackKey, String name) onRenameStack;
@@ -1192,7 +2744,9 @@ class StackDetailScreen extends StatefulWidget {
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
   final Future<bool> Function(List<String> imageIds) onDeleteOriginalImages;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
+  final Future<ScreenshotItem?> Function(String stackKey)? onAddImageToStack;
   final Future<void> Function(String setKey, String memo) onSaveSetMemo;
+  final Future<void> Function(String folderKey, String name) onSaveFolderName;
   final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
 
   @override
@@ -1200,120 +2754,194 @@ class StackDetailScreen extends StatefulWidget {
 }
 
 class _StackDetailScreenState extends State<StackDetailScreen> {
-  bool _showSimilar = false;
   final Set<String> _deletedImageIds = <String>{};
   final Set<String> _selectedImageIds = <String>{};
+  final List<ScreenshotItem> _addedItems = <ScreenshotItem>[];
+  late Map<String, String> _detailFolderNames;
+  late Map<String, String> _detailSetAssignments;
+
+  String get _stackName =>
+      widget.stackNames[widget.stack.key] ?? widget.stack.name;
+
+  @override
+  void initState() {
+    super.initState();
+    _detailFolderNames = {...widget.folderNames};
+    _detailSetAssignments = {...widget.setAssignments};
+  }
+
+  @override
+  void didUpdateWidget(covariant StackDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.folderNames, widget.folderNames)) {
+      _detailFolderNames = {...widget.folderNames, ..._detailFolderNames};
+    }
+    if (!identical(oldWidget.setAssignments, widget.setAssignments)) {
+      _detailSetAssignments = {
+        ...widget.setAssignments,
+        ..._detailSetAssignments,
+      };
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final visibleItems = widget.stack.items.where((item) => !_deletedImageIds.contains(item.id)).toList();
-    final sets = _buildScreenshotSets(widget.stack.key, visibleItems, widget.setMemos, widget.setAssignments);
-    final similarGroups = _buildSimilarGroups(visibleItems, widget.visualFeatures);
+    final visibleItems = [
+      ..._addedItems,
+      ...widget.stack.items,
+    ].where((item) => !_deletedImageIds.contains(item.id)).toList();
+    final sets = _buildScreenshotSets(
+      widget.stack.key,
+      visibleItems,
+      widget.setMemos,
+      _detailFolderNames,
+      _detailSetAssignments,
+    );
+    final folderSets = sets.where((set) => _isFolderSetKey(set.key)).toList();
+    final dateGroups = _groupSetsByDate(
+      sets.where((set) => !_isFolderSetKey(set.key)).toList(),
+    );
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: const Color(0xFFF8F9FA),
       body: SafeArea(
         child: Stack(
           children: [
             CustomScrollView(
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              sliver: SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Transform.translate(
-                      offset: const Offset(-12, 0),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints.tightFor(width: 40, height: 40),
-                            icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF424754)),
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  sliver: SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Transform.translate(
+                          offset: const Offset(-12, 0),
+                          child: Row(
+                            children: [
+                              IconButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints.tightFor(
+                                  width: 40,
+                                  height: 40,
+                                ),
+                                icon: const Icon(
+                                  Icons.arrow_back_rounded,
+                                  color: Color(0xFF424754),
+                                ),
+                              ),
+                              const Spacer(),
+                              if (widget.onAddImageToStack != null)
+                                Transform.translate(
+                                  offset: const Offset(16, 0),
+                                  child: IconButton(
+                                    onPressed: _addImageToCurrentStack,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints.tightFor(
+                                      width: 40,
+                                      height: 40,
+                                    ),
+                                    icon: const Icon(
+                                      Icons.add_rounded,
+                                      color: Color(0xFF424754),
+                                    ),
+                                  ),
+                                ),
+                              Transform.translate(
+                                offset: const Offset(24, 0),
+                                child: IconButton(
+                                  onPressed: () => _showStackActions(context),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints.tightFor(
+                                    width: 40,
+                                    height: 40,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.more_vert_rounded,
+                                    color: Color(0xFF424754),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const Spacer(),
-                          Transform.translate(
-                            offset: const Offset(24, 0),
-                            child: IconButton(
-                              onPressed: () => _showStackActions(context),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints.tightFor(width: 40, height: 40),
-                              icon: const Icon(Icons.more_horiz_rounded, color: Color(0xFF424754)),
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          _selectedImageIds.isNotEmpty
+                              ? '${_selectedImageIds.length}개 선택'
+                              : _stackName,
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(
+                                color: const Color(0xFF1A1C1C),
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                        const SizedBox(height: 18),
+                        _FolderStrip(
+                          stack: widget.stack,
+                          folders: folderSets,
+                          allStackKeys: widget.allStackKeys,
+                          stackNames: widget.stackNames,
+                          onCreateFolder: () {
+                            _createFolder(context);
+                          },
+                          onDeleteFolder: (folder) =>
+                              _deleteFolder(context, folder, visibleItems),
+                          onExcludeImage: widget.onExcludeImage,
+                          onDeleteOriginalImage: _deleteOriginalImage,
+                          onMoveImage: widget.onMoveImage,
+                          onSaveSetMemo: widget.onSaveSetMemo,
+                          onAssignImageToSet: widget.onAssignImageToSet,
+                        ),
+                        const SizedBox(height: 24),
+                      ],
                     ),
-                    const SizedBox(height: 20),
-                    Text(widget.stack.name, style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: const Color(0xFF1A1C1C), fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 4),
-                    Text('${visibleItems.length}개 이미지 · ${sets.length}개 Set', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF424754))),
-                    const SizedBox(height: 18),
-                    _DetailModeSwitch(
-                      showSimilar: _showSimilar,
-                      onChanged: (value) => setState(() => _showSimilar = value),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
+                  ),
                 ),
-              ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                  sliver: SliverList.separated(
+                    itemCount: dateGroups.isEmpty ? 1 : dateGroups.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 32),
+                    itemBuilder: (context, index) {
+                      if (dateGroups.isEmpty) {
+                        return const _EmptyStackDetail(
+                          message: '아직 이미지가 없는 Stack이에요',
+                        );
+                      }
+                      return _SetDateSection(
+                        dateLabel: dateGroups[index].dateLabel,
+                        sets: dateGroups[index].sets,
+                        allStackKeys: widget.allStackKeys,
+                        stackNames: widget.stackNames,
+                        onExcludeImage: widget.onExcludeImage,
+                        onDeleteOriginalImage: _deleteOriginalImage,
+                        onMoveImage: widget.onMoveImage,
+                        selectedIds: _selectedImageIds,
+                        onToggleSelection: _toggleSelection,
+                        onToggleDateSelection: _toggleDateSelection,
+                        showLocalActionBar: false,
+                        onSaveMemo: widget.onSaveSetMemo,
+                        onAssignImageToSet: widget.onAssignImageToSet,
+                        viewerItems: visibleItems,
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-              sliver: SliverList.separated(
-                itemCount: _showSimilar ? (similarGroups.isEmpty ? 1 : similarGroups.length) : (_groupSetsByDate(sets).isEmpty ? 1 : _groupSetsByDate(sets).length),
-                separatorBuilder: (context, index) => const SizedBox(height: 32),
-                itemBuilder: (context, index) {
-                  if (_showSimilar) {
-                    if (similarGroups.isEmpty) return const _EmptyStackDetail(message: '유사 화면 후보가 없어요');
-                    final group = similarGroups[index];
-                    return _ImageGridSection(
-                      title: _formatTimeRange(group),
-                      subtitle: _formatSetDate(group.first.date),
-                      items: group,
-                      allStackKeys: widget.allStackKeys,
-                      stackNames: widget.stackNames,
-                      onExcludeImage: widget.onExcludeImage,
-                      onDeleteOriginalImage: _deleteOriginalImage,
-                      onMoveImage: widget.onMoveImage,
-                      selectedIds: _selectedImageIds,
-                      onToggleSelection: _toggleSelection,
-                      showLocalActionBar: false,
-                    );
-                  }
-                  final dateGroups = _groupSetsByDate(sets);
-                  if (dateGroups.isEmpty) return const _EmptyStackDetail(message: '아직 이미지가 없는 Stack이에요');
-                  return _SetDateSection(
-                    dateLabel: dateGroups[index].dateLabel,
-                    sets: dateGroups[index].sets,
-                    allStackKeys: widget.allStackKeys,
-                    stackNames: widget.stackNames,
-                    onExcludeImage: widget.onExcludeImage,
-                    onDeleteOriginalImage: _deleteOriginalImage,
-                    onMoveImage: widget.onMoveImage,
-                    selectedIds: _selectedImageIds,
-                    onToggleSelection: _toggleSelection,
-                    showLocalActionBar: false,
-                    onSaveMemo: widget.onSaveSetMemo,
-                    onAssignImageToSet: widget.onAssignImageToSet,
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
             if (_selectedImageIds.isNotEmpty)
               Positioned(
                 left: 20,
                 right: 20,
                 bottom: 20,
                 child: _SelectionActionBar(
-                  count: _selectedImageIds.length,
                   onCancel: () => setState(_selectedImageIds.clear),
                   onShare: _shareSelected,
                   onDelete: () => _deleteSelected(context),
-                  onMove: () => _moveSelected(context),
+                  onMove: () => _moveSelectedToStack(context),
+                  onFolder: () => _addSelectedToFolder(context, folderSets),
                   onHide: _hideSelected,
                 ),
               ),
@@ -1326,6 +2954,17 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   void _toggleSelection(String imageId) {
     setState(() {
       if (!_selectedImageIds.add(imageId)) _selectedImageIds.remove(imageId);
+    });
+  }
+
+  void _toggleDateSelection(List<String> imageIds) {
+    setState(() {
+      final allSelected = imageIds.every(_selectedImageIds.contains);
+      if (allSelected) {
+        _selectedImageIds.removeAll(imageIds);
+      } else {
+        _selectedImageIds.addAll(imageIds);
+      }
     });
   }
 
@@ -1346,11 +2985,144 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     }
   }
 
-  Future<void> _moveSelected(BuildContext context) async {
+  Future<void> _addImageToCurrentStack() async {
+    final image = await widget.onAddImageToStack?.call(widget.stack.key);
+    if (image == null || !mounted) return;
+    setState(() {
+      if (!_addedItems.any((item) => item.id == image.id) &&
+          !widget.stack.items.any((item) => item.id == image.id)) {
+        _addedItems.insert(0, image);
+      }
+    });
+  }
+
+  Future<void> _addSelectedToFolder(
+    BuildContext context,
+    List<ScreenshotSet> folders,
+  ) async {
+    final target = await _showShotlyActionSheet<String>(
+      context,
+      title: '추가할 그룹',
+      items: [
+        const _ShotlyActionItem(
+          value: '__new_folder__',
+          icon: Icons.grid_view_rounded,
+          title: '신규 그룹 만들기',
+        ),
+        ...folders.map(
+          (folder) => _ShotlyActionItem(
+            value: folder.key,
+            icon: Icons.grid_view_rounded,
+            title: _folderName(folder),
+          ),
+        ),
+      ],
+    );
+    if (target == null) return;
+    var folderKey = target;
+    if (target == '__new_folder__') {
+      if (!context.mounted) return;
+      final name = await _showShotlyTextDialog(
+        context: context,
+        title: '그룹 만들기',
+        hintText: '그룹 이름',
+        primaryLabel: '만들기',
+      );
+      final trimmed = name?.trim();
+      if (trimmed == null || trimmed.isEmpty) return;
+      folderKey = await _createFolderWithName(trimmed);
+    }
+    final selected = _selectedImageIds.toList();
+    if (selected.isEmpty) return;
+    final nextAssignments = <String, String>{};
+    for (final id in selected) {
+      final next = _addAssignmentKey(_detailSetAssignments[id], folderKey);
+      nextAssignments[id] = next;
+    }
+    if (mounted) {
+      setState(() {
+        _detailSetAssignments.addAll(nextAssignments);
+        _selectedImageIds.clear();
+      });
+    }
+    for (final id in selected) {
+      await widget.onAssignImageToSet(id, folderKey);
+    }
+  }
+
+  Future<String?> _createFolder(BuildContext context) async {
+    final name = await _showShotlyTextDialog(
+      context: context,
+      title: '그룹 만들기',
+      hintText: '그룹 이름',
+      primaryLabel: '만들기',
+    );
+    final trimmed = name?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    return _createFolderWithName(trimmed);
+  }
+
+  Future<String> _createFolderWithName(String name) async {
+    final folderKey = _buildFolderKey(widget.stack.key);
+    setState(() => _detailFolderNames[folderKey] = name);
+    await widget.onSaveFolderName(folderKey, name);
+    return folderKey;
+  }
+
+  Future<void> _deleteFolder(
+    BuildContext context,
+    ScreenshotSet folder,
+    List<ScreenshotItem> visibleItems,
+  ) async {
+    final confirmed = await _showShotlyConfirmDialog(
+      context: context,
+      title: '그룹 삭제',
+      body: '그룹만 삭제하고 사진은 Stack에 그대로 둘까요?',
+      primaryLabel: '삭제',
+      destructive: true,
+    );
+    if (confirmed != true) return;
+    final assignedIds = visibleItems
+        .where(
+          (item) =>
+              _assignmentContains(_detailSetAssignments[item.id], folder.key),
+        )
+        .map((item) => item.id)
+        .toList();
+    for (final id in assignedIds) {
+      final next = _removeAssignmentKey(_detailSetAssignments[id], folder.key);
+      setState(() {
+        if (next == null || next.isEmpty) {
+          _detailSetAssignments.remove(id);
+        } else {
+          _detailSetAssignments[id] = next;
+        }
+      });
+      await widget.onAssignImageToSet(
+        id,
+        '$_removeAssignmentPrefix${folder.key}',
+      );
+    }
+    setState(() => _detailFolderNames.remove(folder.key));
+    await widget.onSaveFolderName(folder.key, '');
+    await widget.onSaveSetMemo(folder.key, '');
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _moveSelectedToStack(BuildContext context) async {
     final target = await _showShotlyActionSheet<String>(
       context,
       title: '이동할 Stack',
-      items: widget.allStackKeys.map((key) => _ShotlyActionItem(value: key, icon: Icons.layers_rounded, title: widget.stackNames[key] ?? key)).toList(),
+      items: widget.allStackKeys
+          .where((key) => key != widget.stack.key)
+          .map(
+            (key) => _ShotlyActionItem(
+              value: key,
+              icon: Icons.layers_rounded,
+              title: widget.stackNames[key] ?? key,
+            ),
+          )
+          .toList(),
     );
     if (target == null) return;
     final selected = _selectedImageIds.toList();
@@ -1369,7 +3141,8 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     final confirmed = await _showShotlyConfirmDialog(
       context: context,
       title: '원본 파일 삭제',
-      body: '선택한 ${_selectedImageIds.length}장을 Shotly뿐 아니라 기기 앨범 원본에서도 삭제할까요? 이 작업은 되돌릴 수 없어요.',
+      body:
+          '선택한 ${_selectedImageIds.length}장을 Shotly뿐 아니라 기기 앨범 원본에서도 삭제할까요? 이 작업은 되돌릴 수 없어요.',
       primaryLabel: '삭제',
       destructive: true,
     );
@@ -1384,7 +3157,13 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   }
 
   Future<void> _renameStack(BuildContext context) async {
-    final name = await _showShotlyTextDialog(context: context, title: 'Stack 이름 수정', initialValue: widget.stack.name, hintText: 'Stack 이름', primaryLabel: '저장');
+    final name = await _showShotlyTextDialog(
+      context: context,
+      title: 'Stack 이름 수정',
+      initialValue: _stackName,
+      hintText: 'Stack 이름',
+      primaryLabel: '저장',
+    );
     if (name == null) return;
     await widget.onRenameStack(widget.stack.key, name);
     if (mounted) setState(() {});
@@ -1394,17 +3173,34 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     final action = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (context) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(width: 38, height: 4, decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(99))),
+              Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
               const SizedBox(height: 16),
-              _AddMenuTile(icon: Icons.edit_rounded, title: 'Stack 이름 수정', onTap: () => Navigator.of(context).pop('rename')),
-              _AddMenuTile(icon: Icons.visibility_off_rounded, title: 'Stack 숨기기', onTap: () => Navigator.of(context).pop('hide')),
+              _AddMenuTile(
+                icon: Icons.edit_rounded,
+                title: 'Stack 이름 수정',
+                onTap: () => Navigator.of(context).pop('rename'),
+              ),
+              _AddMenuTile(
+                icon: Icons.visibility_off_rounded,
+                title: 'Stack 숨기기',
+                onTap: () => Navigator.of(context).pop('hide'),
+              ),
             ],
           ),
         ),
@@ -1427,49 +3223,255 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   }
 }
 
-class _DetailModeSwitch extends StatelessWidget {
-  const _DetailModeSwitch({required this.showSimilar, required this.onChanged});
+class _FolderStrip extends StatelessWidget {
+  const _FolderStrip({
+    required this.stack,
+    required this.folders,
+    required this.allStackKeys,
+    required this.stackNames,
+    required this.onCreateFolder,
+    required this.onDeleteFolder,
+    required this.onExcludeImage,
+    required this.onDeleteOriginalImage,
+    required this.onMoveImage,
+    required this.onSaveSetMemo,
+    required this.onAssignImageToSet,
+  });
 
-  final bool showSimilar;
-  final ValueChanged<bool> onChanged;
+  final StackItem stack;
+  final List<ScreenshotSet> folders;
+  final List<String> allStackKeys;
+  final Map<String, String> stackNames;
+  final VoidCallback onCreateFolder;
+  final Future<void> Function(ScreenshotSet folder) onDeleteFolder;
+  final Future<void> Function(String imageId) onExcludeImage;
+  final Future<bool> Function(String imageId) onDeleteOriginalImage;
+  final Future<void> Function(String imageId, String stackKey) onMoveImage;
+  final Future<void> Function(String setKey, String memo) onSaveSetMemo;
+  final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _ModeChip(label: '시간대별', selected: !showSimilar, onTap: () => onChanged(false)),
-          const SizedBox(width: 8),
-          _ModeChip(label: '유사 화면', selected: showSimilar, onTap: () => onChanged(true)),
-        ],
+    return SizedBox(
+      height: 146,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: folders.length + 1,
+        separatorBuilder: (_, _) => const SizedBox(width: 14),
+        itemBuilder: (context, index) {
+          if (index == 0) return _CreateFolderCard(onTap: onCreateFolder);
+          final folder = folders[index - 1];
+          return _FolderCard(
+            stack: stack,
+            folder: folder,
+            allStackKeys: allStackKeys,
+            stackNames: stackNames,
+            onDelete: () => onDeleteFolder(folder),
+            onExcludeImage: onExcludeImage,
+            onDeleteOriginalImage: onDeleteOriginalImage,
+            onMoveImage: onMoveImage,
+            onSaveSetMemo: onSaveSetMemo,
+            onAssignImageToSet: onAssignImageToSet,
+          );
+        },
       ),
     );
   }
 }
 
-class _ModeChip extends StatelessWidget {
-  const _ModeChip({required this.label, required this.selected, required this.onTap});
+class _CreateFolderCard extends StatelessWidget {
+  const _CreateFolderCard({required this.onTap});
 
-  final String label;
-  final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFF2170E4) : const Color(0xFFEEEEEE),
-          borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(18),
+      child: SizedBox(
+        width: 116,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _GroupCardFrame(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Container(color: const Color(0xFFEDEFF2)),
+                  ),
+                  const Positioned.fill(child: _GroupShade()),
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.84),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: const Icon(
+                        Icons.add_rounded,
+                        color: Color(0xFF1A1C1C),
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '새 그룹',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: const Color(0xFF1A1C1C),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text(
+              '만들기',
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: const Color(0xFF727785)),
+            ),
+          ],
         ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(color: selected ? Colors.white : const Color(0xFF424754)),
+      ),
+    );
+  }
+}
+
+class _FolderCard extends StatelessWidget {
+  const _FolderCard({
+    required this.stack,
+    required this.folder,
+    required this.allStackKeys,
+    required this.stackNames,
+    required this.onDelete,
+    required this.onExcludeImage,
+    required this.onDeleteOriginalImage,
+    required this.onMoveImage,
+    required this.onSaveSetMemo,
+    required this.onAssignImageToSet,
+  });
+
+  final StackItem stack;
+  final ScreenshotSet folder;
+  final List<String> allStackKeys;
+  final Map<String, String> stackNames;
+  final Future<void> Function() onDelete;
+  final Future<void> Function(String imageId) onExcludeImage;
+  final Future<bool> Function(String imageId) onDeleteOriginalImage;
+  final Future<void> Function(String imageId, String stackKey) onMoveImage;
+  final Future<void> Function(String setKey, String memo) onSaveSetMemo;
+  final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
+
+  @override
+  Widget build(BuildContext context) {
+    final cover = folder.items.isEmpty ? '' : folder.items.first.thumbnailPath;
+    return InkWell(
+      onLongPress: () => onDelete(),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => _SearchSetResultScreen(
+            stack: stack,
+            set: folder,
+            allStackKeys: allStackKeys,
+            stackNames: stackNames,
+            onExcludeImage: onExcludeImage,
+            onDeleteOriginalImage: onDeleteOriginalImage,
+            onMoveImage: onMoveImage,
+            onSaveSetMemo: onSaveSetMemo,
+            onAssignImageToSet: onAssignImageToSet,
+            onDeleteFolder: onDelete,
+          ),
+        ),
+      ),
+      borderRadius: BorderRadius.circular(18),
+      child: SizedBox(
+        width: 116,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _GroupCardFrame(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: cover.isEmpty
+                        ? Container(color: const Color(0xFFEDEFF2))
+                        : _Thumb(path: cover, radius: 18),
+                  ),
+                  const Positioned.fill(child: _GroupShade()),
+                  Positioned(
+                    left: 10,
+                    right: 10,
+                    bottom: 9,
+                    child: Text(
+                      _folderName(folder),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _folderName(folder),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: const Color(0xFF1A1C1C),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text(
+              '${folder.items.length}장',
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: const Color(0xFF727785)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupCardFrame extends StatelessWidget {
+  const _GroupCardFrame({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 116,
+      height: 94,
+      child: ClipRRect(borderRadius: BorderRadius.circular(18), child: child),
+    );
+  }
+}
+
+class _GroupShade extends StatelessWidget {
+  const _GroupShade();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.black.withValues(alpha: 0.04),
+            Colors.black.withValues(alpha: 0.50),
+          ],
         ),
       ),
     );
@@ -1487,9 +3489,11 @@ class _SetDateSection extends StatelessWidget {
     required this.onMoveImage,
     required this.selectedIds,
     required this.onToggleSelection,
+    required this.onToggleDateSelection,
     required this.showLocalActionBar,
     required this.onSaveMemo,
     required this.onAssignImageToSet,
+    required this.viewerItems,
   });
 
   final String dateLabel;
@@ -1501,44 +3505,45 @@ class _SetDateSection extends StatelessWidget {
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
   final Set<String> selectedIds;
   final ValueChanged<String> onToggleSelection;
+  final ValueChanged<List<String>> onToggleDateSelection;
   final bool showLocalActionBar;
   final Future<void> Function(String setKey, String memo) onSaveMemo;
   final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
+  final List<ScreenshotItem> viewerItems;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Text(
-            dateLabel,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: const Color(0xFF424754),
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.2,
-                ),
+        ...sets.indexed.map(
+          (entry) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _SetSection(
+              set: entry.$2,
+              allStackKeys: allStackKeys,
+              stackNames: stackNames,
+              onExcludeImage: onExcludeImage,
+              onDeleteOriginalImage: onDeleteOriginalImage,
+              onMoveImage: onMoveImage,
+              selectedIds: selectedIds,
+              onToggleSelection: onToggleSelection,
+              showLocalActionBar: showLocalActionBar,
+              onSaveMemo: onSaveMemo,
+              onAssignImageToSet: onAssignImageToSet,
+              showTitle: false,
+              headerLabel: entry.$1 == 0 ? dateLabel : '',
+              onHeaderTap: entry.$1 == 0
+                  ? () => onToggleDateSelection(
+                      sets
+                          .expand((set) => set.items.map((item) => item.id))
+                          .toList(),
+                    )
+                  : null,
+              viewerItems: viewerItems,
+            ),
           ),
         ),
-        const SizedBox(height: 10),
-        for (var index = 0; index < sets.length; index++) ...[
-          _SetSection(
-            set: sets[index],
-            allStackKeys: allStackKeys,
-            stackNames: stackNames,
-            onExcludeImage: onExcludeImage,
-            onDeleteOriginalImage: onDeleteOriginalImage,
-            onMoveImage: onMoveImage,
-            selectedIds: selectedIds,
-            onToggleSelection: onToggleSelection,
-            showLocalActionBar: showLocalActionBar,
-            onSaveMemo: onSaveMemo,
-            onAssignImageToSet: onAssignImageToSet,
-            mergeTarget: index < sets.length - 1 ? sets[index + 1] : null,
-          ),
-          if (index != sets.length - 1) const SizedBox(height: 28),
-        ],
       ],
     );
   }
@@ -1557,7 +3562,11 @@ class _SetSection extends StatefulWidget {
     required this.showLocalActionBar,
     required this.onSaveMemo,
     required this.onAssignImageToSet,
-    this.mergeTarget,
+    this.showTitle = true,
+    this.suppressHeader = false,
+    this.headerLabel,
+    this.onHeaderTap,
+    this.viewerItems,
   });
 
   final ScreenshotSet set;
@@ -1571,19 +3580,33 @@ class _SetSection extends StatefulWidget {
   final bool showLocalActionBar;
   final Future<void> Function(String setKey, String memo) onSaveMemo;
   final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
-  final ScreenshotSet? mergeTarget;
-
+  final bool showTitle;
+  final bool suppressHeader;
+  final String? headerLabel;
+  final VoidCallback? onHeaderTap;
+  final List<ScreenshotItem>? viewerItems;
   @override
   State<_SetSection> createState() => _SetSectionState();
 }
 
 class _SetSectionState extends State<_SetSection> {
   late final TextEditingController _memoController;
+  late String _memoText;
 
   @override
   void initState() {
     super.initState();
     _memoController = TextEditingController(text: widget.set.memo);
+    _memoText = widget.set.memo;
+  }
+
+  @override
+  void didUpdateWidget(covariant _SetSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.set.memo != widget.set.memo && widget.set.memo != _memoText) {
+      _memoText = widget.set.memo;
+      _memoController.text = widget.set.memo;
+    }
   }
 
   @override
@@ -1595,9 +3618,16 @@ class _SetSectionState extends State<_SetSection> {
   @override
   Widget build(BuildContext context) {
     return _ImageGridSection(
-      title: widget.set.timeRange,
-      memoText: widget.set.memo.trim().isEmpty ? '메모 추가' : widget.set.memo.trim(),
+      title: widget.suppressHeader
+          ? ''
+          : widget.headerLabel ??
+                (widget.showTitle ? widget.set.timeRange : ''),
+      titleOnTap: widget.onHeaderTap,
+      memoText: widget.suppressHeader || _memoText.trim().isEmpty
+          ? null
+          : _memoText.trim(),
       items: widget.set.items,
+      viewerItems: widget.viewerItems,
       allStackKeys: widget.allStackKeys,
       stackNames: widget.stackNames,
       onExcludeImage: widget.onExcludeImage,
@@ -1606,11 +3636,15 @@ class _SetSectionState extends State<_SetSection> {
       selectedIds: widget.selectedIds,
       onToggleSelection: widget.onToggleSelection,
       showLocalActionBar: widget.showLocalActionBar,
-      onSetAction: () => _showSetActions(context),
-      onEditMemo: () async {
-        final memo = await _editMemo(context);
-        if (memo != null) await widget.onSaveMemo(widget.set.key, memo.trim());
-      },
+      onSetAction: widget.suppressHeader
+          ? null
+          : () => _showSetActions(context),
+      onEditMemo: widget.suppressHeader
+          ? null
+          : () async {
+              final memo = await _editMemo(context);
+              if (memo != null) await _saveMemo(memo);
+            },
     );
   }
 
@@ -1618,75 +3652,76 @@ class _SetSectionState extends State<_SetSection> {
     final action = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(width: 38, height: 4, decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(99))),
-              const SizedBox(height: 12),
-              if (widget.mergeTarget != null) _AddMenuTile(icon: Icons.call_merge_rounded, title: '아래 Set과 합치기', onTap: () => Navigator.of(context).pop('merge')),
-              if (widget.set.items.length > 1) _AddMenuTile(icon: Icons.call_split_rounded, title: '이미지 하나를 새 Set으로 분리', onTap: () => Navigator.of(context).pop('split')),
-            ],
-          ),
-        ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-    );
-    if (action == 'merge' && widget.mergeTarget != null) {
-      for (final item in widget.mergeTarget!.items) {
-        await widget.onAssignImageToSet(item.id, widget.set.key);
-      }
-    }
-    if (action == 'split' && context.mounted) await _splitOneImage(context);
-  }
-
-  Future<void> _splitOneImage(BuildContext context) async {
-    final image = await showModalBottomSheet<ScreenshotItem>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(width: 38, height: 4, decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(99))),
-              const SizedBox(height: 16),
-              Text('새 Set으로 분리할 이미지', style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 96,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: widget.set.items.length,
-                  separatorBuilder: (_, index) => const SizedBox(width: 10),
-                  itemBuilder: (context, index) {
-                    final item = widget.set.items[index];
-                    return InkWell(
-                      onTap: () => Navigator.of(context).pop(item),
-                      borderRadius: BorderRadius.circular(12),
-                      child: SizedBox(width: 72, child: _Thumb(path: item.thumbnailPath, radius: 18, borderColor: Colors.transparent)),
-                    );
-                  },
+              Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(99),
                 ),
               ),
+              const SizedBox(height: 12),
+              _AddMenuTile(
+                icon: Icons.edit_note_rounded,
+                title: _memoText.trim().isEmpty ? '메모 추가' : '메모 수정',
+                onTap: () => Navigator.of(context).pop('memo'),
+              ),
+              if (_memoText.trim().isNotEmpty)
+                _AddMenuTile(
+                  icon: Icons.notes_rounded,
+                  title: '메모 삭제',
+                  onTap: () => Navigator.of(context).pop('clear_memo'),
+                ),
             ],
           ),
         ),
       ),
     );
-    if (image != null) await widget.onAssignImageToSet(image.id, '${widget.set.key}::split::${image.id}');
+    if (action == 'memo' && context.mounted) {
+      final memo = await _editMemo(context);
+      if (memo != null) await _saveMemo(memo);
+    }
+    if (action == 'clear_memo') {
+      await _saveMemo('');
+    }
+  }
+
+  Future<void> _saveMemo(String memo) async {
+    if (!mounted) return;
+    final previous = _memoText;
+    final trimmed = memo.trim();
+    setState(() {
+      _memoText = trimmed;
+      _memoController.text = trimmed;
+    });
+    try {
+      await widget.onSaveMemo(widget.set.key, trimmed);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _memoText = previous;
+        _memoController.text = previous;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('메모를 저장하지 못했습니다: $e')));
+    }
   }
 
   Future<String?> _editMemo(BuildContext context) async {
     final value = await _showShotlyTextDialog(
       context: context,
       title: 'Set 메모',
-      initialValue: widget.set.memo,
+      initialValue: _memoText,
       hintText: '예: 온보딩 플로우',
       primaryLabel: '저장',
       minLines: 1,
@@ -1700,10 +3735,11 @@ class _SetSectionState extends State<_SetSection> {
 class _ImageGridSection extends StatefulWidget {
   const _ImageGridSection({
     required this.title,
-    this.subtitle,
     required this.items,
     required this.allStackKeys,
     this.memoText,
+    this.titleOnTap,
+    this.viewerItems,
     required this.stackNames,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
@@ -1716,9 +3752,10 @@ class _ImageGridSection extends StatefulWidget {
   });
 
   final String title;
-  final String? subtitle;
   final List<ScreenshotItem> items;
   final String? memoText;
+  final VoidCallback? titleOnTap;
+  final List<ScreenshotItem>? viewerItems;
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
   final Future<void> Function(String imageId) onExcludeImage;
@@ -1740,67 +3777,77 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
 
   Set<String> get _effectiveSelectedIds => widget.selectedIds ?? _selectedIds;
   bool get _isSelecting => _effectiveSelectedIds.isNotEmpty;
-  List<ScreenshotItem> get _visibleItems => widget.items.where((item) => !_locallyHiddenIds.contains(item.id)).toList();
+  List<ScreenshotItem> get _visibleItems => widget.items
+      .where((item) => !_locallyHiddenIds.contains(item.id))
+      .toList();
 
   @override
   Widget build(BuildContext context) {
     final items = _visibleItems;
+    final hasHeader =
+        widget.title.isNotEmpty ||
+        widget.memoText != null ||
+        (widget.onSetAction != null && !_isSelecting);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (widget.subtitle != null) ...[
-                Text(widget.subtitle!, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xFF727785))),
-                const SizedBox(height: 2),
-              ],
-              Row(
-                children: [
-                  Expanded(child: Text(widget.title, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF1A1C1C)))),
-                  if (widget.onSetAction != null && !_isSelecting)
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      icon: const Icon(Icons.more_horiz_rounded, size: 18, color: Color(0xFF727785)),
-                      onPressed: widget.onSetAction,
-                    ),
-                ],
-              ),
-              if (widget.memoText != null) ...[
-                const SizedBox(height: 4),
-                InkWell(
-                  onTap: _isSelecting ? null : widget.onEditMemo,
-                  borderRadius: BorderRadius.circular(6),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          widget.memoText!,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: widget.memoText == '메모 추가' ? const Color(0xFF727785) : const Color(0xFF424754),
-                                fontStyle: widget.memoText == '메모 추가' ? FontStyle.italic : FontStyle.normal,
-                              ),
+        if (hasHeader) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (widget.title.isNotEmpty ||
+                    (widget.onSetAction != null && !_isSelecting))
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: widget.titleOnTap,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: Text(
+                              widget.title,
+                              style: Theme.of(context).textTheme.labelLarge
+                                  ?.copyWith(color: const Color(0xFF1A1C1C)),
+                            ),
+                          ),
                         ),
-                        if (widget.onEditMemo != null && !_isSelecting) ...[
-                          const SizedBox(width: 4),
-                          const Icon(Icons.edit_outlined, size: 15, color: Color(0xFF727785)),
-                        ],
-                      ],
+                      ),
+                      if (widget.onSetAction != null && !_isSelecting)
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 32,
+                            minHeight: 32,
+                          ),
+                          icon: const Icon(
+                            Icons.more_vert_rounded,
+                            size: 18,
+                            color: Color(0xFF727785),
+                          ),
+                          onPressed: widget.onSetAction,
+                        ),
+                    ],
+                  ),
+                if (widget.memoText != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.memoText!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF424754),
                     ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 8),
+        ],
         GridView.builder(
           padding: EdgeInsets.zero,
           itemCount: items.length,
@@ -1808,8 +3855,8 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 4,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
+            crossAxisSpacing: 5,
+            mainAxisSpacing: 5,
             childAspectRatio: 3 / 4,
           ),
           itemBuilder: (context, index) {
@@ -1818,7 +3865,9 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
               item: item,
               selected: _effectiveSelectedIds.contains(item.id),
               selecting: _isSelecting,
-              onTap: () => _isSelecting ? _toggleSelection(item.id) : _openImageViewer(context, items, index),
+              onTap: () => _isSelecting
+                  ? _toggleSelection(item.id)
+                  : _openImageViewer(context, item),
               onLongPress: () => _toggleSelection(item.id),
             );
           },
@@ -1826,7 +3875,6 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
         if (_isSelecting && widget.showLocalActionBar) ...[
           const SizedBox(height: 12),
           _SelectionActionBar(
-            count: _effectiveSelectedIds.length,
             onCancel: () => setState(_selectedIds.clear),
             onShare: _shareSelected,
             onDelete: () => _deleteSelected(context),
@@ -1848,15 +3896,28 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
     });
   }
 
-  Future<void> _openImageViewer(BuildContext context, List<ScreenshotItem> items, int index) async {
-    final deletedId = await Navigator.of(context).push<String>(MaterialPageRoute(
-      builder: (_) => ImageViewerScreen(
-        items: items,
-        initialIndex: index,
-        onDeleteOriginalImage: widget.onDeleteOriginalImage,
+  Future<void> _openImageViewer(
+    BuildContext context,
+    ScreenshotItem item,
+  ) async {
+    final viewerItems = (widget.viewerItems ?? widget.items)
+        .where((candidate) => !_locallyHiddenIds.contains(candidate.id))
+        .toList();
+    final index = viewerItems.indexWhere(
+      (candidate) => candidate.id == item.id,
+    );
+    final deletedId = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => ImageViewerScreen(
+          items: viewerItems,
+          initialIndex: index < 0 ? 0 : index,
+          onDeleteOriginalImage: widget.onDeleteOriginalImage,
+        ),
       ),
-    ));
-    if (deletedId != null && mounted) setState(() => _locallyHiddenIds.add(deletedId));
+    );
+    if (deletedId != null && mounted) {
+      setState(() => _locallyHiddenIds.add(deletedId));
+    }
   }
 
   Future<void> _shareSelected() async {
@@ -1878,7 +3939,15 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
     final target = await _showShotlyActionSheet<String>(
       context,
       title: '이동할 Stack',
-      items: widget.allStackKeys.map((key) => _ShotlyActionItem(value: key, icon: Icons.layers_rounded, title: widget.stackNames[key] ?? key)).toList(),
+      items: widget.allStackKeys
+          .map(
+            (key) => _ShotlyActionItem(
+              value: key,
+              icon: Icons.layers_rounded,
+              title: widget.stackNames[key] ?? key,
+            ),
+          )
+          .toList(),
     );
     if (target == null) return;
     final selected = _effectiveSelectedIds.toList();
@@ -1895,7 +3964,8 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
     final confirmed = await _showShotlyConfirmDialog(
       context: context,
       title: '원본 파일 삭제',
-      body: '선택한 ${_effectiveSelectedIds.length}장을 Shotly뿐 아니라 기기 앨범 원본에서도 삭제할까요? 이 작업은 되돌릴 수 없어요.',
+      body:
+          '선택한 ${_effectiveSelectedIds.length}장을 Shotly뿐 아니라 기기 앨범 원본에서도 삭제할까요? 이 작업은 되돌릴 수 없어요.',
       primaryLabel: '삭제',
       destructive: true,
     );
@@ -1913,7 +3983,13 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
 }
 
 class _SelectableThumb extends StatelessWidget {
-  const _SelectableThumb({required this.item, required this.selected, required this.selecting, required this.onTap, required this.onLongPress});
+  const _SelectableThumb({
+    required this.item,
+    required this.selected,
+    required this.selecting,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   final ScreenshotItem item;
   final bool selected;
@@ -1929,7 +4005,15 @@ class _SelectableThumb extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: Stack(
         children: [
-          Positioned.fill(child: _Thumb(path: item.thumbnailPath, radius: 18, borderColor: selected ? const Color(0xFF2170E4) : Colors.transparent)),
+          Positioned.fill(
+            child: _Thumb(
+              path: item.thumbnailPath,
+              radius: 14,
+              borderColor: selected
+                  ? const Color(0xFF2170E4)
+                  : Colors.transparent,
+            ),
+          ),
           if (selecting)
             Positioned(
               right: 7,
@@ -1938,11 +4022,23 @@ class _SelectableThumb extends StatelessWidget {
                 width: 24,
                 height: 24,
                 decoration: BoxDecoration(
-                  color: selected ? const Color(0xFF2170E4) : Colors.white.withValues(alpha: 0.88),
+                  color: selected
+                      ? const Color(0xFF2170E4)
+                      : Colors.white.withValues(alpha: 0.88),
                   borderRadius: BorderRadius.circular(99),
-                  border: Border.all(color: selected ? const Color(0xFF2170E4) : const Color(0xFFD5D8DF)),
+                  border: Border.all(
+                    color: selected
+                        ? const Color(0xFF2170E4)
+                        : const Color(0xFFD5D8DF),
+                  ),
                 ),
-                child: selected ? const Icon(Icons.check_rounded, size: 16, color: Colors.white) : null,
+                child: selected
+                    ? const Icon(
+                        Icons.check_rounded,
+                        size: 16,
+                        color: Colors.white,
+                      )
+                    : null,
               ),
             ),
         ],
@@ -1952,14 +4048,20 @@ class _SelectableThumb extends StatelessWidget {
 }
 
 class _SelectionActionBar extends StatelessWidget {
-  const _SelectionActionBar({required this.count, required this.onCancel, required this.onShare, required this.onDelete, required this.onMove, required this.onHide});
-
-  final int count;
+  const _SelectionActionBar({
+    required this.onCancel,
+    required this.onShare,
+    required this.onDelete,
+    required this.onMove,
+    required this.onHide,
+    this.onFolder,
+  });
   final VoidCallback onCancel;
   final VoidCallback onShare;
   final VoidCallback onDelete;
   final VoidCallback onMove;
   final VoidCallback onHide;
+  final VoidCallback? onFolder;
 
   @override
   Widget build(BuildContext context) {
@@ -1968,17 +4070,52 @@ class _SelectionActionBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 20, offset: const Offset(0, 10))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          Text('$count개 선택', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF1A1C1C))),
-          const Spacer(),
-          _SelectionActionButton(icon: Icons.share_rounded, label: '공유', onTap: onShare),
-          _SelectionActionButton(icon: Icons.delete_rounded, label: '삭제', onTap: onDelete, destructive: true),
-          _SelectionActionButton(icon: Icons.drive_file_move_rounded, label: '이동', onTap: onMove),
-          _SelectionActionButton(icon: Icons.visibility_off_rounded, label: '숨기기', onTap: onHide),
-          IconButton(onPressed: onCancel, icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF727785))),
+          _SelectionActionButton(
+            icon: Icons.drive_file_move_rounded,
+            label: '이동',
+            onTap: onMove,
+          ),
+          if (onFolder != null)
+            _SelectionActionButton(
+              icon: Icons.grid_view_rounded,
+              label: '그룹',
+              onTap: onFolder!,
+            ),
+          _SelectionActionButton(
+            icon: Icons.share_rounded,
+            label: '공유',
+            onTap: onShare,
+          ),
+          _SelectionActionButton(
+            icon: Icons.visibility_off_rounded,
+            label: '숨기기',
+            onTap: onHide,
+          ),
+          _SelectionActionButton(
+            icon: Icons.delete_rounded,
+            label: '삭제',
+            onTap: onDelete,
+            destructive: true,
+          ),
+          IconButton(
+            onPressed: onCancel,
+            icon: const Icon(
+              Icons.close_rounded,
+              size: 20,
+              color: Color(0xFF727785),
+            ),
+          ),
         ],
       ),
     );
@@ -1986,7 +4123,12 @@ class _SelectionActionBar extends StatelessWidget {
 }
 
 class _SelectionActionButton extends StatelessWidget {
-  const _SelectionActionButton({required this.icon, required this.label, required this.onTap, this.destructive = false});
+  const _SelectionActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.destructive = false,
+  });
 
   final IconData icon;
   final String label;
@@ -1995,7 +4137,9 @@ class _SelectionActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = destructive ? const Color(0xFFB42318) : const Color(0xFF424754);
+    final color = destructive
+        ? const Color(0xFFB42318)
+        : const Color(0xFF424754);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -2006,7 +4150,12 @@ class _SelectionActionButton extends StatelessWidget {
           children: [
             Icon(icon, size: 20, color: color),
             const SizedBox(height: 2),
-            Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color)),
+            Text(
+              label,
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: color),
+            ),
           ],
         ),
       ),
@@ -2024,14 +4173,24 @@ class _EmptyStackDetail extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 80),
       child: Center(
-        child: Text(message, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785))),
+        child: Text(
+          message,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785)),
+        ),
       ),
     );
   }
 }
 
 class ImageViewerScreen extends StatefulWidget {
-  const ImageViewerScreen({super.key, required this.items, required this.initialIndex, required this.onDeleteOriginalImage});
+  const ImageViewerScreen({
+    super.key,
+    required this.items,
+    required this.initialIndex,
+    required this.onDeleteOriginalImage,
+  });
 
   final List<ScreenshotItem> items;
   final int initialIndex;
@@ -2045,7 +4204,8 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
   late final PageController _pageController;
   late int _currentIndex;
   bool _controlsVisible = true;
-  final Map<String, Future<String?>> _previewFutures = <String, Future<String?>>{};
+  final Map<String, Future<String?>> _previewFutures =
+      <String, Future<String?>>{};
 
   ScreenshotItem get _currentItem => widget.items[_currentIndex];
 
@@ -2063,97 +4223,111 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
   }
 
   Future<String?> _previewFor(ScreenshotItem item) {
-    return _previewFutures.putIfAbsent(item.id, () => ShotlyNative.getImagePreview(item.id, item.thumbnailPath));
+    return _previewFutures.putIfAbsent(
+      item.id,
+      () => ShotlyNative.getImagePreview(item.id, item.thumbnailPath),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: SafeArea(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => setState(() => _controlsVisible = !_controlsVisible),
-          child: Stack(
-            children: [
-              PageView.builder(
-                controller: _pageController,
-                itemCount: widget.items.length,
-                onPageChanged: (index) => setState(() => _currentIndex = index),
-                itemBuilder: (context, index) {
-                  final item = widget.items[index];
-                  return FutureBuilder<String?>(
-                    future: _previewFor(item),
-                    builder: (context, snapshot) {
-                      final imagePath = snapshot.data ?? item.thumbnailPath;
-                      return Center(
-                        child: InteractiveViewer(
-                          minScale: 0.8,
-                          maxScale: 4,
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => _controlsVisible = !_controlsVisible),
+        child: Stack(
+          children: [
+            PageView.builder(
+              controller: _pageController,
+              itemCount: widget.items.length,
+              onPageChanged: (index) => setState(() => _currentIndex = index),
+              itemBuilder: (context, index) {
+                final item = widget.items[index];
+                return FutureBuilder<String?>(
+                  future: _previewFor(item),
+                  builder: (context, snapshot) {
+                    final imagePath = snapshot.data ?? item.thumbnailPath;
+                    return LayoutBuilder(
+                      builder: (context, constraints) => InteractiveViewer(
+                        minScale: 1,
+                        maxScale: 4,
+                        child: SizedBox(
+                          width: constraints.maxWidth,
+                          height: constraints.maxHeight,
                           child: _buildViewerImage(imagePath),
                         ),
-                      );
-                    },
-                  );
-                },
-              ),
-              AnimatedOpacity(
-                opacity: _controlsVisible ? 1 : 0,
-                duration: const Duration(milliseconds: 160),
-                child: IgnorePointer(
-                  ignoring: !_controlsVisible,
-                  child: Stack(
-                    children: [
-                      Positioned(
-                        top: 8,
-                        left: 8,
-                        child: _ViewerCircleButton(
-                          icon: Icons.arrow_back_rounded,
-                          onTap: () => Navigator.of(context).pop(),
-                        ),
                       ),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Row(
-                          children: [
-                            _ViewerCircleButton(
-                              icon: Icons.share_rounded,
-                              onTap: () => ShotlyNative.shareImages([_currentItem.id]),
-                            ),
-                            const SizedBox(width: 10),
-                            _ViewerCircleButton(
-                              icon: Icons.delete_rounded,
-                              destructive: true,
-                              onTap: () async {
-                                final confirmed = await _showShotlyConfirmDialog(
-                                  context: context,
-                                  title: '원본 파일 삭제',
-                                  body: '이 이미지를 기기 앨범 원본에서도 삭제할까요? 삭제 후 Shotly 목록에서도 사라져요.',
-                                  primaryLabel: '삭제',
-                                  destructive: true,
-                                );
-                                if (confirmed == true) {
-                                  final deleted = await widget.onDeleteOriginalImage(_currentItem.id);
-                                  if (deleted && context.mounted) Navigator.of(context).pop(_currentItem.id);
+                    );
+                  },
+                );
+              },
+            ),
+            AnimatedOpacity(
+              opacity: _controlsVisible ? 1 : 0,
+              duration: const Duration(milliseconds: 160),
+              child: IgnorePointer(
+                ignoring: !_controlsVisible,
+                child: Stack(
+                  children: [
+                    Positioned(
+                      top: MediaQuery.paddingOf(context).top + 8,
+                      left: 8,
+                      child: _ViewerCircleButton(
+                        icon: Icons.arrow_back_rounded,
+                        onTap: () => Navigator.of(context).pop(),
+                      ),
+                    ),
+                    Positioned(
+                      top: MediaQuery.paddingOf(context).top + 8,
+                      right: 8,
+                      child: Row(
+                        children: [
+                          _ViewerCircleButton(
+                            icon: Icons.share_rounded,
+                            onTap: () =>
+                                ShotlyNative.shareImages([_currentItem.id]),
+                          ),
+                          const SizedBox(width: 10),
+                          _ViewerCircleButton(
+                            icon: Icons.delete_rounded,
+                            destructive: true,
+                            onTap: () async {
+                              final confirmed = await _showShotlyConfirmDialog(
+                                context: context,
+                                title: '원본 파일 삭제',
+                                body:
+                                    '이 이미지를 기기 앨범 원본에서도 삭제할까요? 삭제 후 Shotly 목록에서도 사라져요.',
+                                primaryLabel: '삭제',
+                                destructive: true,
+                              );
+                              if (confirmed == true) {
+                                final deleted = await widget
+                                    .onDeleteOriginalImage(_currentItem.id);
+                                if (deleted && context.mounted) {
+                                  Navigator.of(context).pop(_currentItem.id);
                                 }
-                              },
-                            ),
-                          ],
-                        ),
+                              }
+                            },
+                          ),
+                        ],
                       ),
-                      Positioned(
-                        left: 20,
-                        right: 20,
-                        bottom: 20,
-                        child: _ViewerInfo(item: _currentItem, index: _currentIndex, total: widget.items.length),
+                    ),
+                    Positioned(
+                      left: 20,
+                      right: 20,
+                      bottom: MediaQuery.paddingOf(context).bottom + 20,
+                      child: _ViewerInfo(
+                        item: _currentItem,
+                        index: _currentIndex,
+                        total: widget.items.length,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -2161,7 +4335,11 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
 }
 
 class _ViewerCircleButton extends StatelessWidget {
-  const _ViewerCircleButton({required this.icon, required this.onTap, this.destructive = false});
+  const _ViewerCircleButton({
+    required this.icon,
+    required this.onTap,
+    this.destructive = false,
+  });
 
   final IconData icon;
   final VoidCallback onTap;
@@ -2179,8 +4357,15 @@ class _ViewerCircleButton extends StatelessWidget {
           width: 42,
           height: 42,
           alignment: Alignment.center,
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(999), border: Border.all(color: Colors.white.withValues(alpha: 0.16))),
-          child: Icon(icon, color: destructive ? const Color(0xFFFFD0CC) : Colors.white, size: 22),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+          ),
+          child: Icon(
+            icon,
+            color: destructive ? const Color(0xFFFFD0CC) : Colors.white,
+            size: 22,
+          ),
         ),
       ),
     );
@@ -2188,7 +4373,11 @@ class _ViewerCircleButton extends StatelessWidget {
 }
 
 class _ViewerInfo extends StatelessWidget {
-  const _ViewerInfo({required this.item, required this.index, required this.total});
+  const _ViewerInfo({
+    required this.item,
+    required this.index,
+    required this.total,
+  });
 
   final ScreenshotItem item;
   final int index;
@@ -2198,14 +4387,29 @@ class _ViewerInfo extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.42), borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(item.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white)),
+          Text(
+            item.displayName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+          ),
           const SizedBox(height: 4),
-          Text('${index + 1}/$total · ${item.appName} · ${_formatSetDate(item.date)}', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white70)),
+          Text(
+            '${index + 1}/$total · ${item.appName} · ${_formatSetDate(item.date)}',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+          ),
         ],
       ),
     );
@@ -2216,22 +4420,32 @@ Widget _buildViewerImage(String path) {
   if (path.startsWith('mock://') || kIsWeb || path.isEmpty) {
     return _buildThumbnail(path, null, null);
   }
-  return Image.network(
-    Uri.file(path).toString(),
+  return buildLocalImage(
+    path,
+    width: double.infinity,
+    height: double.infinity,
     fit: BoxFit.contain,
-    errorBuilder: (_, _, _) => _buildThumbnail(path, null, null),
+    fallback: _buildThumbnail(path, null, null),
   );
 }
 
 class _ShotlyActionItem<T> {
-  const _ShotlyActionItem({required this.value, required this.icon, required this.title});
+  const _ShotlyActionItem({
+    required this.value,
+    required this.icon,
+    required this.title,
+  });
 
   final T value;
   final IconData icon;
   final String title;
 }
 
-Future<T?> _showShotlyActionSheet<T>(BuildContext context, {String? title, required List<_ShotlyActionItem<T>> items}) {
+Future<T?> _showShotlyActionSheet<T>(
+  BuildContext context, {
+  String? title,
+  required List<_ShotlyActionItem<T>> items,
+}) {
   return showModalBottomSheet<T>(
     context: context,
     backgroundColor: Colors.transparent,
@@ -2243,7 +4457,13 @@ Future<T?> _showShotlyActionSheet<T>(BuildContext context, {String? title, requi
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(22),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.10), blurRadius: 24, offset: const Offset(0, 10))],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.10),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Column(
@@ -2253,10 +4473,21 @@ Future<T?> _showShotlyActionSheet<T>(BuildContext context, {String? title, requi
               if (title != null) ...[
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: Text(title, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xFF727785))),
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: const Color(0xFF727785),
+                    ),
+                  ),
                 ),
               ],
-              ...items.map((item) => _ShotlyMenuRow(icon: item.icon, title: item.title, onTap: () => Navigator.of(context).pop(item.value))),
+              ...items.map(
+                (item) => _ShotlyMenuRow(
+                  icon: item.icon,
+                  title: item.title,
+                  onTap: () => Navigator.of(context).pop(item.value),
+                ),
+              ),
             ],
           ),
         ),
@@ -2265,9 +4496,181 @@ Future<T?> _showShotlyActionSheet<T>(BuildContext context, {String? title, requi
   );
 }
 
-Future<String?> _showShotlyTextDialog({required BuildContext context, required String title, String initialValue = '', required String hintText, required String primaryLabel, int minLines = 1, int maxLines = 1}) async {
-  final controller = TextEditingController(text: initialValue);
-  final result = await showDialog<String>(
+Future<String?> _showShotlyTextDialog({
+  required BuildContext context,
+  required String title,
+  String initialValue = '',
+  required String hintText,
+  required String primaryLabel,
+  int minLines = 1,
+  int maxLines = 1,
+  String? Function(String value)? validator,
+}) async {
+  return showDialog<String>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.18),
+    builder: (context) => _ShotlyTextDialog(
+      title: title,
+      initialValue: initialValue,
+      hintText: hintText,
+      primaryLabel: primaryLabel,
+      minLines: minLines,
+      maxLines: maxLines,
+      validator: validator,
+    ),
+  );
+}
+
+class _ShotlyTextDialog extends StatefulWidget {
+  const _ShotlyTextDialog({
+    required this.title,
+    required this.initialValue,
+    required this.hintText,
+    required this.primaryLabel,
+    required this.minLines,
+    required this.maxLines,
+    this.validator,
+  });
+
+  final String title;
+  final String initialValue;
+  final String hintText;
+  final String primaryLabel;
+  final int minLines;
+  final int maxLines;
+  final String? Function(String value)? validator;
+
+  @override
+  State<_ShotlyTextDialog> createState() => _ShotlyTextDialogState();
+}
+
+class _ShotlyTextDialogState extends State<_ShotlyTextDialog> {
+  late final TextEditingController _controller;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 28,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.title,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: const Color(0xFF1A1C1C),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              minLines: widget.minLines,
+              maxLines: widget.maxLines,
+              style: Theme.of(context).textTheme.bodyMedium,
+              decoration: InputDecoration(
+                hintText: widget.hintText,
+                hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF727785),
+                ),
+                filled: true,
+                fillColor: const Color(0xFFF7F7F8),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF1A1C1C),
+                    width: 1,
+                  ),
+                ),
+                errorText: _errorText,
+              ),
+              onChanged: (_) {
+                if (_errorText != null) setState(() => _errorText = null);
+              },
+              onSubmitted: widget.maxLines == 1
+                  ? (value) => _submit(context)
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('취소'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF111111),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  onPressed: () => _submit(context),
+                  child: Text(widget.primaryLabel),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _submit(BuildContext context) {
+    final validator = widget.validator;
+    final error = validator?.call(_controller.text);
+    if (error != null) {
+      setState(() => _errorText = error);
+      return;
+    }
+    Navigator.of(context).pop(_controller.text);
+  }
+}
+
+Future<void> _showShotlyInfoDialog({
+  required BuildContext context,
+  required String title,
+  required String body,
+}) {
+  return showDialog<void>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.18),
     builder: (context) => Dialog(
@@ -2277,63 +4680,14 @@ Future<String?> _showShotlyTextDialog({required BuildContext context, required S
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 28, offset: const Offset(0, 12))],
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: const Color(0xFF1A1C1C))),
-            const SizedBox(height: 14),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              minLines: minLines,
-              maxLines: maxLines,
-              style: Theme.of(context).textTheme.bodyMedium,
-              decoration: InputDecoration(
-                hintText: hintText,
-                hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785)),
-                filled: true,
-                fillColor: const Color(0xFFF7F7F8),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF1A1C1C), width: 1)),
-              ),
-              onSubmitted: maxLines == 1 ? (value) => Navigator.of(context).pop(value) : null,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('취소')),
-                const SizedBox(width: 8),
-                FilledButton(
-                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFF111111), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999))),
-                  onPressed: () => Navigator.of(context).pop(controller.text),
-                  child: Text(primaryLabel),
-                ),
-              ],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 28,
+              offset: const Offset(0, 12),
             ),
           ],
         ),
-      ),
-    ),
-  );
-  controller.dispose();
-  return result;
-}
-
-Future<void> _showShotlyInfoDialog({required BuildContext context, required String title, required String body}) {
-  return showDialog<void>(
-    context: context,
-    barrierColor: Colors.black.withValues(alpha: 0.18),
-    builder: (context) => Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 28),
-      child: Container(
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 28, offset: const Offset(0, 12))]),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -2341,12 +4695,23 @@ Future<void> _showShotlyInfoDialog({required BuildContext context, required Stri
           children: [
             Text(title, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 10),
-            Text(body, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF424754))),
+            Text(
+              body,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF424754)),
+            ),
             const SizedBox(height: 16),
             Align(
               alignment: Alignment.centerRight,
               child: FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF111111), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999))),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF111111),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
                 onPressed: () => Navigator.of(context).pop(),
                 child: const Text('확인'),
               ),
@@ -2358,8 +4723,16 @@ Future<void> _showShotlyInfoDialog({required BuildContext context, required Stri
   );
 }
 
-Future<bool?> _showShotlyConfirmDialog({required BuildContext context, required String title, required String body, required String primaryLabel, bool destructive = false}) {
-  final primaryColor = destructive ? const Color(0xFFB42318) : const Color(0xFF111111);
+Future<bool?> _showShotlyConfirmDialog({
+  required BuildContext context,
+  required String title,
+  required String body,
+  required String primaryLabel,
+  bool destructive = false,
+}) {
+  final primaryColor = destructive
+      ? const Color(0xFFB42318)
+      : const Color(0xFF111111);
   return showDialog<bool>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.18),
@@ -2367,7 +4740,17 @@ Future<bool?> _showShotlyConfirmDialog({required BuildContext context, required 
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 28),
       child: Container(
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 28, offset: const Offset(0, 12))]),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 28,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -2375,15 +4758,29 @@ Future<bool?> _showShotlyConfirmDialog({required BuildContext context, required 
           children: [
             Text(title, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 10),
-            Text(body, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF424754))),
+            Text(
+              body,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF424754)),
+            ),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('취소')),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('취소'),
+                ),
                 const SizedBox(width: 8),
                 FilledButton(
-                  style: FilledButton.styleFrom(backgroundColor: primaryColor, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999))),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
                   onPressed: () => Navigator.of(context).pop(true),
                   child: Text(primaryLabel),
                 ),
@@ -2397,7 +4794,11 @@ Future<bool?> _showShotlyConfirmDialog({required BuildContext context, required 
 }
 
 class _ShotlyMenuRow extends StatelessWidget {
-  const _ShotlyMenuRow({required this.icon, required this.title, required this.onTap});
+  const _ShotlyMenuRow({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String title;
@@ -2413,7 +4814,14 @@ class _ShotlyMenuRow extends StatelessWidget {
           children: [
             Icon(icon, size: 20, color: const Color(0xFF424754)),
             const SizedBox(width: 12),
-            Expanded(child: Text(title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF1A1C1C)))),
+            Expanded(
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF1A1C1C),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -2422,7 +4830,11 @@ class _ShotlyMenuRow extends StatelessWidget {
 }
 
 class _AddMenuTile extends StatelessWidget {
-  const _AddMenuTile({required this.icon, required this.title, required this.onTap});
+  const _AddMenuTile({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String title;
@@ -2453,21 +4865,68 @@ List<_SetDateGroup> _groupSetsByDate(List<ScreenshotSet> sets) {
     final dateLabel = _formatSetDate(set.items.first.date);
     grouped.putIfAbsent(dateLabel, () => []).add(set);
   }
-  return grouped.entries.map((entry) => _SetDateGroup(dateLabel: entry.key, sets: entry.value)).toList();
+  return grouped.entries
+      .map((entry) => _SetDateGroup(dateLabel: entry.key, sets: entry.value))
+      .toList();
 }
 
-List<ScreenshotSet> _buildScreenshotSets(String stackKey, List<ScreenshotItem> items, Map<String, String> setMemos, [Map<String, String> setAssignments = const {}]) {
-  if (items.isEmpty) return const [];
-  final sorted = [...items]..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
+const _assignmentSeparator = '\u001F';
+const _removeAssignmentPrefix = '__remove_assignment__:';
+
+List<String> _assignmentKeys(String? raw) {
+  if (raw == null || raw.isEmpty) return const [];
+  return raw
+      .split(_assignmentSeparator)
+      .map((key) => key.trim())
+      .where((key) => key.isNotEmpty)
+      .toList();
+}
+
+bool _assignmentContains(String? raw, String key) =>
+    _assignmentKeys(raw).contains(key);
+
+String _addAssignmentKey(String? raw, String key) {
+  final keys = _assignmentKeys(raw);
+  if (!keys.contains(key)) keys.add(key);
+  return keys.join(_assignmentSeparator);
+}
+
+String? _removeAssignmentKey(String? raw, String key) {
+  final keys = _assignmentKeys(raw)..remove(key);
+  if (keys.isEmpty) return null;
+  return keys.join(_assignmentSeparator);
+}
+
+List<ScreenshotSet> _buildScreenshotSets(
+  String stackKey,
+  List<ScreenshotItem> items,
+  Map<String, String> setMemos,
+  Map<String, String> folderNames, [
+  Map<String, String> setAssignments = const {},
+]) {
+  final sorted = [...items]
+    ..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
   final manualGroups = <String, List<ScreenshotItem>>{};
   final autoItems = <ScreenshotItem>[];
   for (final item in sorted) {
-    final manualKey = setAssignments[item.id];
-    if (manualKey == null) {
+    final manualKeys = _assignmentKeys(setAssignments[item.id]);
+    final groupKeys = manualKeys.where(_isFolderSetKey).toList();
+    final setKeys = manualKeys.where((key) => !_isFolderSetKey(key)).toList();
+    if (manualKeys.isEmpty || groupKeys.isNotEmpty) {
       autoItems.add(item);
-    } else {
-      manualGroups.putIfAbsent(manualKey, () => []).add(item);
     }
+    for (final key in [...setKeys, ...groupKeys]) {
+      manualGroups.putIfAbsent(key, () => []).add(item);
+    }
+  }
+
+  for (final entry in folderNames.entries) {
+    if (entry.value.trim().isEmpty) continue;
+    if (!_isFolderSetKey(entry.key) ||
+        !_folderBelongsToStack(entry.key, stackKey)) {
+      continue;
+    }
+    manualGroups.putIfAbsent(entry.key, () => <ScreenshotItem>[]);
   }
 
   final keyedSets = <MapEntry<String?, List<ScreenshotItem>>>[];
@@ -2481,8 +4940,14 @@ List<ScreenshotSet> _buildScreenshotSets(String stackKey, List<ScreenshotItem> i
       firstTime = item.dateTakenMillis;
       continue;
     }
-    final withinOneHour = firstTime > 0 && item.dateTakenMillis > 0 && (firstTime - item.dateTakenMillis).abs() <= oneHourMillis;
-    final sameDay = _isSameDay(DateTime.fromMillisecondsSinceEpoch(firstTime), item.date);
+    final withinOneHour =
+        firstTime > 0 &&
+        item.dateTakenMillis > 0 &&
+        (firstTime - item.dateTakenMillis).abs() <= oneHourMillis;
+    final sameDay = _isSameDay(
+      DateTime.fromMillisecondsSinceEpoch(firstTime),
+      item.date,
+    );
     if (withinOneHour && sameDay) {
       current.add(item);
     } else {
@@ -2492,108 +4957,61 @@ List<ScreenshotSet> _buildScreenshotSets(String stackKey, List<ScreenshotItem> i
     }
   }
   if (current.isNotEmpty) keyedSets.add(MapEntry(null, current));
-  keyedSets.addAll(manualGroups.entries.map((entry) => MapEntry(entry.key, entry.value)));
+  keyedSets.addAll(
+    manualGroups.entries.map((entry) => MapEntry(entry.key, entry.value)),
+  );
 
   final sets = keyedSets.map((entry) {
-    final setItems = [...entry.value]..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
+    final setItems = [...entry.value]
+      ..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
     final key = entry.key ?? _buildSetKey(stackKey, setItems);
-    return ScreenshotSet(key: key, title: _formatSetTitle(setItems.first.date), timeRange: _formatTimeRange(setItems), items: setItems, memo: setMemos[key] ?? '');
+    final isFolder = _isFolderSetKey(key);
+    final migratedFolderName = isFolder ? setMemos[key]?.trim() : null;
+    final folderName = isFolder
+        ? (folderNames[key]?.trim().isNotEmpty == true
+              ? folderNames[key]!.trim()
+              : (migratedFolderName?.isNotEmpty == true
+                    ? migratedFolderName
+                    : '새 그룹'))
+        : null;
+    return ScreenshotSet(
+      key: key,
+      title:
+          folderName ??
+          (setItems.isEmpty ? 'Set' : _formatSetTitle(setItems.first.date)),
+      timeRange: setItems.isEmpty ? '' : _formatTimeRange(setItems),
+      items: setItems,
+      memo: isFolder ? '' : setMemos[key] ?? '',
+      folderName: folderName,
+    );
   }).toList();
-  sets.sort((a, b) => b.items.first.dateTakenMillis.compareTo(a.items.first.dateTakenMillis));
+  sets.sort((a, b) => _setSortTime(b).compareTo(_setSortTime(a)));
   return sets;
 }
 
+int _setSortTime(ScreenshotSet set) =>
+    set.items.isEmpty ? 0 : set.items.first.dateTakenMillis;
 
 String _buildSetKey(String stackKey, List<ScreenshotItem> items) {
   final first = items.firstOrNull;
   return '$stackKey|${first?.dateTakenMillis ?? 0}|${first?.id ?? ''}';
 }
 
-List<List<ScreenshotItem>> _buildSimilarGroups(List<ScreenshotItem> items, Map<String, VisualFeature> features) {
-  final sorted = [...items]..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
-  if (sorted.length < 2) return const [];
+String _buildFolderKey(String stackKey) =>
+    '$stackKey::folder::${DateTime.now().millisecondsSinceEpoch}';
 
-  const threshold = 0.86;
-  final edges = <String, Set<String>>{for (final item in sorted) item.id: <String>{}};
-  var featurePairCount = 0;
+bool _isFolderSetKey(String key) => key.contains('::folder::');
 
-  for (var i = 0; i < sorted.length; i++) {
-    for (var j = i + 1; j < sorted.length; j++) {
-      final a = sorted[i];
-      final b = sorted[j];
-      final aFeature = features[a.id];
-      final bFeature = features[b.id];
-      if (aFeature == null || bFeature == null) continue;
-      featurePairCount++;
-      final score = visualSimilarity(aFeature, bFeature);
-      if (score >= threshold) {
-        edges[a.id]!.add(b.id);
-        edges[b.id]!.add(a.id);
-      }
-    }
-  }
+bool _folderBelongsToStack(String folderKey, String stackKey) =>
+    folderKey.startsWith('$stackKey::folder::');
 
-  final groups = _connectedSimilarGroups(sorted, edges);
-  if (groups.isNotEmpty) return groups;
+String _folderName(ScreenshotSet folder) =>
+    folder.folderName?.trim().isNotEmpty == true
+    ? folder.folderName!.trim()
+    : '새 그룹';
 
-  // Web/mock fallback until MediaPipe/native features are available there.
-  if (featurePairCount == 0) return _filenameSimilarGroups(sorted);
-  return const [];
-}
-
-List<List<ScreenshotItem>> _connectedSimilarGroups(List<ScreenshotItem> sorted, Map<String, Set<String>> edges) {
-  final byId = {for (final item in sorted) item.id: item};
-  final visited = <String>{};
-  final groups = <List<ScreenshotItem>>[];
-
-  for (final item in sorted) {
-    if (visited.contains(item.id)) continue;
-    final queue = <String>[item.id];
-    final component = <ScreenshotItem>[];
-    visited.add(item.id);
-
-    while (queue.isNotEmpty) {
-      final id = queue.removeLast();
-      final node = byId[id];
-      if (node != null) component.add(node);
-      for (final next in edges[id] ?? const <String>{}) {
-        if (visited.add(next)) queue.add(next);
-      }
-    }
-
-    if (component.length >= 2) {
-      component.sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
-      groups.add(component);
-    }
-  }
-  groups.sort((a, b) => b.length.compareTo(a.length));
-  return groups;
-}
-
-List<List<ScreenshotItem>> _filenameSimilarGroups(List<ScreenshotItem> sorted) {
-  final groups = <List<ScreenshotItem>>[];
-  final used = <String>{};
-  for (final item in sorted) {
-    if (used.contains(item.id)) continue;
-    final baseToken = _similarToken(item.displayName);
-    final group = sorted.where((other) => !used.contains(other.id) && _similarToken(other.displayName) == baseToken).toList();
-    if (group.length >= 2) {
-      groups.add(group);
-      used.addAll(group.map((item) => item.id));
-    }
-  }
-  if (groups.isEmpty && sorted.length >= 2) {
-    return _buildScreenshotSets('similar', sorted, const {}).map((set) => set.items.where((item) => item.id.isNotEmpty).toList()).where((group) => group.length >= 2).toList();
-  }
-  return groups;
-}
-
-String _similarToken(String value) {
-  final normalized = value.toLowerCase().replaceAll(RegExp(r'\d+'), '').replaceAll(RegExp(r'[_\-\s]+'), ' ').trim();
-  return normalized.isEmpty ? value.toLowerCase() : normalized;
-}
-
-bool _isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+bool _isSameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
 
 String _formatSetTitle(DateTime date) {
   final weekdays = ['월', '화', '수', '목', '금', '토', '일'];
@@ -2605,17 +5023,27 @@ String _formatSetDate(DateTime date) {
 }
 
 String _formatTimeRange(List<ScreenshotItem> items) {
-  final times = items.where((item) => item.dateTakenMillis > 0).map((item) => item.date).toList();
+  final times = items
+      .where((item) => item.dateTakenMillis > 0)
+      .map((item) => item.date)
+      .toList();
   if (times.isEmpty) return '촬영 시간 정보 없음';
   times.sort();
-  String format(DateTime date) => '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  String format(DateTime date) =>
+      '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   final start = times.first;
   final end = start.add(const Duration(hours: 1));
   return '${format(start)}-${format(end)}';
 }
 
 class _Thumb extends StatelessWidget {
-  const _Thumb({required this.path, this.width, this.height, this.radius = 16, this.borderColor = const Color(0xFFC2C6D6)});
+  const _Thumb({
+    required this.path,
+    this.width,
+    this.height,
+    this.radius = 12,
+    this.borderColor = Colors.transparent,
+  });
 
   final String path;
   final double? width;
@@ -2625,15 +5053,19 @@ class _Thumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: borderColor),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: Container(
+        width: width,
+        height: height,
+        foregroundDecoration: borderColor == Colors.transparent
+            ? null
+            : BoxDecoration(
+                borderRadius: BorderRadius.circular(radius),
+                border: Border.all(color: borderColor),
+              ),
+        child: _buildThumbnail(path, width, height),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: _buildThumbnail(path, width, height),
     );
   }
 }
@@ -2659,33 +5091,59 @@ Widget _buildThumbnail(String path, double? width, double? height) {
             left: 10,
             right: 10,
             top: 12,
-            child: Container(height: 12, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(99))),
+            child: Container(
+              height: 12,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
           ),
           Positioned(
             left: 10,
             right: 22,
             top: 34,
-            child: Container(height: 8, decoration: BoxDecoration(color: const Color(0xFF111111).withValues(alpha: 0.12), borderRadius: BorderRadius.circular(99))),
+            child: Container(
+              height: 8,
+              decoration: BoxDecoration(
+                color: const Color(0xFF111111).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
           ),
           Positioned(
             left: 10,
             right: 10,
             bottom: 12,
-            child: Container(height: 42, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(10))),
+            child: Container(
+              height: 42,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
   if (kIsWeb || path.isEmpty) {
-    return Container(width: width, height: height, color: const Color(0xFFF5F5F5));
+    return Container(
+      width: width,
+      height: height,
+      color: const Color(0xFFF5F5F5),
+    );
   }
-  return Image.network(
-    Uri.file(path).toString(),
+  return buildLocalImage(
+    path,
     width: width,
     height: height,
     fit: BoxFit.cover,
-    errorBuilder: (context, error, stackTrace) => Container(width: width, height: height, color: const Color(0xFFF5F5F5)),
+    fallback: Container(
+      width: width,
+      height: height,
+      color: const Color(0xFFF5F5F5),
+    ),
   );
 }
 
@@ -2700,7 +5158,6 @@ class _LoadingState extends StatelessWidget {
     );
   }
 }
-
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -2736,18 +5193,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: const Color(0xFFF8F9FA),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           children: [
-            Row(
-              children: [
-                IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF424754))),
-                Expanded(child: Text('Settings', style: Theme.of(context).textTheme.headlineMedium)),
-              ],
+            Align(
+              alignment: Alignment.centerLeft,
+              child: IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: Color(0xFF424754),
+                ),
+              ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
             _SettingsSection(
               title: '권한',
               children: [
@@ -2787,13 +5248,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: Icons.privacy_tip_outlined,
                   title: '개인정보처리방침',
                   subtitle: '사진 원본은 클라우드에 업로드하지 않아요',
-                  onTap: () => _showPolicyDialog(context, '개인정보처리방침', 'Shotly는 사진 원본을 서버에 업로드하지 않고, 기기 로컬에서 스크린샷 메타데이터와 정리 이력만 저장하는 방향으로 설계돼요. 정식 출시 전 정책 문서 링크를 연결할 예정이에요.'),
+                  onTap: () => _showPolicyDialog(
+                    context,
+                    '개인정보처리방침',
+                    'Shotly는 사진 원본을 서버에 업로드하지 않고, 기기 로컬에서 스크린샷 메타데이터와 정리 이력만 저장하는 방향으로 설계돼요. 정식 출시 전 정책 문서 링크를 연결할 예정이에요.',
+                  ),
                 ),
                 _SettingsTile(
                   icon: Icons.description_outlined,
                   title: '이용약관',
                   subtitle: '정식 출시 전 문서 링크 연결 예정',
-                  onTap: () => _showPolicyDialog(context, '이용약관', '정식 출시 전 이용약관 문서 링크를 연결할 예정이에요. 현재 MVP preview에서는 약관 원문을 앱 밖으로 보내지 않아요.'),
+                  onTap: () => _showPolicyDialog(
+                    context,
+                    '이용약관',
+                    '정식 출시 전 이용약관 문서 링크를 연결할 예정이에요. 현재 MVP preview에서는 약관 원문을 앱 밖으로 보내지 않아요.',
+                  ),
                 ),
               ],
             ),
@@ -2804,38 +5273,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _showHiddenStacks(BuildContext context) async {
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => HiddenStacksPage(
-        stacks: _hiddenStacks,
-        onRestoreStack: (stackKey) async {
-          await widget.onRestoreStack(stackKey);
-          if (mounted) setState(() => _hiddenStacks.removeWhere((stack) => stack.key == stackKey));
-        },
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => HiddenStacksPage(
+          stacks: _hiddenStacks,
+          onRestoreStack: (stackKey) async {
+            await widget.onRestoreStack(stackKey);
+            if (mounted) {
+              setState(
+                () =>
+                    _hiddenStacks.removeWhere((stack) => stack.key == stackKey),
+              );
+            }
+          },
+        ),
       ),
-    ));
+    );
   }
 
   Future<void> _showExcludedImages(BuildContext context) async {
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => HiddenImagesPage(
-        images: _excludedImages,
-        onRestoreImage: (imageId) async {
-          await widget.onRestoreImage(imageId);
-          if (mounted) setState(() => _excludedImages.removeWhere((item) => item.id == imageId));
-        },
-        onDeleteOriginalImage: (imageId) async {
-          final deleted = await widget.onDeleteOriginalImage(imageId);
-          if (deleted && mounted) setState(() => _excludedImages.removeWhere((item) => item.id == imageId));
-          return deleted;
-        },
-        onDeleteAllOriginalImages: () async {
-          final ids = _excludedImages.map((item) => item.id).toList();
-          final deleted = await widget.onDeleteOriginalImages(ids);
-          if (deleted && mounted) setState(() => _excludedImages.clear());
-          return deleted ? ids.length : 0;
-        },
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => HiddenImagesPage(
+          images: _excludedImages,
+          onRestoreImage: (imageId) async {
+            await widget.onRestoreImage(imageId);
+            if (mounted) {
+              setState(
+                () => _excludedImages.removeWhere((item) => item.id == imageId),
+              );
+            }
+          },
+          onDeleteOriginalImage: (imageId) async {
+            final deleted = await widget.onDeleteOriginalImage(imageId);
+            if (deleted && mounted) {
+              setState(
+                () => _excludedImages.removeWhere((item) => item.id == imageId),
+              );
+            }
+            return deleted;
+          },
+          onDeleteAllOriginalImages: () async {
+            final ids = _excludedImages.map((item) => item.id).toList();
+            final deleted = await widget.onDeleteOriginalImages(ids);
+            if (deleted && mounted) setState(() => _excludedImages.clear());
+            return deleted ? ids.length : 0;
+          },
+        ),
       ),
-    ));
+    );
   }
 
   void _showInfoDialog(BuildContext context) {
@@ -2847,16 +5333,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showPolicyDialog(BuildContext context, String title, String body) {
-    _showShotlyInfoDialog(
-      context: context,
-      title: title,
-      body: body,
-    );
+    _showShotlyInfoDialog(context: context, title: title, body: body);
   }
 }
 
 class HiddenStacksPage extends StatefulWidget {
-  const HiddenStacksPage({super.key, required this.stacks, required this.onRestoreStack});
+  const HiddenStacksPage({
+    super.key,
+    required this.stacks,
+    required this.onRestoreStack,
+  });
 
   final List<StackItem> stacks;
   final Future<void> Function(String stackKey) onRestoreStack;
@@ -2871,7 +5357,7 @@ class _HiddenStacksPageState extends State<HiddenStacksPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: const Color(0xFFF8F9FA),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -2881,13 +5367,34 @@ class _HiddenStacksPageState extends State<HiddenStacksPage> {
             if (_stacks.isEmpty)
               const _EmptyRecoveryMessage(message: '숨긴 Stack이 없어요')
             else
-              ..._stacks.map((stack) => ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    leading: const Icon(Icons.layers_clear_rounded, color: Color(0xFF424754)),
-                    title: Text(stack.name, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
-                    subtitle: Text('${stack.items.length} images', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785))),
-                    trailing: TextButton(onPressed: () => _restore(stack.key), child: const Text('복구')),
-                  )),
+              ..._stacks.map(
+                (stack) => ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
+                  leading: const Icon(
+                    Icons.layers_clear_rounded,
+                    color: Color(0xFF424754),
+                  ),
+                  title: Text(
+                    stack.name,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '${stack.items.length} images',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFF727785),
+                    ),
+                  ),
+                  trailing: TextButton(
+                    onPressed: () => _restore(stack.key),
+                    child: const Text('복구'),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -2896,12 +5403,20 @@ class _HiddenStacksPageState extends State<HiddenStacksPage> {
 
   Future<void> _restore(String stackKey) async {
     await widget.onRestoreStack(stackKey);
-    if (mounted) setState(() => _stacks.removeWhere((stack) => stack.key == stackKey));
+    if (mounted) {
+      setState(() => _stacks.removeWhere((stack) => stack.key == stackKey));
+    }
   }
 }
 
 class HiddenImagesPage extends StatefulWidget {
-  const HiddenImagesPage({super.key, required this.images, required this.onRestoreImage, required this.onDeleteOriginalImage, required this.onDeleteAllOriginalImages});
+  const HiddenImagesPage({
+    super.key,
+    required this.images,
+    required this.onRestoreImage,
+    required this.onDeleteOriginalImage,
+    required this.onDeleteAllOriginalImages,
+  });
 
   final List<ScreenshotItem> images;
   final Future<void> Function(String imageId) onRestoreImage;
@@ -2918,7 +5433,7 @@ class _HiddenImagesPageState extends State<HiddenImagesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: const Color(0xFFF8F9FA),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -2929,27 +5444,67 @@ class _HiddenImagesPageState extends State<HiddenImagesPage> {
                   ? null
                   : TextButton.icon(
                       onPressed: _deleteAll,
-                      icon: const Icon(Icons.delete_rounded, size: 18, color: Color(0xFFB42318)),
-                      label: const Text('전체 삭제', style: TextStyle(color: Color(0xFFB42318))),
+                      icon: const Icon(
+                        Icons.delete_rounded,
+                        size: 18,
+                        color: Color(0xFFB42318),
+                      ),
+                      label: const Text(
+                        '전체 삭제',
+                        style: TextStyle(color: Color(0xFFB42318)),
+                      ),
                     ),
             ),
             const SizedBox(height: 20),
             if (_images.isEmpty)
               const _EmptyRecoveryMessage(message: '숨긴 이미지가 없어요')
             else
-              ..._images.map((item) => ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                    leading: _Thumb(path: item.thumbnailPath, width: 44, height: 64, radius: 14),
-                    title: Text(item.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-                    subtitle: Text(item.appName, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785))),
-                    trailing: Wrap(
-                      spacing: 4,
-                      children: [
-                        TextButton(onPressed: () => _restore(item.id), child: const Text('복구')),
-                        IconButton(onPressed: () => _deleteOne(item.id), icon: const Icon(Icons.delete_rounded, color: Color(0xFFB42318))),
-                      ],
+              ..._images.map(
+                (item) => ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 4,
+                  ),
+                  leading: _Thumb(
+                    path: item.thumbnailPath,
+                    width: 44,
+                    height: 64,
+                    radius: 14,
+                  ),
+                  title: Text(
+                    item.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
-                  )),
+                  ),
+                  subtitle: Text(
+                    item.appName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFF727785),
+                    ),
+                  ),
+                  trailing: Wrap(
+                    spacing: 4,
+                    children: [
+                      TextButton(
+                        onPressed: () => _restore(item.id),
+                        child: const Text('복구'),
+                      ),
+                      IconButton(
+                        onPressed: () => _deleteOne(item.id),
+                        icon: const Icon(
+                          Icons.delete_rounded,
+                          color: Color(0xFFB42318),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -2958,7 +5513,9 @@ class _HiddenImagesPageState extends State<HiddenImagesPage> {
 
   Future<void> _restore(String imageId) async {
     await widget.onRestoreImage(imageId);
-    if (mounted) setState(() => _images.removeWhere((item) => item.id == imageId));
+    if (mounted) {
+      setState(() => _images.removeWhere((item) => item.id == imageId));
+    }
   }
 
   Future<void> _deleteOne(String imageId) async {
@@ -2969,7 +5526,9 @@ class _HiddenImagesPageState extends State<HiddenImagesPage> {
       primaryLabel: '삭제',
       destructive: true,
     );
-    if (confirmed == true && await widget.onDeleteOriginalImage(imageId) && mounted) {
+    if (confirmed == true &&
+        await widget.onDeleteOriginalImage(imageId) &&
+        mounted) {
       setState(() => _images.removeWhere((item) => item.id == imageId));
     }
   }
@@ -2986,7 +5545,9 @@ class _HiddenImagesPageState extends State<HiddenImagesPage> {
     final deletedCount = await widget.onDeleteAllOriginalImages();
     if (mounted) {
       setState(() => _images.clear());
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$deletedCount개 원본 파일을 삭제했어요.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$deletedCount개 원본 파일을 삭제했어요.')));
     }
   }
 }
@@ -3001,8 +5562,13 @@ class _SettingsPageHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF424754))),
-        Expanded(child: Text(title, style: Theme.of(context).textTheme.headlineMedium)),
+        IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF424754)),
+        ),
+        Expanded(
+          child: Text(title, style: Theme.of(context).textTheme.headlineMedium),
+        ),
         ?action,
       ],
     );
@@ -3024,7 +5590,12 @@ class _SettingsSection extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(left: 4, bottom: 8),
-            child: Text(title, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: const Color(0xFF727785))),
+            child: Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(color: const Color(0xFF727785)),
+            ),
           ),
           Column(children: children),
         ],
@@ -3034,7 +5605,10 @@ class _SettingsSection extends StatelessWidget {
 }
 
 class _PermissionStatusTile extends StatelessWidget {
-  const _PermissionStatusTile({required this.hasPermission, required this.onOpenSettings});
+  const _PermissionStatusTile({
+    required this.hasPermission,
+    required this.onOpenSettings,
+  });
 
   final bool hasPermission;
   final Future<void> Function() onOpenSettings;
@@ -3042,17 +5616,27 @@ class _PermissionStatusTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SettingsTile(
-      icon: hasPermission ? Icons.check_circle_outline_rounded : Icons.error_outline_rounded,
+      icon: hasPermission
+          ? Icons.check_circle_outline_rounded
+          : Icons.error_outline_rounded,
       title: '사진 접근 권한',
       subtitle: hasPermission ? '허용됨' : '허용 안 됨',
-      trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFF727785)),
+      trailing: const Icon(
+        Icons.chevron_right_rounded,
+        color: Color(0xFF727785),
+      ),
       onTap: onOpenSettings,
     );
   }
 }
 
 class _RecoverySummaryTile extends StatelessWidget {
-  const _RecoverySummaryTile({required this.icon, required this.title, required this.count, required this.onTap});
+  const _RecoverySummaryTile({
+    required this.icon,
+    required this.title,
+    required this.count,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String title;
@@ -3065,14 +5649,23 @@ class _RecoverySummaryTile extends StatelessWidget {
       icon: icon,
       title: title,
       subtitle: count == 0 ? '복구할 항목 없음' : '$count개 항목 복구 가능',
-      trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFF727785)),
+      trailing: const Icon(
+        Icons.chevron_right_rounded,
+        color: Color(0xFF727785),
+      ),
       onTap: onTap,
     );
   }
 }
 
 class _SettingsTile extends StatelessWidget {
-  const _SettingsTile({required this.icon, required this.title, required this.subtitle, this.trailing, this.onTap});
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.trailing,
+    this.onTap,
+  });
 
   final IconData icon;
   final String title;
@@ -3088,8 +5681,18 @@ class _SettingsTile extends StatelessWidget {
       minLeadingWidth: 24,
       horizontalTitleGap: 12,
       leading: Icon(icon, color: const Color(0xFF424754)),
-      title: Text(title, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
-      subtitle: Text(subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785))),
+      title: Text(
+        title,
+        style: Theme.of(
+          context,
+        ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785)),
+      ),
       trailing: trailing,
     );
   }
@@ -3104,7 +5707,14 @@ class _EmptyRecoveryMessage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 28),
-      child: Center(child: Text(message, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785)))),
+      child: Center(
+        child: Text(
+          message,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785)),
+        ),
+      ),
     );
   }
 }
@@ -3133,7 +5743,12 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _CenteredMessage(title: '문제가 생겼어요', body: message, buttonText: '다시 시도', onPressed: onRetry);
+    return _CenteredMessage(
+      title: '문제가 생겼어요',
+      body: message,
+      buttonText: '다시 시도',
+      onPressed: onRetry,
+    );
   }
 }
 
@@ -3142,7 +5757,10 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _CenteredMessage(title: '스크린샷을 찾지 못했어요', body: 'Screenshots 폴더 또는 Screenshot 파일명을 기준으로 먼저 찾아요.');
+    return const _CenteredMessage(
+      title: '스크린샷을 찾지 못했어요',
+      body: 'Screenshots 폴더 또는 Screenshot 파일명을 기준으로 먼저 찾아요.',
+    );
   }
 }
 
@@ -3151,12 +5769,20 @@ class _NoResultState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _CenteredMessage(title: '검색 결과가 없어요', body: '앱 이름이나 파일명을 다르게 입력해봐요.');
+    return const _CenteredMessage(
+      title: '검색 결과가 없어요',
+      body: '앱 이름이나 파일명을 다르게 입력해봐요.',
+    );
   }
 }
 
 class _CenteredMessage extends StatelessWidget {
-  const _CenteredMessage({required this.title, required this.body, this.buttonText, this.onPressed});
+  const _CenteredMessage({
+    required this.title,
+    required this.body,
+    this.buttonText,
+    this.onPressed,
+  });
 
   final String title;
   final String body;
@@ -3170,9 +5796,19 @@ class _CenteredMessage extends StatelessWidget {
       child: Center(
         child: Column(
           children: [
-            Text(title, style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleLarge,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 10),
-            Text(body, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF6B7280)), textAlign: TextAlign.center),
+            Text(
+              body,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF6B7280)),
+              textAlign: TextAlign.center,
+            ),
             if (buttonText != null && onPressed != null) ...[
               const SizedBox(height: 20),
               FilledButton(onPressed: onPressed, child: Text(buttonText!)),
@@ -3182,13 +5818,4 @@ class _CenteredMessage extends StatelessWidget {
       ),
     );
   }
-}
-
-String _formatTimelineDate(DateTime date) {
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  final target = DateTime(date.year, date.month, date.day);
-  if (target == today) return '오늘';
-  if (target == today.subtract(const Duration(days: 1))) return '어제';
-  return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
 }

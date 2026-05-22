@@ -10,6 +10,8 @@ import android.graphics.Bitmap
 import android.os.Build
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Size
@@ -20,6 +22,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileOutputStream
+import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
     private val channelName = "shotly/native"
@@ -31,6 +34,8 @@ class MainActivity : FlutterActivity() {
     private var pendingDeleteImageResult: MethodChannel.Result? = null
     private var pendingDeleteImageUri: Uri? = null
     private var pendingDeleteImageUris: List<Uri>? = null
+    private val ioExecutor = Executors.newSingleThreadExecutor()
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -38,13 +43,24 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "requestPhotoPermission" -> requestPhotoPermission(result)
                 "openPhotoSettings" -> openPhotoSettings(result)
-                "getScreenshots" -> result.success(loadScreenshots())
+                "getScreenshots" -> runOnIo(result) { loadScreenshots() }
                 "pickImage" -> pickImage(result)
-                "getImagePreview" -> getImagePreview(call.argument<String>("imageId"), result)
+                "getImagePreview" -> runOnIo(result) { getImagePreviewPath(call.argument<String>("imageId")) }
                 "deleteOriginalImage" -> deleteOriginalImage(call.argument<String>("imageId"), result)
                 "deleteOriginalImages" -> deleteOriginalImages(call.argument<List<String>>("imageIds"), result)
                 "shareImages" -> shareImages(call.argument<List<String>>("imageIds"), result)
                 else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun <T> runOnIo(result: MethodChannel.Result, block: () -> T) {
+        ioExecutor.execute {
+            try {
+                val value = block()
+                mainHandler.post { result.success(value) }
+            } catch (e: Exception) {
+                mainHandler.post { result.error("native_error", e.localizedMessage ?: "Native 작업 중 문제가 생겼어요.", null) }
             }
         }
     }
@@ -132,12 +148,13 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun getImagePreview(imageId: String?, result: MethodChannel.Result) {
+        result.success(getImagePreviewPath(imageId))
+    }
+
+    private fun getImagePreviewPath(imageId: String?): String {
         val uri = imageUriForId(imageId)
-        if (uri == null) {
-            result.success("")
-            return
-        }
-        result.success(createThumbnailFileFromUri("preview-${imageId.orEmpty()}", uri, preview = true))
+        if (uri == null) return ""
+        return createOriginalCacheFileFromUri("original-${imageId.orEmpty()}", uri)
     }
 
     private fun deleteOriginalImage(imageId: String?, result: MethodChannel.Result) {
@@ -384,6 +401,28 @@ class MainActivity : FlutterActivity() {
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 82, out)
             }
             bitmap.recycle()
+            file.absolutePath
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    private fun createOriginalCacheFileFromUri(key: String, uri: android.net.Uri): String {
+        return try {
+            val directory = File(cacheDir, "shotly_originals").apply { mkdirs() }
+            val safeKey = key.replace(Regex("[^A-Za-z0-9_-]"), "_")
+            val mimeType = contentResolver.getType(uri).orEmpty()
+            val extension = when {
+                mimeType.contains("png", ignoreCase = true) -> "png"
+                mimeType.contains("webp", ignoreCase = true) -> "webp"
+                else -> "jpg"
+            }
+            val file = File(directory, "$safeKey.$extension")
+            if (file.exists() && file.length() > 0) return file.absolutePath
+
+            contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(file).use { output -> input.copyTo(output) }
+            } ?: return ""
             file.absolutePath
         } catch (_: Exception) {
             ""

@@ -17,7 +17,10 @@ class ShotlyLocalStore implements LocalStore {
   static const _excludedImagesPrefsKey = 'shotly.excludedImages';
   static const _imageAssignmentsPrefsKey = 'shotly.imageAssignments';
   static const _setMemosPrefsKey = 'shotly.setMemos';
+  static const _folderNamesPrefsKey = 'shotly.folderNames';
   static const _setAssignmentsPrefsKey = 'shotly.setAssignments';
+  static const _pinnedStacksPrefsKey = 'shotly.pinnedStacks';
+  static const _sortModePrefsKey = 'shotly.sortMode';
   static const _migrationPrefsKey = 'shotly.driftMigration.v1';
 
   final ShotlyDatabase _db;
@@ -27,22 +30,75 @@ class ShotlyLocalStore implements LocalStore {
     await _db.ensureOpen();
     await _migrateSharedPreferencesIfNeeded();
 
-    final manualStacks = await _db.customSelect('SELECT name FROM manual_stacks ORDER BY created_at ASC').get();
-    final stackRows = await _db.customSelect('SELECT stack_key, name FROM stack_customizations').get();
-    final assignmentRows = await _db.customSelect('SELECT image_id, stack_key FROM image_assignments').get();
-    final memoRows = await _db.customSelect('SELECT set_key, memo FROM set_memos').get();
-    final setAssignmentRows = await _db.customSelect('SELECT image_id, set_key FROM set_assignments').get();
-    final hiddenRows = await _db.customSelect('SELECT stack_key FROM hidden_stacks').get();
-    final excludedRows = await _db.customSelect('SELECT image_id FROM excluded_images').get();
+    final manualStacks = await _db
+        .customSelect('SELECT name FROM manual_stacks ORDER BY created_at ASC')
+        .get();
+    final stackRows = await _db
+        .customSelect('SELECT stack_key, name FROM stack_customizations')
+        .get();
+    final assignmentRows = await _db
+        .customSelect('SELECT image_id, stack_key FROM image_assignments')
+        .get();
+    final memoRows = await _db
+        .customSelect('SELECT set_key, memo FROM set_memos')
+        .get();
+    final folderNameRows = await _db
+        .customSelect('SELECT folder_key, name FROM folder_names')
+        .get();
+    final setAssignmentRows = await _db
+        .customSelect('SELECT image_id, set_key FROM set_assignments')
+        .get();
+    final hiddenRows = await _db
+        .customSelect('SELECT stack_key FROM hidden_stacks')
+        .get();
+    final excludedRows = await _db
+        .customSelect('SELECT image_id FROM excluded_images')
+        .get();
+    final pinnedRows = await _db
+        .customSelect(
+          'SELECT stack_key FROM pinned_stacks ORDER BY created_at ASC',
+        )
+        .get();
+    final settingRows = await _db
+        .customSelect("SELECT value FROM settings WHERE key = 'sort_mode'")
+        .get();
 
     return LocalShotlyState(
-      manualStackNames: [for (final row in manualStacks) row.read<String>('name')],
-      stackNames: {for (final row in stackRows) row.read<String>('stack_key'): row.read<String>('name')},
-      imageAssignments: {for (final row in assignmentRows) row.read<String>('image_id'): row.read<String>('stack_key')},
-      setMemos: {for (final row in memoRows) row.read<String>('set_key'): row.read<String>('memo')},
-      setAssignments: {for (final row in setAssignmentRows) row.read<String>('image_id'): row.read<String>('set_key')},
-      hiddenStackKeys: {for (final row in hiddenRows) row.read<String>('stack_key')},
-      excludedImageIds: {for (final row in excludedRows) row.read<String>('image_id')},
+      manualStackNames: [
+        for (final row in manualStacks) row.read<String>('name'),
+      ],
+      stackNames: {
+        for (final row in stackRows)
+          row.read<String>('stack_key'): row.read<String>('name'),
+      },
+      imageAssignments: {
+        for (final row in assignmentRows)
+          row.read<String>('image_id'): row.read<String>('stack_key'),
+      },
+      setMemos: {
+        for (final row in memoRows)
+          row.read<String>('set_key'): row.read<String>('memo'),
+      },
+      folderNames: {
+        for (final row in folderNameRows)
+          row.read<String>('folder_key'): row.read<String>('name'),
+      },
+      setAssignments: {
+        for (final row in setAssignmentRows)
+          row.read<String>('image_id'): row.read<String>('set_key'),
+      },
+      hiddenStackKeys: {
+        for (final row in hiddenRows) row.read<String>('stack_key'),
+      },
+      excludedImageIds: {
+        for (final row in excludedRows) row.read<String>('image_id'),
+      },
+      pinnedStackKeys: [
+        for (final row in pinnedRows) row.read<String>('stack_key'),
+      ],
+      sortModeName: settingRows.isEmpty
+          ? null
+          : settingRows.first.read<String>('value'),
     );
   }
 
@@ -76,7 +132,9 @@ class ShotlyLocalStore implements LocalStore {
   @override
   Future<void> restoreStack(String stackKey) async {
     await _db.ensureOpen();
-    await _db.customStatement('DELETE FROM hidden_stacks WHERE stack_key = ?', [stackKey]);
+    await _db.customStatement('DELETE FROM hidden_stacks WHERE stack_key = ?', [
+      stackKey,
+    ]);
   }
 
   @override
@@ -91,7 +149,10 @@ class ShotlyLocalStore implements LocalStore {
   @override
   Future<void> restoreImage(String imageId) async {
     await _db.ensureOpen();
-    await _db.customStatement('DELETE FROM excluded_images WHERE image_id = ?', [imageId]);
+    await _db.customStatement(
+      'DELETE FROM excluded_images WHERE image_id = ?',
+      [imageId],
+    );
   }
 
   @override
@@ -114,11 +175,60 @@ class ShotlyLocalStore implements LocalStore {
   }
 
   @override
+  Future<void> saveFolderName(String folderKey, String name) async {
+    await _db.ensureOpen();
+    if (name.trim().isEmpty) {
+      await _db.customStatement(
+        'DELETE FROM folder_names WHERE folder_key = ?',
+        [folderKey],
+      );
+      return;
+    }
+    await _db.customStatement(
+      'INSERT OR REPLACE INTO folder_names(folder_key, name, updated_at) VALUES (?, ?, ?)',
+      [folderKey, name, DateTime.now().millisecondsSinceEpoch],
+    );
+  }
+
+  @override
   Future<void> assignImageToSet(String imageId, String setKey) async {
     await _db.ensureOpen();
+    if (setKey.isEmpty) {
+      await _db.customStatement(
+        'DELETE FROM set_assignments WHERE image_id = ?',
+        [imageId],
+      );
+      return;
+    }
     await _db.customStatement(
       'INSERT OR REPLACE INTO set_assignments(image_id, set_key, updated_at) VALUES (?, ?, ?)',
       [imageId, setKey, DateTime.now().millisecondsSinceEpoch],
+    );
+  }
+
+  @override
+  Future<void> pinStack(String stackKey) async {
+    await _db.ensureOpen();
+    await _db.customStatement(
+      'INSERT OR IGNORE INTO pinned_stacks(stack_key, created_at) VALUES (?, ?)',
+      [stackKey, DateTime.now().millisecondsSinceEpoch],
+    );
+  }
+
+  @override
+  Future<void> unpinStack(String stackKey) async {
+    await _db.ensureOpen();
+    await _db.customStatement('DELETE FROM pinned_stacks WHERE stack_key = ?', [
+      stackKey,
+    ]);
+  }
+
+  @override
+  Future<void> saveSortMode(String sortModeName) async {
+    await _db.ensureOpen();
+    await _db.customStatement(
+      'INSERT OR REPLACE INTO settings(key, value, updated_at) VALUES (?, ?, ?)',
+      ['sort_mode', sortModeName, DateTime.now().millisecondsSinceEpoch],
     );
   }
 
@@ -129,26 +239,79 @@ class ShotlyLocalStore implements LocalStore {
     final now = DateTime.now().millisecondsSinceEpoch;
     final manualStacks = prefs.getStringList(_manualStacksPrefsKey) ?? const [];
     for (final name in manualStacks) {
-      await _db.customStatement('INSERT OR IGNORE INTO manual_stacks(name, created_at) VALUES (?, ?)', [name, now]);
+      await _db.customStatement(
+        'INSERT OR IGNORE INTO manual_stacks(name, created_at) VALUES (?, ?)',
+        [name, now],
+      );
     }
 
-    for (final entry in _decodeStringMap(prefs.getString(_stackNamesPrefsKey)).entries) {
-      await _db.customStatement('INSERT OR REPLACE INTO stack_customizations(stack_key, name, updated_at) VALUES (?, ?, ?)', [entry.key, entry.value, now]);
+    for (final entry in _decodeStringMap(
+      prefs.getString(_stackNamesPrefsKey),
+    ).entries) {
+      await _db.customStatement(
+        'INSERT OR REPLACE INTO stack_customizations(stack_key, name, updated_at) VALUES (?, ?, ?)',
+        [entry.key, entry.value, now],
+      );
     }
-    for (final entry in _decodeStringMap(prefs.getString(_imageAssignmentsPrefsKey)).entries) {
-      await _db.customStatement('INSERT OR REPLACE INTO image_assignments(image_id, stack_key, updated_at) VALUES (?, ?, ?)', [entry.key, entry.value, now]);
+    for (final entry in _decodeStringMap(
+      prefs.getString(_imageAssignmentsPrefsKey),
+    ).entries) {
+      await _db.customStatement(
+        'INSERT OR REPLACE INTO image_assignments(image_id, stack_key, updated_at) VALUES (?, ?, ?)',
+        [entry.key, entry.value, now],
+      );
     }
-    for (final entry in _decodeStringMap(prefs.getString(_setMemosPrefsKey)).entries) {
-      await _db.customStatement('INSERT OR REPLACE INTO set_memos(set_key, memo, updated_at) VALUES (?, ?, ?)', [entry.key, entry.value, now]);
+    for (final entry in _decodeStringMap(
+      prefs.getString(_setMemosPrefsKey),
+    ).entries) {
+      await _db.customStatement(
+        'INSERT OR REPLACE INTO set_memos(set_key, memo, updated_at) VALUES (?, ?, ?)',
+        [entry.key, entry.value, now],
+      );
     }
-    for (final entry in _decodeStringMap(prefs.getString(_setAssignmentsPrefsKey)).entries) {
-      await _db.customStatement('INSERT OR REPLACE INTO set_assignments(image_id, set_key, updated_at) VALUES (?, ?, ?)', [entry.key, entry.value, now]);
+    for (final entry in _decodeStringMap(
+      prefs.getString(_folderNamesPrefsKey),
+    ).entries) {
+      await _db.customStatement(
+        'INSERT OR REPLACE INTO folder_names(folder_key, name, updated_at) VALUES (?, ?, ?)',
+        [entry.key, entry.value, now],
+      );
     }
-    for (final stackKey in prefs.getStringList(_hiddenStacksPrefsKey) ?? const <String>[]) {
-      await _db.customStatement('INSERT OR IGNORE INTO hidden_stacks(stack_key, created_at) VALUES (?, ?)', [stackKey, now]);
+    for (final entry in _decodeStringMap(
+      prefs.getString(_setAssignmentsPrefsKey),
+    ).entries) {
+      await _db.customStatement(
+        'INSERT OR REPLACE INTO set_assignments(image_id, set_key, updated_at) VALUES (?, ?, ?)',
+        [entry.key, entry.value, now],
+      );
     }
-    for (final imageId in prefs.getStringList(_excludedImagesPrefsKey) ?? const <String>[]) {
-      await _db.customStatement('INSERT OR IGNORE INTO excluded_images(image_id, created_at) VALUES (?, ?)', [imageId, now]);
+    for (final stackKey
+        in prefs.getStringList(_hiddenStacksPrefsKey) ?? const <String>[]) {
+      await _db.customStatement(
+        'INSERT OR IGNORE INTO hidden_stacks(stack_key, created_at) VALUES (?, ?)',
+        [stackKey, now],
+      );
+    }
+    for (final imageId
+        in prefs.getStringList(_excludedImagesPrefsKey) ?? const <String>[]) {
+      await _db.customStatement(
+        'INSERT OR IGNORE INTO excluded_images(image_id, created_at) VALUES (?, ?)',
+        [imageId, now],
+      );
+    }
+    for (final stackKey
+        in prefs.getStringList(_pinnedStacksPrefsKey) ?? const <String>[]) {
+      await _db.customStatement(
+        'INSERT OR IGNORE INTO pinned_stacks(stack_key, created_at) VALUES (?, ?)',
+        [stackKey, now],
+      );
+    }
+    final sortMode = prefs.getString(_sortModePrefsKey);
+    if (sortMode != null) {
+      await _db.customStatement(
+        'INSERT OR REPLACE INTO settings(key, value, updated_at) VALUES (?, ?, ?)',
+        ['sort_mode', sortMode, now],
+      );
     }
 
     await prefs.setBool(_migrationPrefsKey, true);
@@ -202,6 +365,13 @@ class ShotlyDatabase extends GeneratedDatabase {
       )
     ''');
     await customStatement('''
+      CREATE TABLE IF NOT EXISTS folder_names (
+        folder_key TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+    await customStatement('''
       CREATE TABLE IF NOT EXISTS set_assignments (
         image_id TEXT PRIMARY KEY NOT NULL,
         set_key TEXT NOT NULL,
@@ -220,6 +390,19 @@ class ShotlyDatabase extends GeneratedDatabase {
         created_at INTEGER NOT NULL
       )
     ''');
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS pinned_stacks (
+        stack_key TEXT PRIMARY KEY NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY NOT NULL,
+        value TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
     _opened = true;
   }
 }
@@ -236,8 +419,12 @@ LazyDatabase _openConnection() {
 Future<Directory> _databaseDirectory() async {
   final override = Platform.environment['SHOTLY_DB_DIR'];
   if (override != null && override.isNotEmpty) return Directory(override);
-  if (Platform.isAndroid) return Directory('/data/data/com.shotly.shotly_app/files');
+  if (Platform.isAndroid) {
+    return Directory('/data/data/com.shotly.shotly_app/files');
+  }
   final home = Platform.environment['HOME'];
-  if (home != null && home.isNotEmpty) return Directory(p.join(home, 'Documents'));
+  if (home != null && home.isNotEmpty) {
+    return Directory(p.join(home, 'Documents'));
+  }
   return Directory.systemTemp;
 }
