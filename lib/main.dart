@@ -2882,9 +2882,15 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                           folders: folderSets,
                           allStackKeys: widget.allStackKeys,
                           stackNames: widget.stackNames,
+                          selectedIds: _selectedImageIds,
                           onCreateFolder: () {
-                            _createFolder(context);
+                            if (_selectedImageIds.isEmpty) {
+                              _createFolder(context);
+                            } else {
+                              _createFolderAndAddSelected(context);
+                            }
                           },
+                          onAddSelectedToFolder: _addSelectedToExistingFolder,
                           onDeleteFolder: (folder) =>
                               _deleteFolder(context, folder, visibleItems),
                           onExcludeImage: widget.onExcludeImage,
@@ -3032,7 +3038,23 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       if (trimmed == null || trimmed.isEmpty) return;
       folderKey = await _createFolderWithName(trimmed);
     }
-    final selected = _selectedImageIds.toList();
+    await _assignSelectedToFolder(folderKey, _selectedImageIds.toList());
+  }
+
+  Future<void> _createFolderAndAddSelected(BuildContext context) async {
+    final folderKey = await _createFolder(context);
+    if (folderKey == null) return;
+    await _assignSelectedToFolder(folderKey, _selectedImageIds.toList());
+  }
+
+  Future<void> _addSelectedToExistingFolder(ScreenshotSet folder) async {
+    await _assignSelectedToFolder(folder.key, _selectedImageIds.toList());
+  }
+
+  Future<void> _assignSelectedToFolder(
+    String folderKey,
+    List<String> selected,
+  ) async {
     if (selected.isEmpty) return;
     final nextAssignments = <String, String>{};
     for (final id in selected) {
@@ -3229,7 +3251,9 @@ class _FolderStrip extends StatelessWidget {
     required this.folders,
     required this.allStackKeys,
     required this.stackNames,
+    required this.selectedIds,
     required this.onCreateFolder,
+    required this.onAddSelectedToFolder,
     required this.onDeleteFolder,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
@@ -3242,7 +3266,9 @@ class _FolderStrip extends StatelessWidget {
   final List<ScreenshotSet> folders;
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
+  final Set<String> selectedIds;
   final VoidCallback onCreateFolder;
+  final Future<void> Function(ScreenshotSet folder) onAddSelectedToFolder;
   final Future<void> Function(ScreenshotSet folder) onDeleteFolder;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
@@ -3266,6 +3292,8 @@ class _FolderStrip extends StatelessWidget {
             folder: folder,
             allStackKeys: allStackKeys,
             stackNames: stackNames,
+            selectedIds: selectedIds,
+            onAddSelected: () => onAddSelectedToFolder(folder),
             onDelete: () => onDeleteFolder(folder),
             onExcludeImage: onExcludeImage,
             onDeleteOriginalImage: onDeleteOriginalImage,
@@ -3348,6 +3376,8 @@ class _FolderCard extends StatelessWidget {
     required this.folder,
     required this.allStackKeys,
     required this.stackNames,
+    required this.selectedIds,
+    required this.onAddSelected,
     required this.onDelete,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
@@ -3360,6 +3390,8 @@ class _FolderCard extends StatelessWidget {
   final ScreenshotSet folder;
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
+  final Set<String> selectedIds;
+  final Future<void> Function() onAddSelected;
   final Future<void> Function() onDelete;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
@@ -3372,22 +3404,24 @@ class _FolderCard extends StatelessWidget {
     final cover = folder.items.isEmpty ? '' : folder.items.first.thumbnailPath;
     return InkWell(
       onLongPress: () => onDelete(),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => _SearchSetResultScreen(
-            stack: stack,
-            set: folder,
-            allStackKeys: allStackKeys,
-            stackNames: stackNames,
-            onExcludeImage: onExcludeImage,
-            onDeleteOriginalImage: onDeleteOriginalImage,
-            onMoveImage: onMoveImage,
-            onSaveSetMemo: onSaveSetMemo,
-            onAssignImageToSet: onAssignImageToSet,
-            onDeleteFolder: onDelete,
-          ),
-        ),
-      ),
+      onTap: selectedIds.isNotEmpty
+          ? onAddSelected
+          : () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => _SearchSetResultScreen(
+                  stack: stack,
+                  set: folder,
+                  allStackKeys: allStackKeys,
+                  stackNames: stackNames,
+                  onExcludeImage: onExcludeImage,
+                  onDeleteOriginalImage: onDeleteOriginalImage,
+                  onMoveImage: onMoveImage,
+                  onSaveSetMemo: onSaveSetMemo,
+                  onAssignImageToSet: onAssignImageToSet,
+                  onDeleteFolder: onDelete,
+                ),
+              ),
+            ),
       borderRadius: BorderRadius.circular(18),
       child: SizedBox(
         width: 116,
@@ -4912,7 +4946,7 @@ List<ScreenshotSet> _buildScreenshotSets(
     final manualKeys = _assignmentKeys(setAssignments[item.id]);
     final groupKeys = manualKeys.where(_isFolderSetKey).toList();
     final setKeys = manualKeys.where((key) => !_isFolderSetKey(key)).toList();
-    if (manualKeys.isEmpty || groupKeys.isEmpty) {
+    if (manualKeys.isEmpty || groupKeys.isNotEmpty) {
       autoItems.add(item);
     }
     for (final key in [...setKeys, ...groupKeys]) {
