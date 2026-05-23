@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -2883,13 +2884,6 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                           allStackKeys: widget.allStackKeys,
                           stackNames: widget.stackNames,
                           selectedIds: _selectedImageIds,
-                          onCreateFolder: () {
-                            if (_selectedImageIds.isEmpty) {
-                              _createFolder(context);
-                            } else {
-                              _createFolderAndAddSelected(context);
-                            }
-                          },
                           onAddSelectedToFolder: _addSelectedToExistingFolder,
                           onDeleteFolder: (folder) =>
                               _deleteFolder(context, folder, visibleItems),
@@ -3214,6 +3208,11 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
               ),
               const SizedBox(height: 16),
               _AddMenuTile(
+                icon: Icons.grid_view_rounded,
+                title: _selectedImageIds.isEmpty ? '그룹 추가' : '선택 이미지로 그룹 추가',
+                onTap: () => Navigator.of(context).pop('folder'),
+              ),
+              _AddMenuTile(
                 icon: Icons.edit_rounded,
                 title: 'Stack 이름 수정',
                 onTap: () => Navigator.of(context).pop('rename'),
@@ -3229,6 +3228,14 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       ),
     );
     if (!context.mounted) return;
+    if (action == 'folder') {
+      if (_selectedImageIds.isEmpty) {
+        await _createFolder(context);
+      } else {
+        await _createFolderAndAddSelected(context);
+      }
+      return;
+    }
     if (action == 'rename') await _renameStack(context);
     if (action == 'hide') {
       await widget.onHideStack(widget.stack.key);
@@ -3252,7 +3259,6 @@ class _FolderStrip extends StatelessWidget {
     required this.allStackKeys,
     required this.stackNames,
     required this.selectedIds,
-    required this.onCreateFolder,
     required this.onAddSelectedToFolder,
     required this.onDeleteFolder,
     required this.onExcludeImage,
@@ -3267,7 +3273,6 @@ class _FolderStrip extends StatelessWidget {
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
   final Set<String> selectedIds;
-  final VoidCallback onCreateFolder;
   final Future<void> Function(ScreenshotSet folder) onAddSelectedToFolder;
   final Future<void> Function(ScreenshotSet folder) onDeleteFolder;
   final Future<void> Function(String imageId) onExcludeImage;
@@ -3278,15 +3283,16 @@ class _FolderStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (folders.isEmpty) return const SizedBox.shrink();
     return SizedBox(
-      height: 146,
+      height: 158,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: folders.length + 1,
+        clipBehavior: Clip.none,
+        itemCount: folders.length,
         separatorBuilder: (_, _) => const SizedBox(width: 14),
         itemBuilder: (context, index) {
-          if (index == 0) return _CreateFolderCard(onTap: onCreateFolder);
-          final folder = folders[index - 1];
+          final folder = folders[index];
           return _FolderCard(
             stack: stack,
             folder: folder,
@@ -3302,69 +3308,6 @@ class _FolderStrip extends StatelessWidget {
             onAssignImageToSet: onAssignImageToSet,
           );
         },
-      ),
-    );
-  }
-}
-
-class _CreateFolderCard extends StatelessWidget {
-  const _CreateFolderCard({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: SizedBox(
-        width: 116,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _GroupCardFrame(
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: Container(color: const Color(0xFFEDEFF2)),
-                  ),
-                  const Positioned.fill(child: _GroupShade()),
-                  Center(
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.84),
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: const Icon(
-                        Icons.add_rounded,
-                        color: Color(0xFF1A1C1C),
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '새 그룹',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: const Color(0xFF1A1C1C),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            Text(
-              '만들기',
-              style: Theme.of(
-                context,
-              ).textTheme.labelSmall?.copyWith(color: const Color(0xFF727785)),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -3402,6 +3345,7 @@ class _FolderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cover = folder.items.isEmpty ? '' : folder.items.first.thumbnailPath;
+    final isEmpty = folder.items.isEmpty;
     return InkWell(
       onLongPress: () => onDelete(),
       onTap: selectedIds.isNotEmpty
@@ -3424,48 +3368,110 @@ class _FolderCard extends StatelessWidget {
             ),
       borderRadius: BorderRadius.circular(18),
       child: SizedBox(
-        width: 116,
+        width: 124,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _GroupCardFrame(
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: cover.isEmpty
-                        ? Container(color: const Color(0xFFEDEFF2))
-                        : _Thumb(path: cover, radius: 18),
-                  ),
-                  const Positioned.fill(child: _GroupShade()),
-                  Positioned(
-                    left: 10,
-                    right: 10,
-                    bottom: 9,
-                    child: Text(
-                      _folderName(folder),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
+              isEmpty: isEmpty,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: isEmpty
+                          ? Container(
+                              color: const Color(0xFFF4F5F7),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.add_photo_alternate_outlined,
+                                  color: Color(0xFF9CA3AF),
+                                  size: 28,
+                                ),
+                              ),
+                            )
+                          : _Thumb(path: cover, radius: 18),
+                    ),
+                    if (!isEmpty) const Positioned.fill(child: _GroupShade()),
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isEmpty
+                              ? Colors.white
+                              : Colors.black.withValues(alpha: 0.54),
+                          borderRadius: BorderRadius.circular(999),
+                          border: isEmpty
+                              ? Border.all(color: const Color(0xFFE5E7EB))
+                              : null,
+                        ),
+                        child: Text(
+                          '${folder.items.length}장',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: isEmpty
+                                    ? const Color(0xFF727785)
+                                    : Colors.white,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                    Positioned(
+                      left: 9,
+                      bottom: 8,
+                      child: Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.88),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: const Icon(
+                          Icons.collections_bookmark_rounded,
+                          color: Color(0xFF1A1C1C),
+                          size: 15,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 40,
+                      right: 9,
+                      bottom: 11,
+                      child: Text(
+                        isEmpty ? '이미지 추가' : _folderName(folder),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: isEmpty
+                                  ? const Color(0xFF727785)
+                                  : Colors.white,
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               _folderName(folder),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
                 color: const Color(0xFF1A1C1C),
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
               ),
             ),
             Text(
-              '${folder.items.length}장',
+              isEmpty ? '비어 있음' : '${folder.items.length}장 · 그룹',
               style: Theme.of(
                 context,
               ).textTheme.labelSmall?.copyWith(color: const Color(0xFF727785)),
@@ -3478,16 +3484,88 @@ class _FolderCard extends StatelessWidget {
 }
 
 class _GroupCardFrame extends StatelessWidget {
-  const _GroupCardFrame({required this.child});
+  const _GroupCardFrame({required this.child, required this.isEmpty});
 
   final Widget child;
+  final bool isEmpty;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 116,
-      height: 94,
-      child: ClipRRect(borderRadius: BorderRadius.circular(18), child: child),
+      width: 124,
+      height: 102,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          if (!isEmpty) ...[
+            Positioned(
+              left: 11,
+              top: 8,
+              child: Transform.rotate(
+                angle: 4 * math.pi / 180,
+                child: const _GroupBackCard(
+                  color: Color(0xFFE1E5EA),
+                  borderColor: Color(0xFFD4DAE2),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 5,
+              top: 4,
+              child: Transform.rotate(
+                angle: -3 * math.pi / 180,
+                child: const _GroupBackCard(
+                  color: Color(0xFFF2F4F7),
+                  borderColor: Color(0xFFE5E7EB),
+                ),
+              ),
+            ),
+          ],
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: isEmpty
+                      ? const Color(0xFFD5D8DF)
+                      : Colors.white.withValues(alpha: 0.92),
+                  width: isEmpty ? 1.2 : 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(
+                      alpha: isEmpty ? 0.03 : 0.10,
+                    ),
+                    blurRadius: isEmpty ? 8 : 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: child,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GroupBackCard extends StatelessWidget {
+  const _GroupBackCard({required this.color, required this.borderColor});
+
+  final Color color;
+  final Color borderColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 112,
+      height: 92,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: borderColor),
+      ),
     );
   }
 }
