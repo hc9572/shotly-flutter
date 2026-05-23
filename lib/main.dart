@@ -4912,7 +4912,7 @@ List<ScreenshotSet> _buildScreenshotSets(
     final manualKeys = _assignmentKeys(setAssignments[item.id]);
     final groupKeys = manualKeys.where(_isFolderSetKey).toList();
     final setKeys = manualKeys.where((key) => !_isFolderSetKey(key)).toList();
-    if (manualKeys.isEmpty || groupKeys.isNotEmpty) {
+    if (manualKeys.isEmpty || groupKeys.isEmpty) {
       autoItems.add(item);
     }
     for (final key in [...setKeys, ...groupKeys]) {
