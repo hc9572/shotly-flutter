@@ -3386,7 +3386,7 @@ class _FolderStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     if (folders.isEmpty) return const SizedBox.shrink();
     return SizedBox(
-      height: 100,
+      height: 96,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         clipBehavior: Clip.none,
@@ -3477,9 +3477,9 @@ class _FolderCard extends StatelessWidget {
             ),
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        width: 138,
+        width: 112,
         height: 92,
-        padding: const EdgeInsets.fromLTRB(12, 10, 11, 10),
+        padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
         decoration: BoxDecoration(
           color: option.color.withValues(alpha: 0.50),
           borderRadius: BorderRadius.circular(20),
@@ -3496,7 +3496,7 @@ class _FolderCard extends StatelessWidget {
             Positioned(
               left: 0,
               top: 0,
-              right: 8,
+              right: 0,
               child: Text(
                 title,
                 maxLines: 2,
@@ -3504,7 +3504,7 @@ class _FolderCard extends StatelessWidget {
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: const Color(0xFF1A1C1C),
                   fontWeight: FontWeight.w800,
-                  height: 1.14,
+                  height: 1.12,
                 ),
               ),
             ),
@@ -3658,18 +3658,18 @@ class _FolderPreviewStack extends StatelessWidget {
       );
     }
     return SizedBox(
-      width: 62,
-      height: 36,
+      width: 56,
+      height: 34,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           for (final entry in items.indexed)
             Positioned(
-              left: entry.$1 * 16,
+              left: entry.$1 * 14,
               bottom: 0,
               child: Container(
-                width: 28,
-                height: 36,
+                width: 27,
+                height: 34,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
@@ -4389,7 +4389,7 @@ class _SelectionActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -4437,16 +4437,18 @@ class _SelectionActionBar extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 14),
-          IconButton(
-            onPressed: onCancel,
-            padding: EdgeInsets.zero,
-            visualDensity: VisualDensity.compact,
-            constraints: const BoxConstraints.tightFor(width: 28, height: 40),
-            icon: const Icon(
-              Icons.close_rounded,
-              size: 20,
-              color: Color(0xFF727785),
+          const SizedBox(width: 12),
+          InkWell(
+            onTap: onCancel,
+            borderRadius: BorderRadius.circular(999),
+            child: const SizedBox(
+              width: 24,
+              height: 40,
+              child: Icon(
+                Icons.close_rounded,
+                size: 20,
+                color: Color(0xFF727785),
+              ),
             ),
           ),
         ],
@@ -4477,7 +4479,7 @@ class _SelectionActionButton extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
