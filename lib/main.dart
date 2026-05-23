@@ -2864,7 +2864,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
             CustomScrollView(
               slivers: [
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(8, 12, 20, 0),
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                   sliver: SliverToBoxAdapter(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3834,7 +3834,7 @@ class _SetDateSection extends StatelessWidget {
                   ? () => onToggleDateSelection(dateImageIds)
                   : null,
               headerCheckValue: entry.$1 == 0 ? dateCheckValue : null,
-              showHeaderCheckbox: entry.$1 == 0,
+              showHeaderCheckbox: entry.$1 == 0 && selectedIds.isNotEmpty,
               viewerItems: viewerItems,
             ),
           ),
@@ -4109,21 +4109,11 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
                   Row(
                     children: [
                       if (widget.showHeaderCheckbox) ...[
-                        Checkbox(
+                        _HeaderSelectionCircle(
                           value: widget.headerCheckValue,
-                          tristate: true,
-                          visualDensity: VisualDensity.compact,
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          side: const BorderSide(
-                            color: Color(0xFFD5D8DF),
-                            width: 1.4,
-                          ),
-                          activeColor: const Color(0xFF1A1C1C),
-                          checkColor: Colors.white,
-                          onChanged: (_) => widget.titleOnTap?.call(),
+                          onTap: () => widget.titleOnTap?.call(),
                         ),
-                        const SizedBox(width: 2),
+                        const SizedBox(width: 8),
                       ],
                       Expanded(
                         child: InkWell(
@@ -4303,6 +4293,42 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
       _locallyHiddenIds.addAll(deleted);
       _selectedIds.removeAll(deleted);
     });
+  }
+}
+
+class _HeaderSelectionCircle extends StatelessWidget {
+  const _HeaderSelectionCircle({required this.value, required this.onTap});
+
+  final bool? value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = value != false;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(99),
+      child: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF2170E4)
+              : Colors.white.withValues(alpha: 0.88),
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(
+            color: selected ? const Color(0xFF2170E4) : const Color(0xFFD5D8DF),
+          ),
+        ),
+        child: selected
+            ? Icon(
+                value == null ? Icons.remove_rounded : Icons.check_rounded,
+                size: 16,
+                color: Colors.white,
+              )
+            : null,
+      ),
+    );
   }
 }
 
