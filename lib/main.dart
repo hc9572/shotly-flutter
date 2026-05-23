@@ -3386,12 +3386,12 @@ class _FolderStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     if (folders.isEmpty) return const SizedBox.shrink();
     return SizedBox(
-      height: 150,
+      height: 112,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         clipBehavior: Clip.none,
         itemCount: folders.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 14),
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
           final folder = folders[index];
           return _FolderCard(
@@ -3453,8 +3453,8 @@ class _FolderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final option = _folderColorFor(colorKey);
-    final isEmpty = folder.items.isEmpty;
     final title = _folderName(folder);
+    final previews = folder.items.take(3).toList();
     return InkWell(
       onLongPress: () => _showFolderActions(context),
       onTap: selectedIds.isNotEmpty
@@ -3475,33 +3475,55 @@ class _FolderCard extends StatelessWidget {
                 ),
               ),
             ),
-      borderRadius: BorderRadius.circular(18),
-      child: SizedBox(
-        width: 132,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _FolderShape(
-              option: option,
-              count: folder.items.length,
-              isEmpty: isEmpty,
-              onColorTap: () => _showColorPicker(context),
+      borderRadius: BorderRadius.circular(22),
+      child: Container(
+        width: 152,
+        height: 104,
+        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+        decoration: BoxDecoration(
+          color: option.color.withValues(alpha: 0.50),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: option.darkColor.withValues(alpha: 0.12),
+              blurRadius: 14,
+              offset: const Offset(0, 7),
             ),
-            const SizedBox(height: 9),
-            Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: const Color(0xFF1A1C1C),
-                fontWeight: FontWeight.w800,
+          ],
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              left: 0,
+              top: 0,
+              right: 8,
+              child: Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: const Color(0xFF1A1C1C),
+                  fontWeight: FontWeight.w800,
+                  height: 1.16,
+                ),
               ),
             ),
-            Text(
-              isEmpty ? '비어 있음' : '그룹',
-              style: Theme.of(
-                context,
-              ).textTheme.labelSmall?.copyWith(color: const Color(0xFF727785)),
+            Positioned(
+              left: 0,
+              bottom: 0,
+              child: _FolderPreviewStack(items: previews),
+            ),
+            Positioned(
+              right: 0,
+              bottom: 1,
+              child: Text(
+                '${folder.items.length}',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: const Color(0xFF1A1C1C),
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+              ),
             ),
           ],
         ),
@@ -3613,117 +3635,54 @@ class _FolderCard extends StatelessWidget {
   }
 }
 
-class _FolderShape extends StatelessWidget {
-  const _FolderShape({
-    required this.option,
-    required this.count,
-    required this.isEmpty,
-    required this.onColorTap,
-  });
+class _FolderPreviewStack extends StatelessWidget {
+  const _FolderPreviewStack({required this.items});
 
-  final _FolderColorOption option;
-  final int count;
-  final bool isEmpty;
-  final VoidCallback onColorTap;
+  final List<ScreenshotItem> items;
 
   @override
   Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return Container(
+        width: 32,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.50),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Icon(
+          Icons.add_photo_alternate_outlined,
+          size: 17,
+          color: Color(0xFF727785),
+        ),
+      );
+    }
     return SizedBox(
-      width: 132,
-      height: 94,
+      width: 70,
+      height: 42,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Positioned(
-            left: 0,
-            top: 4,
-            child: Container(
-              width: 58,
-              height: 24,
-              decoration: BoxDecoration(
-                color: option.darkColor,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(14),
-                  topRight: Radius.circular(14),
+          for (final entry in items.indexed)
+            Positioned(
+              left: entry.$1 * 18,
+              bottom: 0,
+              child: Container(
+                width: 32,
+                height: 42,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(9),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.82),
+                    width: 1.4,
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: _Thumb(path: entry.$2.thumbnailPath, radius: 8),
                 ),
               ),
             ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 19,
-            bottom: 0,
-            child: Container(
-              decoration: BoxDecoration(
-                color: option.color,
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: option.darkColor.withValues(alpha: 0.26),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Stack(
-                children: [
-                  Positioned(
-                    left: 12,
-                    top: 15,
-                    child: Icon(
-                      isEmpty
-                          ? Icons.create_new_folder_outlined
-                          : Icons.folder_rounded,
-                      size: 30,
-                      color: Colors.white.withValues(alpha: 0.92),
-                    ),
-                  ),
-                  Positioned(
-                    right: 9,
-                    top: 9,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.88),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '$count장',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: const Color(0xFF1A1C1C),
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    right: 10,
-                    bottom: 10,
-                    child: GestureDetector(
-                      onTap: onColorTap,
-                      child: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.88),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.palette_outlined,
-                          size: 14,
-                          color: option.darkColor,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -4178,7 +4137,7 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: widget.showHeaderCheckbox ? 11 : 8),
         ],
         GridView.builder(
           padding: EdgeInsets.zero,
@@ -4443,37 +4402,47 @@ class _SelectionActionBar extends StatelessWidget {
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _SelectionActionButton(
-            icon: Icons.drive_file_move_rounded,
-            label: '이동',
-            onTap: onMove,
-          ),
-          if (onFolder != null)
-            _SelectionActionButton(
-              icon: Icons.grid_view_rounded,
-              label: '그룹',
-              onTap: onFolder!,
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _SelectionActionButton(
+                  icon: Icons.drive_file_move_rounded,
+                  label: '이동',
+                  onTap: onMove,
+                ),
+                if (onFolder != null)
+                  _SelectionActionButton(
+                    icon: Icons.grid_view_rounded,
+                    label: '그룹',
+                    onTap: onFolder!,
+                  ),
+                _SelectionActionButton(
+                  icon: Icons.share_rounded,
+                  label: '공유',
+                  onTap: onShare,
+                ),
+                _SelectionActionButton(
+                  icon: Icons.visibility_off_rounded,
+                  label: '숨기기',
+                  onTap: onHide,
+                ),
+                _SelectionActionButton(
+                  icon: Icons.delete_rounded,
+                  label: '삭제',
+                  onTap: onDelete,
+                  destructive: true,
+                ),
+              ],
             ),
-          _SelectionActionButton(
-            icon: Icons.share_rounded,
-            label: '공유',
-            onTap: onShare,
           ),
-          _SelectionActionButton(
-            icon: Icons.visibility_off_rounded,
-            label: '숨기기',
-            onTap: onHide,
-          ),
-          _SelectionActionButton(
-            icon: Icons.delete_rounded,
-            label: '삭제',
-            onTap: onDelete,
-            destructive: true,
-          ),
+          const SizedBox(width: 10),
           IconButton(
             onPressed: onCancel,
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 32, height: 40),
             icon: const Icon(
               Icons.close_rounded,
               size: 20,
@@ -4508,7 +4477,7 @@ class _SelectionActionButton extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
