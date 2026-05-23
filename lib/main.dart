@@ -2882,6 +2882,12 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                             if (widget.onAddImageToStack != null)
                               IconButton(
                                 onPressed: _addImageToCurrentStack,
+                                padding: EdgeInsets.zero,
+                                visualDensity: VisualDensity.compact,
+                                constraints: const BoxConstraints.tightFor(
+                                  width: 36,
+                                  height: 40,
+                                ),
                                 icon: const Icon(
                                   Icons.add_rounded,
                                   color: Color(0xFF424754),
@@ -2889,6 +2895,12 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                               ),
                             IconButton(
                               onPressed: () => _showStackActions(context),
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 36,
+                                height: 40,
+                              ),
                               icon: const Icon(
                                 Icons.more_vert_rounded,
                                 color: Color(0xFF424754),
