@@ -2940,7 +2940,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                           ),
                           const SizedBox(height: 24),
                         ] else
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 18),
                       ],
                     ),
                   ),
@@ -3805,11 +3805,8 @@ class _SetDateSection extends StatelessWidget {
     final selectedCount = dateImageIds
         .where((id) => selectedIds.contains(id))
         .length;
-    final dateCheckValue = selectedCount == 0
-        ? false
-        : selectedCount == dateImageIds.length
-        ? true
-        : null;
+    final dateCheckValue =
+        selectedCount == dateImageIds.length && dateImageIds.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -4304,13 +4301,13 @@ class _HeaderSelectionCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selected = value != false;
+    final selected = value == true;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(99),
       child: Container(
-        width: 24,
-        height: 24,
+        width: 19,
+        height: 19,
         decoration: BoxDecoration(
           color: selected
               ? const Color(0xFF2170E4)
@@ -4321,11 +4318,7 @@ class _HeaderSelectionCircle extends StatelessWidget {
           ),
         ),
         child: selected
-            ? Icon(
-                value == null ? Icons.remove_rounded : Icons.check_rounded,
-                size: 16,
-                color: Colors.white,
-              )
+            ? Icon(Icons.check_rounded, size: 13, color: Colors.white)
             : null,
       ),
     );
