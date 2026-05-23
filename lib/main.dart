@@ -564,10 +564,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   Future<void> _pickImageFromAlbum() async {
     try {
       final image = await ShotlyNative.pickImage();
-      if (image == null) {
-        if (mounted) _showSnack('웹 미리보기에서는 앨범 열기를 지원하지 않아요. Android 앱에서 동작해.');
-        return;
-      }
+      if (image == null) return;
       if (_screenshots.any(
         (item) =>
             item.id == image.id || item.thumbnailPath == image.thumbnailPath,
@@ -587,10 +584,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   Future<ScreenshotItem?> _pickAndAddImageToStack(String stackKey) async {
     try {
       final image = await ShotlyNative.pickImage();
-      if (image == null) {
-        if (mounted) _showSnack('웹 미리보기에서는 앨범 열기를 지원하지 않아요. Android 앱에서 동작해.');
-        return null;
-      }
+      if (image == null) return null;
       if (_screenshots.any(
         (item) =>
             item.id == image.id || item.thumbnailPath == image.thumbnailPath,
@@ -618,8 +612,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
 
   Future<void> _openPhotoSettings() async {
     try {
-      final opened = await ShotlyNative.openPhotoSettings();
-      if (!opened && mounted) _showSnack('웹 미리보기에서는 시스템 설정을 열 수 없어요.');
+      await ShotlyNative.openPhotoSettings();
     } on PlatformException catch (e) {
       if (mounted) _showSnack(e.message ?? e.code);
     }
@@ -2861,61 +2854,37 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
             CustomScrollView(
               slivers: [
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  padding: const EdgeInsets.fromLTRB(8, 12, 20, 0),
                   sliver: SliverToBoxAdapter(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Transform.translate(
-                          offset: const Offset(-12, 0),
-                          child: Row(
-                            children: [
+                        Row(
+                          children: [
+                            IconButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              icon: const Icon(
+                                Icons.arrow_back_rounded,
+                                color: Color(0xFF424754),
+                              ),
+                            ),
+                            const Spacer(),
+                            if (widget.onAddImageToStack != null)
                               IconButton(
-                                onPressed: () => Navigator.of(context).pop(),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints.tightFor(
-                                  width: 40,
-                                  height: 40,
-                                ),
+                                onPressed: _addImageToCurrentStack,
                                 icon: const Icon(
-                                  Icons.arrow_back_rounded,
+                                  Icons.add_rounded,
                                   color: Color(0xFF424754),
                                 ),
                               ),
-                              const Spacer(),
-                              if (widget.onAddImageToStack != null)
-                                Transform.translate(
-                                  offset: const Offset(16, 0),
-                                  child: IconButton(
-                                    onPressed: _addImageToCurrentStack,
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints.tightFor(
-                                      width: 40,
-                                      height: 40,
-                                    ),
-                                    icon: const Icon(
-                                      Icons.add_rounded,
-                                      color: Color(0xFF424754),
-                                    ),
-                                  ),
-                                ),
-                              Transform.translate(
-                                offset: const Offset(24, 0),
-                                child: IconButton(
-                                  onPressed: () => _showStackActions(context),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 40,
-                                    height: 40,
-                                  ),
-                                  icon: const Icon(
-                                    Icons.more_vert_rounded,
-                                    color: Color(0xFF424754),
-                                  ),
-                                ),
+                            IconButton(
+                              onPressed: () => _showStackActions(context),
+                              icon: const Icon(
+                                Icons.more_vert_rounded,
+                                color: Color(0xFF424754),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 14),
                         Text(
