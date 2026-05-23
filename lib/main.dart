@@ -1174,6 +1174,7 @@ class _SummarySortRow extends StatelessWidget {
                 '$screenshotCount개 스크린샷 · $stackCount개 Stack',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: const Color(0xFF727785),
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
@@ -1271,6 +1272,7 @@ class _SortDropdown extends StatelessWidget {
                         item.$2,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: const Color(0xFF111111),
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
@@ -1948,11 +1950,16 @@ class _SearchPageState extends State<_SearchPage> {
                         onSubmitted: (value) =>
                             Navigator.of(context).pop(value.trim()),
                         textInputAction: TextInputAction.search,
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
                         decoration: InputDecoration(
                           hintText: '앱 이름, 파일명, 경로 검색',
                           hintStyle: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: const Color(0xFF727785)),
+                              ?.copyWith(
+                                color: const Color(0xFF727785),
+                                fontWeight: FontWeight.w500,
+                              ),
                           prefixIcon: const Icon(
                             Icons.search_rounded,
                             color: Color(0xFF727785),
@@ -2476,12 +2483,15 @@ class _SearchField extends StatelessWidget {
             controller: controller,
             readOnly: true,
             onTap: onTap,
-            style: Theme.of(context).textTheme.bodyMedium,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
             decoration: InputDecoration(
               hintText: '검색',
-              hintStyle: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785)),
+              hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFF727785),
+                fontWeight: FontWeight.w500,
+              ),
               prefixIcon: const Icon(
                 Icons.search_rounded,
                 color: Color(0xFF727785),
@@ -3774,6 +3784,17 @@ class _SetDateSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dateImageIds = sets
+        .expand((set) => set.items.map((item) => item.id))
+        .toList();
+    final selectedCount = dateImageIds
+        .where((id) => selectedIds.contains(id))
+        .length;
+    final dateCheckValue = selectedCount == 0
+        ? false
+        : selectedCount == dateImageIds.length
+        ? true
+        : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3795,12 +3816,10 @@ class _SetDateSection extends StatelessWidget {
               showTitle: false,
               headerLabel: entry.$1 == 0 ? dateLabel : '',
               onHeaderTap: entry.$1 == 0
-                  ? () => onToggleDateSelection(
-                      sets
-                          .expand((set) => set.items.map((item) => item.id))
-                          .toList(),
-                    )
+                  ? () => onToggleDateSelection(dateImageIds)
                   : null,
+              headerCheckValue: entry.$1 == 0 ? dateCheckValue : null,
+              showHeaderCheckbox: entry.$1 == 0,
               viewerItems: viewerItems,
             ),
           ),
@@ -3827,6 +3846,8 @@ class _SetSection extends StatefulWidget {
     this.suppressHeader = false,
     this.headerLabel,
     this.onHeaderTap,
+    this.headerCheckValue,
+    this.showHeaderCheckbox = false,
     this.viewerItems,
   });
 
@@ -3845,6 +3866,8 @@ class _SetSection extends StatefulWidget {
   final bool suppressHeader;
   final String? headerLabel;
   final VoidCallback? onHeaderTap;
+  final bool? headerCheckValue;
+  final bool showHeaderCheckbox;
   final List<ScreenshotItem>? viewerItems;
   @override
   State<_SetSection> createState() => _SetSectionState();
@@ -3884,6 +3907,8 @@ class _SetSectionState extends State<_SetSection> {
           : widget.headerLabel ??
                 (widget.showTitle ? widget.set.timeRange : ''),
       titleOnTap: widget.onHeaderTap,
+      headerCheckValue: widget.headerCheckValue,
+      showHeaderCheckbox: widget.showHeaderCheckbox,
       memoText: widget.suppressHeader || _memoText.trim().isEmpty
           ? null
           : _memoText.trim(),
@@ -4000,6 +4025,8 @@ class _ImageGridSection extends StatefulWidget {
     required this.allStackKeys,
     this.memoText,
     this.titleOnTap,
+    this.headerCheckValue,
+    this.showHeaderCheckbox = false,
     this.viewerItems,
     required this.stackNames,
     required this.onExcludeImage,
@@ -4016,6 +4043,8 @@ class _ImageGridSection extends StatefulWidget {
   final List<ScreenshotItem> items;
   final String? memoText;
   final VoidCallback? titleOnTap;
+  final bool? headerCheckValue;
+  final bool showHeaderCheckbox;
   final List<ScreenshotItem>? viewerItems;
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
@@ -4047,6 +4076,7 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
     final items = _visibleItems;
     final hasHeader =
         widget.title.isNotEmpty ||
+        widget.showHeaderCheckbox ||
         widget.memoText != null ||
         (widget.onSetAction != null && !_isSelecting);
     return Column(
@@ -4059,9 +4089,27 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (widget.title.isNotEmpty ||
+                    widget.showHeaderCheckbox ||
                     (widget.onSetAction != null && !_isSelecting))
                   Row(
                     children: [
+                      if (widget.showHeaderCheckbox) ...[
+                        Checkbox(
+                          value: widget.headerCheckValue,
+                          tristate: true,
+                          visualDensity: VisualDensity.compact,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          side: const BorderSide(
+                            color: Color(0xFFD5D8DF),
+                            width: 1.4,
+                          ),
+                          activeColor: const Color(0xFF1A1C1C),
+                          checkColor: Colors.white,
+                          onChanged: (_) => widget.titleOnTap?.call(),
+                        ),
+                        const SizedBox(width: 2),
+                      ],
                       Expanded(
                         child: InkWell(
                           onTap: widget.titleOnTap,
