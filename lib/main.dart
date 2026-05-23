@@ -2933,6 +2933,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                             onAddSelectedToFolder: _addSelectedToExistingFolder,
                             onDeleteFolder: (folder) =>
                                 _deleteFolder(context, folder, visibleItems),
+                            onRenameFolder: _renameFolder,
                             onChangeFolderColor: _changeFolderColor,
                             onExcludeImage: widget.onExcludeImage,
                             onDeleteOriginalImage: _deleteOriginalImage,
@@ -3140,6 +3141,13 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     setState(() => _detailFolderNames[folderKey] = name);
     await widget.onSaveFolderName(folderKey, name);
     return folderKey;
+  }
+
+  Future<void> _renameFolder(ScreenshotSet folder, String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+    setState(() => _detailFolderNames[folder.key] = trimmed);
+    await widget.onSaveFolderName(folder.key, trimmed);
   }
 
   Future<void> _deleteFolder(
@@ -3358,6 +3366,7 @@ class _FolderStrip extends StatelessWidget {
     required this.selectedIds,
     required this.onAddSelectedToFolder,
     required this.onDeleteFolder,
+    required this.onRenameFolder,
     required this.onChangeFolderColor,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
@@ -3374,6 +3383,7 @@ class _FolderStrip extends StatelessWidget {
   final Set<String> selectedIds;
   final Future<void> Function(ScreenshotSet folder) onAddSelectedToFolder;
   final Future<void> Function(ScreenshotSet folder) onDeleteFolder;
+  final Future<void> Function(ScreenshotSet folder, String name) onRenameFolder;
   final Future<void> Function(String folderKey, String colorKey)
   onChangeFolderColor;
   final Future<void> Function(String imageId) onExcludeImage;
@@ -3403,6 +3413,7 @@ class _FolderStrip extends StatelessWidget {
             selectedIds: selectedIds,
             onAddSelected: () => onAddSelectedToFolder(folder),
             onDelete: () => onDeleteFolder(folder),
+            onRename: (name) => onRenameFolder(folder, name),
             onChangeColor: (colorKey) =>
                 onChangeFolderColor(folder.key, colorKey),
             onExcludeImage: onExcludeImage,
@@ -3427,6 +3438,7 @@ class _FolderCard extends StatelessWidget {
     required this.selectedIds,
     required this.onAddSelected,
     required this.onDelete,
+    required this.onRename,
     required this.onChangeColor,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
@@ -3443,6 +3455,7 @@ class _FolderCard extends StatelessWidget {
   final Set<String> selectedIds;
   final Future<void> Function() onAddSelected;
   final Future<void> Function() onDelete;
+  final Future<void> Function(String name) onRename;
   final Future<void> Function(String colorKey) onChangeColor;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
@@ -3554,6 +3567,11 @@ class _FolderCard extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text('그룹 이름 변경'),
+                onTap: () => Navigator.pop(context, 'rename'),
+              ),
+              ListTile(
                 leading: const Icon(Icons.palette_outlined),
                 title: const Text('폴더 색상 변경'),
                 onTap: () => Navigator.pop(context, 'color'),
@@ -3577,6 +3595,16 @@ class _FolderCard extends StatelessWidget {
     if (!context.mounted) return;
     if (action == 'delete') {
       await onDelete();
+    } else if (action == 'rename') {
+      if (!context.mounted) return;
+      final name = await _showShotlyTextDialog(
+        context: context,
+        title: '그룹 이름 변경',
+        initialValue: _folderName(folder),
+        hintText: '그룹 이름',
+        primaryLabel: '저장',
+      );
+      if (name != null) await onRename(name);
     } else if (action == 'color') {
       await _showColorPicker(context);
     }
