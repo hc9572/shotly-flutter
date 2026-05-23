@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -278,6 +277,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   final Map<String, String> _imageAssignments = {};
   final Map<String, String> _setMemos = {};
   final Map<String, String> _folderNames = {};
+  final Map<String, String> _folderColors = {};
   final Map<String, String> _setAssignments = {};
   final Map<String, VisualFeature> _visualFeatures = {};
   final Set<String> _hiddenStackKeys = {};
@@ -323,6 +323,9 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
       _folderNames
         ..clear()
         ..addAll(state.folderNames);
+      _folderColors
+        ..clear()
+        ..addAll(state.folderColors);
       _setAssignments
         ..clear()
         ..addAll(state.setAssignments);
@@ -752,6 +755,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
           stackNames: _stackNames,
           setMemos: _setMemos,
           folderNames: _folderNames,
+          folderColors: _folderColors,
           setAssignments: _setAssignments,
           stackMatchesQuery: _stackMatchesQuery,
           onRenameStack: _renameStack,
@@ -763,6 +767,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
           onAddImageToStack: _pickAndAddImageToStack,
           onSaveSetMemo: _saveSetMemo,
           onSaveFolderName: _saveFolderName,
+          onSaveFolderColor: _saveFolderColor,
           onAssignImageToSet: _assignImageToSet,
         ),
       ),
@@ -805,6 +810,17 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
       }
     });
     await _localStore.saveFolderName(folderKey, name);
+  }
+
+  Future<void> _saveFolderColor(String folderKey, String colorKey) async {
+    setState(() {
+      if (colorKey.trim().isEmpty) {
+        _folderColors.remove(folderKey);
+      } else {
+        _folderColors[folderKey] = colorKey;
+      }
+    });
+    await _localStore.saveFolderColor(folderKey, colorKey);
   }
 
   Future<void> _saveSortMode(StackSortMode mode) async {
@@ -981,6 +997,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
                                     stackNames: _stackNames,
                                     setMemos: _setMemos,
                                     folderNames: _folderNames,
+                                    folderColors: _folderColors,
                                     setAssignments: _setAssignments,
                                     visualFeatures: _visualFeatures,
                                     onRenameStack: _renameStack,
@@ -997,6 +1014,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
                                     onAddImageToStack: _pickAndAddImageToStack,
                                     onSaveSetMemo: _saveSetMemo,
                                     onSaveFolderName: _saveFolderName,
+                                    onSaveFolderColor: _saveFolderColor,
                                     onAssignImageToSet: _assignImageToSet,
                                   ),
                                 ),
@@ -1832,6 +1850,7 @@ class _SearchPage extends StatefulWidget {
     required this.stackNames,
     required this.setMemos,
     required this.folderNames,
+    required this.folderColors,
     required this.setAssignments,
     required this.stackMatchesQuery,
     required this.onRenameStack,
@@ -1843,6 +1862,7 @@ class _SearchPage extends StatefulWidget {
     this.onAddImageToStack,
     required this.onSaveSetMemo,
     required this.onSaveFolderName,
+    required this.onSaveFolderColor,
     required this.onAssignImageToSet,
   });
 
@@ -1852,6 +1872,7 @@ class _SearchPage extends StatefulWidget {
   final Map<String, String> stackNames;
   final Map<String, String> setMemos;
   final Map<String, String> folderNames;
+  final Map<String, String> folderColors;
   final Map<String, String> setAssignments;
   final bool Function(StackItem stack, String query) stackMatchesQuery;
   final Future<void> Function(String stackKey, String name) onRenameStack;
@@ -1863,6 +1884,8 @@ class _SearchPage extends StatefulWidget {
   final Future<ScreenshotItem?> Function(String stackKey)? onAddImageToStack;
   final Future<void> Function(String setKey, String memo) onSaveSetMemo;
   final Future<void> Function(String folderKey, String name) onSaveFolderName;
+  final Future<void> Function(String folderKey, String colorKey)
+  onSaveFolderColor;
   final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
 
   @override
@@ -2057,6 +2080,7 @@ class _SearchPageState extends State<_SearchPage> {
                 stackNames: widget.stackNames,
                 setMemos: widget.setMemos,
                 folderNames: widget.folderNames,
+                folderColors: widget.folderColors,
                 setAssignments: widget.setAssignments,
                 visualFeatures: const {},
                 onRenameStack: widget.onRenameStack,
@@ -2068,6 +2092,7 @@ class _SearchPageState extends State<_SearchPage> {
                 onAddImageToStack: widget.onAddImageToStack,
                 onSaveSetMemo: widget.onSaveSetMemo,
                 onSaveFolderName: widget.onSaveFolderName,
+                onSaveFolderColor: widget.onSaveFolderColor,
                 onAssignImageToSet: widget.onAssignImageToSet,
               );
             case _SearchResultKind.set:
@@ -2540,6 +2565,7 @@ class _StackCard extends StatelessWidget {
     required this.stackNames,
     required this.setMemos,
     required this.folderNames,
+    required this.folderColors,
     required this.setAssignments,
     required this.visualFeatures,
     required this.onRenameStack,
@@ -2553,6 +2579,7 @@ class _StackCard extends StatelessWidget {
     this.onAddImageToStack,
     required this.onSaveSetMemo,
     required this.onSaveFolderName,
+    required this.onSaveFolderColor,
     required this.onAssignImageToSet,
   });
 
@@ -2561,6 +2588,7 @@ class _StackCard extends StatelessWidget {
   final Map<String, String> stackNames;
   final Map<String, String> setMemos;
   final Map<String, String> folderNames;
+  final Map<String, String> folderColors;
   final Map<String, String> setAssignments;
   final Map<String, VisualFeature> visualFeatures;
   final Future<void> Function(String stackKey, String name) onRenameStack;
@@ -2574,6 +2602,8 @@ class _StackCard extends StatelessWidget {
   final Future<ScreenshotItem?> Function(String stackKey)? onAddImageToStack;
   final Future<void> Function(String setKey, String memo) onSaveSetMemo;
   final Future<void> Function(String folderKey, String name) onSaveFolderName;
+  final Future<void> Function(String folderKey, String colorKey)
+  onSaveFolderColor;
   final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
 
   @override
@@ -2588,6 +2618,7 @@ class _StackCard extends StatelessWidget {
             stackNames: stackNames,
             setMemos: setMemos,
             folderNames: folderNames,
+            folderColors: folderColors,
             setAssignments: setAssignments,
             visualFeatures: visualFeatures,
             onRenameStack: onRenameStack,
@@ -2599,6 +2630,7 @@ class _StackCard extends StatelessWidget {
             onAddImageToStack: onAddImageToStack,
             onSaveSetMemo: onSaveSetMemo,
             onSaveFolderName: onSaveFolderName,
+            onSaveFolderColor: onSaveFolderColor,
             onAssignImageToSet: onAssignImageToSet,
           ),
         ),
@@ -2727,6 +2759,7 @@ class StackDetailScreen extends StatefulWidget {
     required this.stackNames,
     required this.setMemos,
     required this.folderNames,
+    required this.folderColors,
     required this.setAssignments,
     required this.visualFeatures,
     required this.onRenameStack,
@@ -2738,6 +2771,7 @@ class StackDetailScreen extends StatefulWidget {
     this.onAddImageToStack,
     required this.onSaveSetMemo,
     required this.onSaveFolderName,
+    required this.onSaveFolderColor,
     required this.onAssignImageToSet,
   });
 
@@ -2746,6 +2780,7 @@ class StackDetailScreen extends StatefulWidget {
   final Map<String, String> stackNames;
   final Map<String, String> setMemos;
   final Map<String, String> folderNames;
+  final Map<String, String> folderColors;
   final Map<String, String> setAssignments;
   final Map<String, VisualFeature> visualFeatures;
   final Future<void> Function(String stackKey, String name) onRenameStack;
@@ -2757,6 +2792,8 @@ class StackDetailScreen extends StatefulWidget {
   final Future<ScreenshotItem?> Function(String stackKey)? onAddImageToStack;
   final Future<void> Function(String setKey, String memo) onSaveSetMemo;
   final Future<void> Function(String folderKey, String name) onSaveFolderName;
+  final Future<void> Function(String folderKey, String colorKey)
+  onSaveFolderColor;
   final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
 
   @override
@@ -2768,6 +2805,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   final Set<String> _selectedImageIds = <String>{};
   final List<ScreenshotItem> _addedItems = <ScreenshotItem>[];
   late Map<String, String> _detailFolderNames;
+  late Map<String, String> _detailFolderColors;
   late Map<String, String> _detailSetAssignments;
 
   String get _stackName =>
@@ -2777,6 +2815,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   void initState() {
     super.initState();
     _detailFolderNames = {...widget.folderNames};
+    _detailFolderColors = {...widget.folderColors};
     _detailSetAssignments = {...widget.setAssignments};
   }
 
@@ -2785,6 +2824,9 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.folderNames, widget.folderNames)) {
       _detailFolderNames = {...widget.folderNames, ..._detailFolderNames};
+    }
+    if (!identical(oldWidget.folderColors, widget.folderColors)) {
+      _detailFolderColors = {...widget.folderColors, ..._detailFolderColors};
     }
     if (!identical(oldWidget.setAssignments, widget.setAssignments)) {
       _detailSetAssignments = {
@@ -2892,10 +2934,12 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                           folders: folderSets,
                           allStackKeys: widget.allStackKeys,
                           stackNames: widget.stackNames,
+                          folderColors: _detailFolderColors,
                           selectedIds: _selectedImageIds,
                           onAddSelectedToFolder: _addSelectedToExistingFolder,
                           onDeleteFolder: (folder) =>
                               _deleteFolder(context, folder, visibleItems),
+                          onChangeFolderColor: _changeFolderColor,
                           onExcludeImage: widget.onExcludeImage,
                           onDeleteOriginalImage: _deleteOriginalImage,
                           onMoveImage: widget.onMoveImage,
@@ -3252,6 +3296,17 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     }
   }
 
+  Future<void> _changeFolderColor(String folderKey, String colorKey) async {
+    setState(() {
+      if (colorKey.trim().isEmpty) {
+        _detailFolderColors.remove(folderKey);
+      } else {
+        _detailFolderColors[folderKey] = colorKey;
+      }
+    });
+    await widget.onSaveFolderColor(folderKey, colorKey);
+  }
+
   Future<bool> _deleteOriginalImage(String imageId) async {
     final deleted = await widget.onDeleteOriginalImage(imageId);
     if (deleted && mounted) {
@@ -3261,15 +3316,43 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   }
 }
 
+class _FolderColorOption {
+  const _FolderColorOption(this.key, this.color, this.darkColor);
+
+  final String key;
+  final Color color;
+  final Color darkColor;
+}
+
+const List<_FolderColorOption> _folderColorOptions = [
+  _FolderColorOption('butter', Color(0xFFFFD86B), Color(0xFFE9AE2F)),
+  _FolderColorOption('peach', Color(0xFFFFB199), Color(0xFFE8795F)),
+  _FolderColorOption('rose', Color(0xFFFF9DB8), Color(0xFFE85D88)),
+  _FolderColorOption('lavender', Color(0xFFC9B7FF), Color(0xFF8B6FE8)),
+  _FolderColorOption('sky', Color(0xFF9BD4FF), Color(0xFF4C9DD8)),
+  _FolderColorOption('mint', Color(0xFF9BE7C1), Color(0xFF4CB783)),
+  _FolderColorOption('sand', Color(0xFFE6C79C), Color(0xFFC29055)),
+  _FolderColorOption('slate', Color(0xFFC7CFDA), Color(0xFF8C98A8)),
+];
+
+_FolderColorOption _folderColorFor(String? key) {
+  return _folderColorOptions.firstWhere(
+    (option) => option.key == key,
+    orElse: () => _folderColorOptions.first,
+  );
+}
+
 class _FolderStrip extends StatelessWidget {
   const _FolderStrip({
     required this.stack,
     required this.folders,
     required this.allStackKeys,
     required this.stackNames,
+    required this.folderColors,
     required this.selectedIds,
     required this.onAddSelectedToFolder,
     required this.onDeleteFolder,
+    required this.onChangeFolderColor,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
     required this.onMoveImage,
@@ -3281,9 +3364,12 @@ class _FolderStrip extends StatelessWidget {
   final List<ScreenshotSet> folders;
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
+  final Map<String, String> folderColors;
   final Set<String> selectedIds;
   final Future<void> Function(ScreenshotSet folder) onAddSelectedToFolder;
   final Future<void> Function(ScreenshotSet folder) onDeleteFolder;
+  final Future<void> Function(String folderKey, String colorKey)
+  onChangeFolderColor;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
@@ -3294,7 +3380,7 @@ class _FolderStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     if (folders.isEmpty) return const SizedBox.shrink();
     return SizedBox(
-      height: 158,
+      height: 150,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         clipBehavior: Clip.none,
@@ -3305,11 +3391,14 @@ class _FolderStrip extends StatelessWidget {
           return _FolderCard(
             stack: stack,
             folder: folder,
+            colorKey: folderColors[folder.key],
             allStackKeys: allStackKeys,
             stackNames: stackNames,
             selectedIds: selectedIds,
             onAddSelected: () => onAddSelectedToFolder(folder),
             onDelete: () => onDeleteFolder(folder),
+            onChangeColor: (colorKey) =>
+                onChangeFolderColor(folder.key, colorKey),
             onExcludeImage: onExcludeImage,
             onDeleteOriginalImage: onDeleteOriginalImage,
             onMoveImage: onMoveImage,
@@ -3326,11 +3415,13 @@ class _FolderCard extends StatelessWidget {
   const _FolderCard({
     required this.stack,
     required this.folder,
+    required this.colorKey,
     required this.allStackKeys,
     required this.stackNames,
     required this.selectedIds,
     required this.onAddSelected,
     required this.onDelete,
+    required this.onChangeColor,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
     required this.onMoveImage,
@@ -3340,11 +3431,13 @@ class _FolderCard extends StatelessWidget {
 
   final StackItem stack;
   final ScreenshotSet folder;
+  final String? colorKey;
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
   final Set<String> selectedIds;
   final Future<void> Function() onAddSelected;
   final Future<void> Function() onDelete;
+  final Future<void> Function(String colorKey) onChangeColor;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
@@ -3353,10 +3446,11 @@ class _FolderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cover = folder.items.isEmpty ? '' : folder.items.first.thumbnailPath;
+    final option = _folderColorFor(colorKey);
     final isEmpty = folder.items.isEmpty;
+    final title = _folderName(folder);
     return InkWell(
-      onLongPress: () => onDelete(),
+      onLongPress: () => _showFolderActions(context),
       onTap: selectedIds.isNotEmpty
           ? onAddSelected
           : () => Navigator.of(context).push(
@@ -3377,101 +3471,19 @@ class _FolderCard extends StatelessWidget {
             ),
       borderRadius: BorderRadius.circular(18),
       child: SizedBox(
-        width: 124,
+        width: 132,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _GroupCardFrame(
+            _FolderShape(
+              option: option,
+              count: folder.items.length,
               isEmpty: isEmpty,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: isEmpty
-                          ? Container(
-                              color: const Color(0xFFF4F5F7),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.add_photo_alternate_outlined,
-                                  color: Color(0xFF9CA3AF),
-                                  size: 28,
-                                ),
-                              ),
-                            )
-                          : _Thumb(path: cover, radius: 18),
-                    ),
-                    if (!isEmpty) const Positioned.fill(child: _GroupShade()),
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isEmpty
-                              ? Colors.white
-                              : Colors.black.withValues(alpha: 0.54),
-                          borderRadius: BorderRadius.circular(999),
-                          border: isEmpty
-                              ? Border.all(color: const Color(0xFFE5E7EB))
-                              : null,
-                        ),
-                        child: Text(
-                          '${folder.items.length}장',
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
-                                color: isEmpty
-                                    ? const Color(0xFF727785)
-                                    : Colors.white,
-                                fontWeight: FontWeight.w800,
-                              ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 9,
-                      bottom: 8,
-                      child: Container(
-                        width: 26,
-                        height: 26,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.88),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: const Icon(
-                          Icons.collections_bookmark_rounded,
-                          color: Color(0xFF1A1C1C),
-                          size: 15,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 40,
-                      right: 9,
-                      bottom: 11,
-                      child: Text(
-                        isEmpty ? '이미지 추가' : _folderName(folder),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(
-                              color: isEmpty
-                                  ? const Color(0xFF727785)
-                                  : Colors.white,
-                              fontWeight: FontWeight.w800,
-                            ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              onColorTap: () => _showColorPicker(context),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 9),
             Text(
-              _folderName(folder),
+              title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -3480,7 +3492,7 @@ class _FolderCard extends StatelessWidget {
               ),
             ),
             Text(
-              isEmpty ? '비어 있음' : '${folder.items.length}장 · 그룹',
+              isEmpty ? '비어 있음' : '그룹',
               style: Theme.of(
                 context,
               ).textTheme.labelSmall?.copyWith(color: const Color(0xFF727785)),
@@ -3490,67 +3502,220 @@ class _FolderCard extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _showFolderActions(BuildContext context) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(height: 18),
+              ListTile(
+                leading: const Icon(Icons.palette_outlined),
+                title: const Text('폴더 색상 변경'),
+                onTap: () => Navigator.pop(context, 'color'),
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.delete_outline,
+                  color: Color(0xFFE05656),
+                ),
+                title: const Text(
+                  '그룹 삭제',
+                  style: TextStyle(color: Color(0xFFE05656)),
+                ),
+                onTap: () => Navigator.pop(context, 'delete'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    if (action == 'delete') {
+      await onDelete();
+    } else if (action == 'color') {
+      await _showColorPicker(context);
+    }
+  }
+
+  Future<void> _showColorPicker(BuildContext context) async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                '폴더 색상',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final option in _folderColorOptions)
+                    _FolderColorDot(
+                      option: option,
+                      selected: _folderColorFor(colorKey).key == option.key,
+                      onTap: () => Navigator.pop(context, option.key),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (picked != null) await onChangeColor(picked);
+  }
 }
 
-class _GroupCardFrame extends StatelessWidget {
-  const _GroupCardFrame({required this.child, required this.isEmpty});
+class _FolderShape extends StatelessWidget {
+  const _FolderShape({
+    required this.option,
+    required this.count,
+    required this.isEmpty,
+    required this.onColorTap,
+  });
 
-  final Widget child;
+  final _FolderColorOption option;
+  final int count;
   final bool isEmpty;
+  final VoidCallback onColorTap;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 124,
-      height: 102,
+      width: 132,
+      height: 94,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          if (!isEmpty) ...[
-            Positioned(
-              left: 11,
-              top: 8,
-              child: Transform.rotate(
-                angle: 4 * math.pi / 180,
-                child: const _GroupBackCard(
-                  color: Color(0xFFE1E5EA),
-                  borderColor: Color(0xFFD4DAE2),
+          Positioned(
+            left: 0,
+            top: 4,
+            child: Container(
+              width: 58,
+              height: 24,
+              decoration: BoxDecoration(
+                color: option.darkColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(14),
+                  topRight: Radius.circular(14),
                 ),
               ),
             ),
-            Positioned(
-              left: 5,
-              top: 4,
-              child: Transform.rotate(
-                angle: -3 * math.pi / 180,
-                child: const _GroupBackCard(
-                  color: Color(0xFFF2F4F7),
-                  borderColor: Color(0xFFE5E7EB),
-                ),
-              ),
-            ),
-          ],
-          Positioned.fill(
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 19,
+            bottom: 0,
             child: Container(
               decoration: BoxDecoration(
+                color: option.color,
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: isEmpty
-                      ? const Color(0xFFD5D8DF)
-                      : Colors.white.withValues(alpha: 0.92),
-                  width: isEmpty ? 1.2 : 2,
-                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(
-                      alpha: isEmpty ? 0.03 : 0.10,
-                    ),
-                    blurRadius: isEmpty ? 8 : 18,
+                    color: option.darkColor.withValues(alpha: 0.26),
+                    blurRadius: 16,
                     offset: const Offset(0, 8),
                   ),
                 ],
               ),
-              child: child,
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: 12,
+                    top: 15,
+                    child: Icon(
+                      isEmpty
+                          ? Icons.create_new_folder_outlined
+                          : Icons.folder_rounded,
+                      size: 30,
+                      color: Colors.white.withValues(alpha: 0.92),
+                    ),
+                  ),
+                  Positioned(
+                    right: 9,
+                    top: 9,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.88),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '$count장',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: const Color(0xFF1A1C1C),
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 10,
+                    bottom: 10,
+                    child: GestureDetector(
+                      onTap: onColorTap,
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.88),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.palette_outlined,
+                          size: 14,
+                          color: option.darkColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -3559,41 +3724,47 @@ class _GroupCardFrame extends StatelessWidget {
   }
 }
 
-class _GroupBackCard extends StatelessWidget {
-  const _GroupBackCard({required this.color, required this.borderColor});
+class _FolderColorDot extends StatelessWidget {
+  const _FolderColorDot({
+    required this.option,
+    required this.selected,
+    required this.onTap,
+  });
 
-  final Color color;
-  final Color borderColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 112,
-      height: 92,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: borderColor),
-      ),
-    );
-  }
-}
-
-class _GroupShade extends StatelessWidget {
-  const _GroupShade();
+  final _FolderColorOption option;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.black.withValues(alpha: 0.04),
-            Colors.black.withValues(alpha: 0.50),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: option.color,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: selected ? const Color(0xFF1A1C1C) : Colors.white,
+            width: selected ? 2.2 : 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: option.darkColor.withValues(alpha: 0.20),
+              blurRadius: 9,
+              offset: const Offset(0, 4),
+            ),
           ],
         ),
+        child: selected
+            ? const Icon(
+                Icons.check_rounded,
+                size: 20,
+                color: Color(0xFF1A1C1C),
+              )
+            : null,
       ),
     );
   }

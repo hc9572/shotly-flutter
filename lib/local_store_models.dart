@@ -5,6 +5,7 @@ class LocalShotlyState {
     this.imageAssignments = const {},
     this.setMemos = const {},
     this.folderNames = const {},
+    this.folderColors = const {},
     this.setAssignments = const {},
     this.hiddenStackKeys = const {},
     this.excludedImageIds = const {},
@@ -17,6 +18,7 @@ class LocalShotlyState {
   final Map<String, String> imageAssignments;
   final Map<String, String> setMemos;
   final Map<String, String> folderNames;
+  final Map<String, String> folderColors;
   final Map<String, String> setAssignments;
   final Set<String> hiddenStackKeys;
   final Set<String> excludedImageIds;
@@ -35,6 +37,7 @@ abstract class LocalStore {
   Future<void> moveImage(String imageId, String stackKey);
   Future<void> saveSetMemo(String setKey, String memo);
   Future<void> saveFolderName(String folderKey, String name);
+  Future<void> saveFolderColor(String folderKey, String colorKey);
   Future<void> assignImageToSet(String imageId, String setKey);
   Future<void> pinStack(String stackKey);
   Future<void> unpinStack(String stackKey);

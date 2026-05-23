@@ -18,6 +18,7 @@ class ShotlyLocalStore implements LocalStore {
   static const _imageAssignmentsPrefsKey = 'shotly.imageAssignments';
   static const _setMemosPrefsKey = 'shotly.setMemos';
   static const _folderNamesPrefsKey = 'shotly.folderNames';
+  static const _folderColorsPrefsKey = 'shotly.folderColors';
   static const _setAssignmentsPrefsKey = 'shotly.setAssignments';
   static const _pinnedStacksPrefsKey = 'shotly.pinnedStacks';
   static const _sortModePrefsKey = 'shotly.sortMode';
@@ -44,6 +45,9 @@ class ShotlyLocalStore implements LocalStore {
         .get();
     final folderNameRows = await _db
         .customSelect('SELECT folder_key, name FROM folder_names')
+        .get();
+    final folderColorRows = await _db
+        .customSelect('SELECT folder_key, color_key FROM folder_colors')
         .get();
     final setAssignmentRows = await _db
         .customSelect('SELECT image_id, set_key FROM set_assignments')
@@ -82,6 +86,10 @@ class ShotlyLocalStore implements LocalStore {
       folderNames: {
         for (final row in folderNameRows)
           row.read<String>('folder_key'): row.read<String>('name'),
+      },
+      folderColors: {
+        for (final row in folderColorRows)
+          row.read<String>('folder_key'): row.read<String>('color_key'),
       },
       setAssignments: {
         for (final row in setAssignmentRows)
@@ -191,6 +199,22 @@ class ShotlyLocalStore implements LocalStore {
   }
 
   @override
+  Future<void> saveFolderColor(String folderKey, String colorKey) async {
+    await _db.ensureOpen();
+    if (colorKey.trim().isEmpty) {
+      await _db.customStatement(
+        'DELETE FROM folder_colors WHERE folder_key = ?',
+        [folderKey],
+      );
+      return;
+    }
+    await _db.customStatement(
+      'INSERT OR REPLACE INTO folder_colors(folder_key, color_key, updated_at) VALUES (?, ?, ?)',
+      [folderKey, colorKey, DateTime.now().millisecondsSinceEpoch],
+    );
+  }
+
+  @override
   Future<void> assignImageToSet(String imageId, String setKey) async {
     await _db.ensureOpen();
     if (setKey.isEmpty) {
@@ -274,6 +298,14 @@ class ShotlyLocalStore implements LocalStore {
     ).entries) {
       await _db.customStatement(
         'INSERT OR REPLACE INTO folder_names(folder_key, name, updated_at) VALUES (?, ?, ?)',
+        [entry.key, entry.value, now],
+      );
+    }
+    for (final entry in _decodeStringMap(
+      prefs.getString(_folderColorsPrefsKey),
+    ).entries) {
+      await _db.customStatement(
+        'INSERT OR REPLACE INTO folder_colors(folder_key, color_key, updated_at) VALUES (?, ?, ?)',
         [entry.key, entry.value, now],
       );
     }
@@ -368,6 +400,13 @@ class ShotlyDatabase extends GeneratedDatabase {
       CREATE TABLE IF NOT EXISTS folder_names (
         folder_key TEXT PRIMARY KEY NOT NULL,
         name TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS folder_colors (
+        folder_key TEXT PRIMARY KEY NOT NULL,
+        color_key TEXT NOT NULL,
         updated_at INTEGER NOT NULL
       )
     ''');

@@ -12,6 +12,7 @@ class ShotlyLocalStore implements LocalStore {
   static const _imageAssignmentsPrefsKey = 'shotly.imageAssignments';
   static const _setMemosPrefsKey = 'shotly.setMemos';
   static const _folderNamesPrefsKey = 'shotly.folderNames';
+  static const _folderColorsPrefsKey = 'shotly.folderColors';
   static const _setAssignmentsPrefsKey = 'shotly.setAssignments';
   static const _pinnedStacksPrefsKey = 'shotly.pinnedStacks';
   static const _sortModePrefsKey = 'shotly.sortMode';
@@ -27,6 +28,7 @@ class ShotlyLocalStore implements LocalStore {
       ),
       setMemos: _decodeStringMap(prefs.getString(_setMemosPrefsKey)),
       folderNames: _decodeStringMap(prefs.getString(_folderNamesPrefsKey)),
+      folderColors: _decodeStringMap(prefs.getString(_folderColorsPrefsKey)),
       setAssignments: _decodeStringMap(
         prefs.getString(_setAssignmentsPrefsKey),
       ),
@@ -81,6 +83,12 @@ class ShotlyLocalStore implements LocalStore {
       name.trim().isEmpty
       ? _removeFromMap(_folderNamesPrefsKey, folderKey)
       : _updateMap(_folderNamesPrefsKey, folderKey, name);
+
+  @override
+  Future<void> saveFolderColor(String folderKey, String colorKey) =>
+      colorKey.trim().isEmpty
+      ? _removeFromMap(_folderColorsPrefsKey, folderKey)
+      : _updateMap(_folderColorsPrefsKey, folderKey, colorKey);
 
   @override
   Future<void> assignImageToSet(String imageId, String setKey) => setKey.isEmpty
