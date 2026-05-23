@@ -4582,6 +4582,9 @@ class _ShotlyTextDialogState extends State<_ShotlyTextDialog> {
   late final TextEditingController _controller;
   String? _errorText;
 
+  static const _fieldFillColor = Color(0xFFF7F7F8);
+  static const _fieldErrorColor = Color(0xFFB42318);
+
   @override
   void initState() {
     super.initState();
@@ -4635,7 +4638,7 @@ class _ShotlyTextDialogState extends State<_ShotlyTextDialog> {
                   color: const Color(0xFF727785),
                 ),
                 filled: true,
-                fillColor: const Color(0xFFF7F7F8),
+                fillColor: _fieldFillColor,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 12,
@@ -4644,18 +4647,29 @@ class _ShotlyTextDialogState extends State<_ShotlyTextDialog> {
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none,
                 ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(
-                    color: Color(0xFF1A1C1C),
-                    width: 1,
-                  ),
+                  borderSide: BorderSide.none,
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                focusedErrorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
                 ),
                 errorText: _errorText,
+                errorStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: _fieldErrorColor,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              onChanged: (_) {
-                if (_errorText != null) setState(() => _errorText = null);
-              },
+              onChanged: (value) => _validateLive(value),
               onSubmitted: widget.maxLines == 1
                   ? (value) => _submit(context)
                   : null,
@@ -4673,11 +4687,13 @@ class _ShotlyTextDialogState extends State<_ShotlyTextDialog> {
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF111111),
                     foregroundColor: Colors.white,
+                    disabledBackgroundColor: const Color(0xFFE5E7EB),
+                    disabledForegroundColor: const Color(0xFF9CA3AF),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
-                  onPressed: () => _submit(context),
+                  onPressed: _errorText == null ? () => _submit(context) : null,
                   child: Text(widget.primaryLabel),
                 ),
               ],
@@ -4688,9 +4704,13 @@ class _ShotlyTextDialogState extends State<_ShotlyTextDialog> {
     );
   }
 
+  void _validateLive(String value) {
+    final error = widget.validator?.call(value);
+    if (error != _errorText) setState(() => _errorText = error);
+  }
+
   void _submit(BuildContext context) {
-    final validator = widget.validator;
-    final error = validator?.call(_controller.text);
+    final error = widget.validator?.call(_controller.text);
     if (error != null) {
       setState(() => _errorText = error);
       return;
