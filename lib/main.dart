@@ -2149,7 +2149,9 @@ class _SearchResultSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (results.isEmpty) return const SizedBox.shrink();
-    final visible = expanded ? results : results.take(3).toList();
+    final isImageSection = results.first.kind == _SearchResultKind.image;
+    final collapsedCount = isImageSection ? 12 : 3;
+    final visible = expanded ? results : results.take(collapsedCount).toList();
     return Padding(
       padding: const EdgeInsets.only(bottom: 28),
       child: Column(
@@ -2172,7 +2174,7 @@ class _SearchResultSection extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              if (results.length > 3)
+              if (results.length > collapsedCount)
                 TextButton(
                   onPressed: onToggleExpanded,
                   style: TextButton.styleFrom(
@@ -2185,17 +2187,52 @@ class _SearchResultSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          ...visible.map(
-            (result) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _SearchResultCard(
-                result: result,
-                onTap: () => onOpen(result),
+          if (isImageSection)
+            _SearchImageGrid(results: visible, onOpen: onOpen)
+          else
+            ...visible.map(
+              (result) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _SearchResultCard(
+                  result: result,
+                  onTap: () => onOpen(result),
+                ),
               ),
             ),
-          ),
         ],
       ),
+    );
+  }
+}
+
+class _SearchImageGrid extends StatelessWidget {
+  const _SearchImageGrid({required this.results, required this.onOpen});
+
+  final List<_SearchResult> results;
+  final ValueChanged<_SearchResult> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      padding: EdgeInsets.zero,
+      itemCount: results.length,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        crossAxisSpacing: 5,
+        mainAxisSpacing: 5,
+        childAspectRatio: 3 / 4,
+      ),
+      itemBuilder: (context, index) {
+        final result = results[index];
+        final image = result.image!;
+        return InkWell(
+          onTap: () => onOpen(result),
+          borderRadius: BorderRadius.circular(14),
+          child: _Thumb(path: image.thumbnailPath, radius: 14),
+        );
+      },
     );
   }
 }
@@ -2209,7 +2246,6 @@ class _SearchResultCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final stack = result.stack;
-    final image = result.image;
     final set = result.set;
     final title = switch (result.kind) {
       _SearchResultKind.stack => stack.name,
@@ -2217,19 +2253,17 @@ class _SearchResultCard extends StatelessWidget {
         _isFolderSetKey(set!.key)
             ? _folderName(set)
             : (set.memo.trim().isEmpty ? 'Set' : set.memo.trim()),
-      _SearchResultKind.image =>
-        image!.displayName.isEmpty ? stack.name : image.displayName,
+      _SearchResultKind.image => stack.name,
     };
     final subtitle = switch (result.kind) {
       _SearchResultKind.stack => '${stack.items.length} images',
       _SearchResultKind.set => '${stack.name} · ${set!.items.length} images',
-      _SearchResultKind.image =>
-        '${stack.name} · ${_formatSearchDate(image!.date)}',
+      _SearchResultKind.image => stack.name,
     };
     final thumbs = switch (result.kind) {
       _SearchResultKind.stack => stack.items.take(8).toList(),
       _SearchResultKind.set => set!.items.take(8).toList(),
-      _SearchResultKind.image => [image!],
+      _SearchResultKind.image => [result.image!],
     };
 
     return InkWell(
@@ -2242,46 +2276,24 @@ class _SearchResultCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEDEFF2),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
+                Expanded(
                   child: Text(
-                    switch (result.kind) {
-                      _SearchResultKind.stack => 'Stack',
-                      _SearchResultKind.set =>
-                        _isFolderSetKey(set!.key) ? '그룹' : 'Set',
-                      _SearchResultKind.image => '사진',
-                    },
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: const Color(0xFF424754),
-                      fontWeight: FontWeight.w600,
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontSize: 18,
+                      height: 24 / 18,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1A1C1C),
                     ),
                   ),
                 ),
-                const Spacer(),
                 const Icon(
                   Icons.chevron_right_rounded,
                   color: Color(0xFF727785),
                 ),
               ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontSize: 18,
-                height: 24 / 18,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1A1C1C),
-              ),
             ),
             const SizedBox(height: 2),
             Text(
@@ -2310,9 +2322,6 @@ class _SearchResultCard extends StatelessWidget {
       ),
     );
   }
-
-  static String _formatSearchDate(DateTime date) =>
-      '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
 }
 
 class _SearchSetResultScreen extends StatelessWidget {
