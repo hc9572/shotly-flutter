@@ -2433,6 +2433,7 @@ class _SearchSetResultScreen extends StatelessWidget {
                   onDeleteOriginalImage: onDeleteOriginalImage,
                   onMoveImage: onMoveImage,
                   selectedIds: const {},
+                  selectionMode: false,
                   onToggleSelection: (_) {},
                   showLocalActionBar: true,
                   onSaveMemo: isFolder ? (_, _) async {} : onSaveSetMemo,
@@ -2806,6 +2807,7 @@ class StackDetailScreen extends StatefulWidget {
 class _StackDetailScreenState extends State<StackDetailScreen> {
   final Set<String> _deletedImageIds = <String>{};
   final Set<String> _selectedImageIds = <String>{};
+  bool _isSelectionMode = false;
   final List<ScreenshotItem> _addedItems = <ScreenshotItem>[];
   late Map<String, String> _detailFolderNames;
   late Map<String, String> _detailFolderColors;
@@ -2910,7 +2912,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          _selectedImageIds.isNotEmpty
+                          _isSelectionMode
                               ? '${_selectedImageIds.length}개 선택'
                               : _stackName,
                           style: Theme.of(context).textTheme.headlineMedium
@@ -2966,6 +2968,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                         onDeleteOriginalImage: _deleteOriginalImage,
                         onMoveImage: widget.onMoveImage,
                         selectedIds: _selectedImageIds,
+                        selectionMode: _isSelectionMode,
                         onToggleSelection: _toggleSelection,
                         onToggleDateSelection: _toggleDateSelection,
                         showLocalActionBar: false,
@@ -2978,13 +2981,16 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                 ),
               ],
             ),
-            if (_selectedImageIds.isNotEmpty)
+            if (_isSelectionMode)
               Positioned(
                 left: 20,
                 right: 20,
                 bottom: 20,
                 child: _SelectionActionBar(
-                  onCancel: () => setState(_selectedImageIds.clear),
+                  onCancel: () => setState(() {
+                    _selectedImageIds.clear();
+                    _isSelectionMode = false;
+                  }),
                   onShare: _shareSelected,
                   onDelete: () => _deleteSelected(context),
                   onMove: () => _moveSelectedToStack(context),
@@ -3000,12 +3006,14 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
 
   void _toggleSelection(String imageId) {
     setState(() {
+      _isSelectionMode = true;
       if (!_selectedImageIds.add(imageId)) _selectedImageIds.remove(imageId);
     });
   }
 
   void _toggleDateSelection(List<String> imageIds) {
     setState(() {
+      _isSelectionMode = true;
       final allSelected = imageIds.every(_selectedImageIds.contains);
       if (allSelected) {
         _selectedImageIds.removeAll(imageIds);
@@ -3028,6 +3036,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       setState(() {
         _deletedImageIds.addAll(selected);
         _selectedImageIds.clear();
+        _isSelectionMode = false;
       });
     }
   }
@@ -3106,6 +3115,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       setState(() {
         _detailSetAssignments.addAll(nextAssignments);
         _selectedImageIds.clear();
+        _isSelectionMode = false;
       });
     }
     for (final id in selected) {
@@ -3196,6 +3206,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       setState(() {
         _deletedImageIds.addAll(selected);
         _selectedImageIds.clear();
+        _isSelectionMode = false;
       });
     }
   }
@@ -3215,6 +3226,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       setState(() {
         _deletedImageIds.addAll(selected);
         _selectedImageIds.clear();
+        _isSelectionMode = false;
       });
     }
   }
@@ -3774,6 +3786,7 @@ class _SetDateSection extends StatelessWidget {
     required this.onDeleteOriginalImage,
     required this.onMoveImage,
     required this.selectedIds,
+    required this.selectionMode,
     required this.onToggleSelection,
     required this.onToggleDateSelection,
     required this.showLocalActionBar,
@@ -3790,6 +3803,7 @@ class _SetDateSection extends StatelessWidget {
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
   final Set<String> selectedIds;
+  final bool selectionMode;
   final ValueChanged<String> onToggleSelection;
   final ValueChanged<List<String>> onToggleDateSelection;
   final bool showLocalActionBar;
@@ -3821,6 +3835,7 @@ class _SetDateSection extends StatelessWidget {
               onDeleteOriginalImage: onDeleteOriginalImage,
               onMoveImage: onMoveImage,
               selectedIds: selectedIds,
+              selectionMode: selectionMode,
               onToggleSelection: onToggleSelection,
               showLocalActionBar: showLocalActionBar,
               onSaveMemo: onSaveMemo,
@@ -3831,7 +3846,7 @@ class _SetDateSection extends StatelessWidget {
                   ? () => onToggleDateSelection(dateImageIds)
                   : null,
               headerCheckValue: entry.$1 == 0 ? dateCheckValue : null,
-              showHeaderCheckbox: entry.$1 == 0 && selectedIds.isNotEmpty,
+              showHeaderCheckbox: entry.$1 == 0 && selectionMode,
               viewerItems: viewerItems,
             ),
           ),
@@ -3850,6 +3865,7 @@ class _SetSection extends StatefulWidget {
     required this.onDeleteOriginalImage,
     required this.onMoveImage,
     required this.selectedIds,
+    required this.selectionMode,
     required this.onToggleSelection,
     required this.showLocalActionBar,
     required this.onSaveMemo,
@@ -3870,6 +3886,7 @@ class _SetSection extends StatefulWidget {
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
   final Set<String> selectedIds;
+  final bool selectionMode;
   final ValueChanged<String> onToggleSelection;
   final bool showLocalActionBar;
   final Future<void> Function(String setKey, String memo) onSaveMemo;
@@ -3932,6 +3949,7 @@ class _SetSectionState extends State<_SetSection> {
       onDeleteOriginalImage: widget.onDeleteOriginalImage,
       onMoveImage: widget.onMoveImage,
       selectedIds: widget.selectedIds,
+      selectionMode: widget.selectionMode,
       onToggleSelection: widget.onToggleSelection,
       showLocalActionBar: widget.showLocalActionBar,
       onSetAction: widget.suppressHeader
@@ -4045,6 +4063,7 @@ class _ImageGridSection extends StatefulWidget {
     required this.onDeleteOriginalImage,
     required this.onMoveImage,
     this.selectedIds,
+    this.selectionMode,
     this.onToggleSelection,
     this.showLocalActionBar = true,
     this.onSetAction,
@@ -4064,6 +4083,7 @@ class _ImageGridSection extends StatefulWidget {
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
   final Set<String>? selectedIds;
+  final bool? selectionMode;
   final ValueChanged<String>? onToggleSelection;
   final bool showLocalActionBar;
   final VoidCallback? onSetAction;
@@ -4078,7 +4098,8 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
   final Set<String> _locallyHiddenIds = <String>{};
 
   Set<String> get _effectiveSelectedIds => widget.selectedIds ?? _selectedIds;
-  bool get _isSelecting => _effectiveSelectedIds.isNotEmpty;
+  bool get _isSelecting =>
+      widget.selectionMode ?? _effectiveSelectedIds.isNotEmpty;
   List<ScreenshotItem> get _visibleItems => widget.items
       .where((item) => !_locallyHiddenIds.contains(item.id))
       .toList();
