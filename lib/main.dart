@@ -2896,7 +2896,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 6),
                         Text(
                           _selectedImageIds.isNotEmpty
                               ? '${_selectedImageIds.length}개 선택'
