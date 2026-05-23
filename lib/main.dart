@@ -4908,7 +4908,7 @@ const _assignmentSeparator = '\u001F';
 const _removeAssignmentPrefix = '__remove_assignment__:';
 
 List<String> _assignmentKeys(String? raw) {
-  if (raw == null || raw.isEmpty) return const [];
+  if (raw == null || raw.isEmpty) return [];
   return raw
       .split(_assignmentSeparator)
       .map((key) => key.trim())
