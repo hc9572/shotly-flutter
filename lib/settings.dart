@@ -633,28 +633,32 @@ class _CenteredMessage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 180),
+      padding: const EdgeInsets.fromLTRB(36, 180, 36, 0),
       child: Center(
-        child: Column(
-          children: [
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleLarge,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              body,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF6B7280)),
-              textAlign: TextAlign.center,
-            ),
-            if (buttonText != null && onPressed != null) ...[
-              const SizedBox(height: 20),
-              FilledButton(onPressed: onPressed, child: Text(buttonText!)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: Column(
+            children: [
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                body,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF6B7280),
+                  height: 1.45,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              if (buttonText != null && onPressed != null) ...[
+                const SizedBox(height: 20),
+                FilledButton(onPressed: onPressed, child: Text(buttonText!)),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
