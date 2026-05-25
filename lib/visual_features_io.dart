@@ -135,8 +135,9 @@ List<Map<String, Object?>> _analyzeVisualSmartCleanSync(
   for (final item in scopedItems) {
     for (final folderKey in assignedFolderKeysById[item.id]!) {
       folderGroups.putIfAbsent(folderKey, () => []).add(item);
-      if (item.folderName.trim().isNotEmpty)
+      if (item.folderName.trim().isNotEmpty) {
         folderNames[folderKey] = item.folderName.trim();
+      }
     }
   }
   for (final group in folderGroups.values) {
@@ -205,8 +206,9 @@ List<Map<String, Object?>> _analyzeVisualSmartCleanSync(
         if (similarity > bestSimilarity) bestSimilarity = similarity;
         if (distance < bestDistance) bestDistance = distance;
       }
-      if (bestSimilarity >= 0.88 || bestDistance <= 10)
+      if (bestSimilarity >= 0.88 || bestDistance <= 10) {
         matched.add(candidate.id);
+      }
     }
     if (matched.isEmpty) continue;
     consumedUnassignedIds.addAll(matched);
