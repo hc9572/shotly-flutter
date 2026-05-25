@@ -144,12 +144,10 @@ class _ShotlyOnboardingScreen extends StatelessWidget {
               const SizedBox(height: 14),
               _OnboardingPoint(
                 icon: Icons.cleaning_services_outlined,
-                title: _isKo
-                    ? 'Smart Clean은 보조 기능'
-                    : 'Smart Clean is assistive',
+                title: _isKo ? '비슷한 화면 찾기' : 'Find similar screens',
                 body: _isKo
-                    ? '삭제와 이동은 사용자가 확인한 뒤 실행돼요.'
-                    : 'You review and confirm deletion or movement before it happens.',
+                    ? '삭제 또는 이동해서 정리해보세요.'
+                    : 'Review, delete, or move similar screens to organize them.',
               ),
               const Spacer(),
               Text(
