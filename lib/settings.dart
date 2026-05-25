@@ -87,23 +87,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 _SettingsTile(
                   icon: Icons.privacy_tip_outlined,
-                  title: '개인정보처리방침',
-                  subtitle: '사진 원본은 클라우드에 업로드하지 않아요',
-                  onTap: () => _showPolicyDialog(
+                  title: _ShotlyLegal.isKoreanRegion
+                      ? '개인정보처리방침'
+                      : 'Privacy Policy',
+                  subtitle: _ShotlyLegal.isKoreanRegion
+                      ? '사진 원본은 클라우드에 업로드하지 않아요'
+                      : 'Original screenshots are not uploaded to Shotly servers',
+                  onTap: () => _openShotlyLegalUrl(
                     context,
-                    '개인정보처리방침',
-                    'Shotly는 사진 원본을 서버에 업로드하지 않고, 기기 로컬에서 스크린샷 메타데이터와 정리 이력만 저장하는 방향으로 설계돼요. 정식 출시 전 정책 문서 링크를 연결할 예정이에요.',
+                    _ShotlyLegal.links.privacyUrl,
                   ),
                 ),
                 _SettingsTile(
                   icon: Icons.description_outlined,
-                  title: '이용약관',
-                  subtitle: '정식 출시 전 문서 링크 연결 예정',
-                  onTap: () => _showPolicyDialog(
-                    context,
-                    '이용약관',
-                    '정식 출시 전 이용약관 문서 링크를 연결할 예정이에요. 현재 MVP preview에서는 약관 원문을 앱 밖으로 보내지 않아요.',
-                  ),
+                  title: _ShotlyLegal.isKoreanRegion ? '이용약관' : 'Terms of Use',
+                  subtitle: _ShotlyLegal.isKoreanRegion
+                      ? 'Shotly 이용 조건 확인'
+                      : 'Review Shotly’s terms',
+                  onTap: () =>
+                      _openShotlyLegalUrl(context, _ShotlyLegal.links.termsUrl),
                 ),
               ],
             ),
@@ -171,10 +173,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       title: 'Shotly',
       body: 'Shotly 1.0.0\n기획자를 위한 로컬 기반 스크린샷 정리 앱',
     );
-  }
-
-  void _showPolicyDialog(BuildContext context, String title, String body) {
-    _showShotlyInfoDialog(context: context, title: title, body: body);
   }
 }
 

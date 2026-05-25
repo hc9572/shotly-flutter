@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'local_image.dart';
 import 'local_store.dart';
@@ -24,6 +25,7 @@ part 'image_viewer.dart';
 part 'dialogs.dart';
 part 'shotly_helpers.dart';
 part 'settings.dart';
+part 'onboarding.dart';
 
 void main() {
   FlutterError.onError = (details) {
@@ -179,7 +181,7 @@ class ShotlyApp extends StatelessWidget {
               fontFamilyFallback: ['Pretendard'],
             ),
       ),
-      home: const ShotlyHomeScreen(),
+      home: const _ShotlyLaunchGate(),
     );
   }
 }

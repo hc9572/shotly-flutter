@@ -44,6 +44,7 @@ class MainActivity : FlutterActivity() {
                 "requestPhotoPermission" -> requestPhotoPermission(result)
                 "hasPhotoPermission" -> result.success(hasPhotoPermission())
                 "openPhotoSettings" -> openPhotoSettings(result)
+                "openUrl" -> openUrl(call.argument<String>("url"), result)
                 "getScreenshots" -> runOnIo(result) { loadScreenshots() }
                 "pickImage" -> pickImage(result)
                 "getImagePreview" -> runOnIo(result) { getImagePreviewPath(call.argument<String>("imageId")) }
@@ -89,6 +90,22 @@ class MainActivity : FlutterActivity() {
             result.success(true)
         } catch (e: Exception) {
             result.error("settings_unavailable", "시스템 설정을 열 수 없어요.", null)
+        }
+    }
+
+    private fun openUrl(url: String?, result: MethodChannel.Result) {
+        if (url.isNullOrBlank()) {
+            result.error("invalid_url", "열 수 없는 링크예요.", null)
+            return
+        }
+        return try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("url_unavailable", "링크를 열 수 없어요.", null)
         }
     }
 

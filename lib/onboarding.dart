@@ -1,0 +1,291 @@
+part of 'main.dart';
+
+const _legalAcceptedPreferenceKey = 'shotly.legalAccepted.v1';
+
+class _ShotlyLegalLinks {
+  const _ShotlyLegalLinks({required this.privacyUrl, required this.termsUrl});
+
+  final String privacyUrl;
+  final String termsUrl;
+}
+
+class _ShotlyLegal {
+  static const _ko = _ShotlyLegalLinks(
+    privacyUrl:
+        'https://docs.google.com/document/d/1V7KZt8XD5zpU89Qs4RMDJIZEOOYwxYwu5SgWlkrVyuk/edit',
+    termsUrl:
+        'https://docs.google.com/document/d/1tzo-QtdHNrrHXC1G729uHmeADBUdBeT8-0lp46DWZvI/edit',
+  );
+
+  static const _global = _ShotlyLegalLinks(
+    privacyUrl:
+        'https://docs.google.com/document/d/1OT7FPe43xrBQ_fPk2wRUQcOiV7-W8lPsYVQeXaX1Ox0/edit',
+    termsUrl:
+        'https://docs.google.com/document/d/1d9YgF6utOh82OYBkUV1rEZr8UGPD3mY0AaK01j_NXsM/edit',
+  );
+
+  static bool get isKoreanRegion {
+    final region = PlatformDispatcher.instance.locale.countryCode;
+    return region?.toUpperCase() == 'KR';
+  }
+
+  static _ShotlyLegalLinks get links => isKoreanRegion ? _ko : _global;
+}
+
+class _ShotlyLaunchGate extends StatefulWidget {
+  const _ShotlyLaunchGate();
+
+  @override
+  State<_ShotlyLaunchGate> createState() => _ShotlyLaunchGateState();
+}
+
+class _ShotlyLaunchGateState extends State<_ShotlyLaunchGate> {
+  bool? _accepted;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadAcceptance());
+  }
+
+  Future<void> _loadAcceptance() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _accepted = prefs.getBool(_legalAcceptedPreferenceKey) ?? false;
+    });
+  }
+
+  Future<void> _accept() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_legalAcceptedPreferenceKey, true);
+    if (!mounted) return;
+    setState(() => _accepted = true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accepted = _accepted;
+    if (accepted == null) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF8F9FA),
+        body: Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    if (accepted) return const ShotlyHomeScreen();
+    return _ShotlyOnboardingScreen(onStart: _accept);
+  }
+}
+
+class _ShotlyOnboardingScreen extends StatelessWidget {
+  const _ShotlyOnboardingScreen({required this.onStart});
+
+  final Future<void> Function() onStart;
+
+  bool get _isKo => _ShotlyLegal.isKoreanRegion;
+
+  @override
+  Widget build(BuildContext context) {
+    final links = _ShotlyLegal.links;
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF111111),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(height: 28),
+              Text(
+                _isKo
+                    ? '스크린샷 정리를\n가볍게 시작해요'
+                    : 'Organize screenshots\nwithout the clutter',
+                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                  color: const Color(0xFF1A1C1C),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.7,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _isKo
+                    ? 'Shotly는 사진 원본을 서버로 업로드하지 않고, 기기 안에서 스크린샷을 분석하고 정리해요.'
+                    : 'Shotly analyzes and organizes screenshots locally on your device. Your original screenshots are not uploaded to Shotly servers.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF727785),
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 28),
+              _OnboardingPoint(
+                icon: Icons.lock_outline_rounded,
+                title: _isKo ? '로컬 기반 처리' : 'Local-first processing',
+                body: _isKo
+                    ? '스크린샷과 정리 정보는 기기 안에서 처리돼요.'
+                    : 'Screenshots and organization data stay on your device.',
+              ),
+              const SizedBox(height: 14),
+              _OnboardingPoint(
+                icon: Icons.cleaning_services_outlined,
+                title: _isKo
+                    ? 'Smart Clean은 보조 기능'
+                    : 'Smart Clean is assistive',
+                body: _isKo
+                    ? '삭제와 이동은 사용자가 확인한 뒤 실행돼요.'
+                    : 'You review and confirm deletion or movement before it happens.',
+              ),
+              const Spacer(),
+              Text(
+                _isKo
+                    ? '시작하면 Shotly의 이용약관에 동의하고 개인정보처리방침을 확인한 것으로 간주돼요.'
+                    : 'By starting, you agree to Shotly’s Terms of Use and acknowledge the Privacy Policy.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF727785),
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 4,
+                children: [
+                  _LegalTextButton(
+                    label: _isKo ? '이용약관' : 'Terms of Use',
+                    url: links.termsUrl,
+                  ),
+                  _LegalTextButton(
+                    label: _isKo ? '개인정보처리방침' : 'Privacy Policy',
+                    url: links.privacyUrl,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF111111),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                  onPressed: onStart,
+                  child: Text(_isKo ? '시작하기' : 'Start'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OnboardingPoint extends StatelessWidget {
+  const _OnboardingPoint({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: const Color(0xFFEDEFF2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, size: 18, color: const Color(0xFF424754)),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF1A1C1C),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                body,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF727785),
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LegalTextButton extends StatelessWidget {
+  const _LegalTextButton({required this.label, required this.url});
+
+  final String label;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: () => _openShotlyLegalUrl(context, url),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: const Color(0xFF0058BE),
+            decoration: TextDecoration.underline,
+            decorationColor: const Color(0xFF0058BE),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _openShotlyLegalUrl(BuildContext context, String url) async {
+  final opened = await ShotlyNative.openUrl(url);
+  if (!opened && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('링크를 열 수 없어요. 잠시 후 다시 시도해 주세요.')),
+    );
+  }
+}

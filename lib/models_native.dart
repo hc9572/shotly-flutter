@@ -107,6 +107,12 @@ class ShotlyNative {
     return result ?? false;
   }
 
+  static Future<bool> openUrl(String url) async {
+    if (kIsWeb) return false;
+    final result = await _channel.invokeMethod<bool>('openUrl', {'url': url});
+    return result ?? false;
+  }
+
   static Future<List<ScreenshotItem>> getScreenshots() async {
     if (kIsWeb) return mockScreenshots();
     final result = await _channel.invokeMethod<List<dynamic>>('getScreenshots');
