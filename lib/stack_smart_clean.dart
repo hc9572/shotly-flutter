@@ -69,20 +69,12 @@ class _SmartCleanPanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0F2F5),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: const Icon(
-                  Icons.collections_rounded,
-                  size: 18,
-                  color: Color(0xFF424754),
-                ),
+              const Icon(
+                Icons.auto_awesome_rounded,
+                size: 22,
+                color: Color(0xFF424754),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -117,17 +109,29 @@ class _SmartCleanPanel extends StatelessWidget {
                     color: const Color(0xFF727785),
                   ),
                 ),
-              IconButton(
-                onPressed: running ? null : onAnalyze,
-                tooltip: analyzed ? '다시 분석하기' : '분석하기',
-                visualDensity: VisualDensity.compact,
-                icon: Icon(
-                  analyzed ? Icons.refresh_rounded : Icons.search_rounded,
-                  color: running
-                      ? const Color(0xFFADB3BE)
-                      : const Color(0xFF2170E4),
+              if (analyzed)
+                IconButton(
+                  onPressed: running ? null : onAnalyze,
+                  tooltip: '다시 분석하기',
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(
+                    Icons.refresh_rounded,
+                    color: running
+                        ? const Color(0xFFADB3BE)
+                        : const Color(0xFF2170E4),
+                  ),
+                )
+              else
+                TextButton(
+                  onPressed: running ? null : onAnalyze,
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF2170E4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 36),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(running ? '분석 중' : '분석하기'),
                 ),
-              ),
             ],
           ),
           if (running) ...[
