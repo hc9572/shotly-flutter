@@ -88,20 +88,21 @@ class _SmartCleanPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '비슷한 화면 찾기',
+                      '화면 분석하기',
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         color: const Color(0xFF1A1C1C),
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    if (message != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        message!,
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(color: const Color(0xFF727785)),
+                    const SizedBox(height: 2),
+                    Text(
+                      message ?? '비슷한 화면을 정리해보세요.',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: const Color(0xFF727785),
                       ),
-                    ],
+                    ),
                   ],
                 ),
               ),
@@ -116,13 +117,16 @@ class _SmartCleanPanel extends StatelessWidget {
                     color: const Color(0xFF727785),
                   ),
                 ),
-              TextButton(
+              IconButton(
                 onPressed: running ? null : onAnalyze,
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF2170E4),
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                tooltip: analyzed ? '다시 분석하기' : '분석하기',
+                visualDensity: VisualDensity.compact,
+                icon: Icon(
+                  analyzed ? Icons.refresh_rounded : Icons.play_arrow_rounded,
+                  color: running
+                      ? const Color(0xFFADB3BE)
+                      : const Color(0xFF2170E4),
                 ),
-                child: Text(running ? '분석 중' : (analyzed ? '다시 분석하기' : '분석하기')),
               ),
             ],
           ),

@@ -384,8 +384,9 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       _smartCleanAnalyzed = true;
       _smartCleanExpanded = true;
       _smartCleanProgress = null;
-      _smartCleanMessage =
-          '${targetItems.length}장 전체 기준 · 새 특징 $missingFeatureCount장 분석 중';
+      _smartCleanMessage = missingFeatureCount > 0
+          ? '이미지 분석 중...(0/$missingFeatureCount)'
+          : '이미지 분석 중...';
       _smartCleanCandidates = const [];
     });
 
@@ -421,7 +422,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
         _smartCleanProgress = 1;
         _smartCleanAnalyzed = true;
         _smartCleanCandidates = const [];
-        _smartCleanMessage = '분석 중 문제가 생겼어요. 로그를 확인해볼게요';
+        _smartCleanMessage = '분석 중 문제가 생겼어요';
       });
       _saveSmartCleanSessionCache();
       return;
@@ -454,7 +455,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       _smartCleanExpanded = candidates.isNotEmpty;
       _smartCleanCandidates = candidates;
       _smartCleanMessage = candidates.isEmpty
-          ? '정리할 만한 후보가 아직 없어요'
+          ? '정리할 후보가 없어요'
           : '${candidates.length}개 후보를 찾았어요';
     });
     _saveSmartCleanSessionCache();
@@ -508,7 +509,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       if (!mounted) return;
       setState(() {
         _smartCleanProgress = processed / candidates.length;
-        _smartCleanMessage = '이미지 특징 분석 중 $processed/${candidates.length}';
+        _smartCleanMessage = '이미지 분석 중...($processed/${candidates.length})';
       });
       await Future<void>.delayed(Duration.zero);
     }
