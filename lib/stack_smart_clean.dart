@@ -138,14 +138,35 @@ class _SmartCleanPanel extends StatelessWidget {
             ),
           ],
           if (candidates.isNotEmpty && expanded) ...[
-            const SizedBox(height: 12),
-            for (final candidate in candidates) ...[
-              _SmartCleanCandidateTile(
-                candidate: candidate,
-                onTap: () => onCandidateTap(candidate),
+            const SizedBox(height: 14),
+            Text(
+              '비슷한 화면',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: const Color(0xFF1A1C1C),
+                fontWeight: FontWeight.w800,
               ),
-              if (candidate != candidates.last) const SizedBox(height: 8),
-            ],
+            ),
+            const SizedBox(height: 10),
+            GridView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: candidates.length,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 0.86,
+              ),
+              itemBuilder: (context, index) {
+                final candidate = candidates[index];
+                return _SmartCleanCandidateTile(
+                  candidate: candidate,
+                  index: index,
+                  onTap: () => onCandidateTap(candidate),
+                );
+              },
+            ),
           ],
         ],
       ),
@@ -156,60 +177,93 @@ class _SmartCleanPanel extends StatelessWidget {
 class _SmartCleanCandidateTile extends StatelessWidget {
   const _SmartCleanCandidateTile({
     required this.candidate,
+    required this.index,
     required this.onTap,
   });
 
   final _SmartCleanCandidate candidate;
+  final int index;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    const icon = Icons.folder_rounded;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 9),
         decoration: BoxDecoration(
           color: const Color(0xFFF8F9FA),
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFEDEFF3)),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: 58,
-              height: 42,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  for (final entry in candidate.items.take(3).toList().indexed)
-                    Positioned(
-                      left: entry.$1 * 15,
-                      top: entry.$1.isEven ? 0 : 4,
-                      child: _Thumb(
-                        path: entry.$2.thumbnailPath,
-                        width: 28,
-                        height: 42,
-                        radius: 8,
-                        borderColor: Colors.white,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                candidate.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: const Color(0xFF1A1C1C),
-                  fontWeight: FontWeight.w700,
+              child: Center(
+                child: SizedBox(
+                  width: 58,
+                  height: 72,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      for (final entry
+                          in candidate.items.take(3).toList().indexed)
+                        Positioned(
+                          left: entry.$1 * 8,
+                          top: entry.$1 * 5,
+                          child: Transform.rotate(
+                            angle: (entry.$1 - 1) * 0.035,
+                            child: _Thumb(
+                              path: entry.$2.thumbnailPath,
+                              width: 42,
+                              height: 64,
+                              radius: 10,
+                              borderColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
-            Icon(icon, size: 18, color: const Color(0xFF727785)),
+            const SizedBox(height: 7),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '그룹 ${index + 1}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: const Color(0xFF1A1C1C),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${candidate.items.length}장',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: const Color(0xFF727785),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            if (candidate.type == _SmartCleanCandidateType.existingFolder &&
+                candidate.targetFolderName != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                candidate.targetFolderName!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: const Color(0xFF727785),
+                ),
+              ),
+            ],
           ],
         ),
       ),
