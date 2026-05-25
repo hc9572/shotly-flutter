@@ -332,7 +332,7 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${_selectedIds.length}/${widget.candidate.items.length}장 선택됨 · 삭제하거나 폴더로 묶을 수 있어요',
+                          '${_selectedIds.length}/${widget.candidate.items.length}장 선택됨',
                           style: Theme.of(context).textTheme.labelMedium
                               ?.copyWith(color: const Color(0xFF727785)),
                         ),
@@ -344,12 +344,12 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
             ),
             Expanded(
               child: GridView.builder(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 92),
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 104),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 4,
                   mainAxisSpacing: 8,
                   crossAxisSpacing: 8,
-                  childAspectRatio: 0.56,
+                  childAspectRatio: 0.60,
                 ),
                 itemCount: widget.candidate.items.length,
                 itemBuilder: (context, index) {
@@ -380,13 +380,13 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
         ),
       ),
       bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+        minimum: const EdgeInsets.fromLTRB(20, 12, 20, 26),
         child: Row(
           children: [
             Expanded(
               child: SizedBox(
                 height: 52,
-                child: OutlinedButton(
+                child: FilledButton(
                   onPressed: canDelete
                       ? () => Navigator.of(context).pop(
                           _SmartCleanReviewResult(
@@ -395,9 +395,11 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
                           ),
                         )
                       : null,
-                  style: OutlinedButton.styleFrom(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFE8E8),
+                    disabledBackgroundColor: const Color(0xFFF0F2F5),
                     foregroundColor: const Color(0xFFD04444),
-                    side: const BorderSide(color: Color(0xFFF0B8B8)),
+                    disabledForegroundColor: const Color(0xFFADB3BE),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18),
                     ),
@@ -486,15 +488,6 @@ class _SmartCleanReviewTile extends StatelessWidget {
                         : const Color(0xFFEDEFF3),
                     width: selected ? 1.5 : 1,
                   ),
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.04),
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.22),
-                    ],
-                  ),
                 ),
               ),
             ),
@@ -524,7 +517,7 @@ class _SmartCleanReviewTile extends StatelessWidget {
                     ),
                   ),
                   child: Icon(
-                    selected ? Icons.check_rounded : Icons.add_rounded,
+                    selected ? Icons.check_rounded : null,
                     color: selected ? Colors.white : const Color(0xFF727785),
                     size: 14,
                   ),
@@ -540,28 +533,15 @@ class _SmartCleanReviewTile extends StatelessWidget {
                   width: 24,
                   height: 24,
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.40),
+                    color: Colors.white.withValues(alpha: 0.88),
                     borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: const Color(0xFFEDEFF3)),
                   ),
                   child: const Icon(
                     Icons.open_in_full_rounded,
-                    color: Colors.white,
+                    color: Color(0xFF424754),
                     size: 13,
                   ),
-                ),
-              ),
-            ),
-            Positioned(
-              left: 8,
-              right: 40,
-              bottom: 8,
-              child: Text(
-                _formatSetDate(item.date),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -582,13 +562,14 @@ class _SmartCleanIndexBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.42),
+        color: Colors.white.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFEDEFF3)),
       ),
       child: Text(
         '$index',
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: Colors.white,
+          color: const Color(0xFF424754),
           fontWeight: FontWeight.w700,
         ),
       ),
