@@ -73,13 +73,13 @@ class _SmartCleanPanel extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE3F3FF),
+                  color: const Color(0xFFF0F2F5),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: const Icon(
-                  Icons.auto_awesome_rounded,
+                  Icons.collections_rounded,
                   size: 18,
-                  color: Color(0xFF2170E4),
+                  color: Color(0xFF424754),
                 ),
               ),
               const SizedBox(width: 10),
@@ -88,7 +88,7 @@ class _SmartCleanPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '화면 분석하기',
+                      '비슷한 화면 찾기',
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         color: const Color(0xFF1A1C1C),
                         fontWeight: FontWeight.w800,
@@ -96,7 +96,7 @@ class _SmartCleanPanel extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      message ?? '비슷한 화면을 정리해보세요.',
+                      message ?? '정리할 화면을 찾아보세요.',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -122,7 +122,7 @@ class _SmartCleanPanel extends StatelessWidget {
                 tooltip: analyzed ? '다시 분석하기' : '분석하기',
                 visualDensity: VisualDensity.compact,
                 icon: Icon(
-                  analyzed ? Icons.refresh_rounded : Icons.play_arrow_rounded,
+                  analyzed ? Icons.refresh_rounded : Icons.search_rounded,
                   color: running
                       ? const Color(0xFFADB3BE)
                       : const Color(0xFF2170E4),
@@ -368,15 +368,25 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
                         _selectedIds.remove(item.id);
                       }
                     }),
-                    onOpen: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => ImageViewerScreen(
-                          items: widget.candidate.items,
-                          initialIndex: index,
-                          onDeleteOriginalImage: (_) async => false,
-                        ),
-                      ),
-                    ),
+                    onOpen: () async {
+                      final nextSelected = await Navigator.of(context)
+                          .push<Set<String>>(
+                            MaterialPageRoute(
+                              builder: (_) => _SmartCleanPreviewScreen(
+                                items: widget.candidate.items,
+                                initialIndex: index,
+                                selectedIds: _selectedIds,
+                              ),
+                            ),
+                          );
+                      if (nextSelected != null && mounted) {
+                        setState(() {
+                          _selectedIds
+                            ..clear()
+                            ..addAll(nextSelected);
+                        });
+                      }
+                    },
                   );
                 },
               ),
@@ -552,6 +562,197 @@ class _SmartCleanReviewTile extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SmartCleanPreviewScreen extends StatefulWidget {
+  const _SmartCleanPreviewScreen({
+    required this.items,
+    required this.initialIndex,
+    required this.selectedIds,
+  });
+
+  final List<ScreenshotItem> items;
+  final int initialIndex;
+  final Set<String> selectedIds;
+
+  @override
+  State<_SmartCleanPreviewScreen> createState() =>
+      _SmartCleanPreviewScreenState();
+}
+
+class _SmartCleanPreviewScreenState extends State<_SmartCleanPreviewScreen> {
+  late final PageController _pageController;
+  late final Set<String> _selectedIds;
+  late int _currentIndex;
+  bool _controlsVisible = true;
+  final Map<String, Future<String?>> _previewFutures =
+      <String, Future<String?>>{};
+
+  ScreenshotItem get _currentItem => widget.items[_currentIndex];
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex.clamp(0, widget.items.length - 1);
+    _selectedIds = {...widget.selectedIds};
+    _pageController = PageController(initialPage: _currentIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Future<String?> _previewFor(ScreenshotItem item) {
+    return _previewFutures.putIfAbsent(
+      item.id,
+      () => ShotlyNative.getImagePreview(item.id, item.thumbnailPath),
+    );
+  }
+
+  void _close() => Navigator.of(context).pop(_selectedIds);
+
+  void _toggleCurrent() {
+    setState(() {
+      if (!_selectedIds.add(_currentItem.id)) {
+        _selectedIds.remove(_currentItem.id);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = _selectedIds.contains(_currentItem.id);
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _close();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => setState(() => _controlsVisible = !_controlsVisible),
+          child: Stack(
+            children: [
+              PageView.builder(
+                controller: _pageController,
+                itemCount: widget.items.length,
+                onPageChanged: (index) => setState(() => _currentIndex = index),
+                itemBuilder: (context, index) {
+                  final item = widget.items[index];
+                  return FutureBuilder<String?>(
+                    future: _previewFor(item),
+                    builder: (context, snapshot) {
+                      final imagePath = snapshot.data ?? item.thumbnailPath;
+                      return LayoutBuilder(
+                        builder: (context, constraints) => InteractiveViewer(
+                          minScale: 1,
+                          maxScale: 4,
+                          child: SizedBox(
+                            width: constraints.maxWidth,
+                            height: constraints.maxHeight,
+                            child: _buildViewerImage(imagePath),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+              AnimatedOpacity(
+                opacity: _controlsVisible ? 1 : 0,
+                duration: const Duration(milliseconds: 160),
+                child: IgnorePointer(
+                  ignoring: !_controlsVisible,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        top: MediaQuery.paddingOf(context).top + 8,
+                        left: 8,
+                        child: _ViewerCircleButton(
+                          icon: Icons.arrow_back_rounded,
+                          onTap: _close,
+                        ),
+                      ),
+                      Positioned(
+                        top: MediaQuery.paddingOf(context).top + 8,
+                        right: 12,
+                        child: GestureDetector(
+                          onTap: _toggleCurrent,
+                          child: _SmartCleanPreviewCheck(selected: selected),
+                        ),
+                      ),
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: MediaQuery.paddingOf(context).bottom + 22,
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.42),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              '${_currentIndex + 1}/${widget.items.length}',
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SmartCleanPreviewCheck extends StatelessWidget {
+  const _SmartCleanPreviewCheck({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: selected ? const Color(0xFF2170E4) : Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: selected ? const Color(0xFF2170E4) : const Color(0xFFD8DDE6),
+          width: 1.4,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Icon(
+        selected ? Icons.check_rounded : null,
+        color: Colors.white,
+        size: 20,
       ),
     );
   }
