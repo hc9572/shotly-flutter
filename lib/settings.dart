@@ -633,7 +633,7 @@ class _CenteredMessage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 120),
+      padding: const EdgeInsets.only(top: 180),
       child: Center(
         child: Column(
           children: [

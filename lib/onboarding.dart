@@ -97,7 +97,7 @@ class _ShotlyOnboardingScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFF8F9FA),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+          padding: const EdgeInsets.fromLTRB(24, 72, 24, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
