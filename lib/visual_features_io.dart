@@ -14,6 +14,18 @@ class VisualFeature {
   final int aHash;
   final int dHash;
   final List<double> histogram;
+
+  Map<String, Object?> toJson() => {
+    'aHash': aHash,
+    'dHash': dHash,
+    'histogram': histogram,
+  };
+
+  static VisualFeature fromJson(Map<String, Object?> json) => VisualFeature(
+    aHash: json['aHash'] as int,
+    dHash: json['dHash'] as int,
+    histogram: (json['histogram'] as List).cast<double>(),
+  );
 }
 
 class VisualSmartCleanResult {
@@ -60,6 +72,14 @@ class VisualSmartCleanInput {
   };
 }
 
+typedef _SmartCleanItem = ({
+  String id,
+  String path,
+  int dateMillis,
+  String assignmentRaw,
+  String folderName,
+});
+
 Future<Map<String, VisualFeature>> extractVisualFeatures(
   Map<String, String> imagePathsById,
 ) async {
@@ -74,6 +94,43 @@ Future<List<VisualSmartCleanResult>> analyzeVisualSmartClean(
   final rawResults = await compute(_analyzeVisualSmartCleanSync, [
     for (final item in items) item.toJson(),
   ]);
+  return _visualSmartCleanResultsFromRaw(rawResults);
+}
+
+Future<List<VisualSmartCleanResult>> analyzeVisualSmartCleanFromFeatures(
+  List<VisualSmartCleanInput> items,
+  Map<String, VisualFeature> features,
+) async {
+  if (items.length < 2 || features.length < 2) return const [];
+  final rawResults = await compute(_analyzeVisualSmartCleanFromFeaturesSync, {
+    'items': [for (final item in items) item.toJson()],
+    'features': {
+      for (final entry in features.entries) entry.key: entry.value.toJson(),
+    },
+  });
+  return _visualSmartCleanResultsFromRaw(rawResults);
+}
+
+List<Map<String, Object?>> _analyzeVisualSmartCleanFromFeaturesSync(
+  Map<String, Object?> payload,
+) {
+  final rawItems = (payload['items'] as List).cast<Map<String, Object?>>();
+  final rawFeatures = (payload['features'] as Map).cast<String, Object?>();
+  final features = {
+    for (final entry in rawFeatures.entries)
+      entry.key: VisualFeature.fromJson(
+        (entry.value as Map).cast<String, Object?>(),
+      ),
+  };
+  return _buildVisualSmartCleanResults(
+    _parseSmartCleanItems(rawItems),
+    features,
+  );
+}
+
+List<VisualSmartCleanResult> _visualSmartCleanResultsFromRaw(
+  List<Map<String, Object?>> rawResults,
+) {
   return [
     for (final result in rawResults)
       VisualSmartCleanResult(
@@ -90,29 +147,68 @@ Future<List<VisualSmartCleanResult>> analyzeVisualSmartClean(
   ];
 }
 
+List<_SmartCleanItem> _parseSmartCleanItems(
+  List<Map<String, Object?>> rawItems,
+) {
+  return rawItems
+      .map(
+        (item) => (
+          id: item['id'] as String,
+          path: item['path'] as String,
+          dateMillis: item['dateMillis'] as int,
+          assignmentRaw: (item['assignmentRaw'] as String?) ?? '',
+          folderName: (item['folderName'] as String?) ?? '',
+        ),
+      )
+      .where((item) => item.path.isNotEmpty && !item.path.startsWith('mock://'))
+      .toList()
+    ..sort((a, b) => b.dateMillis.compareTo(a.dateMillis));
+}
+
 List<Map<String, Object?>> _analyzeVisualSmartCleanSync(
   List<Map<String, Object?>> rawItems,
 ) {
-  final items =
-      rawItems
-          .map(
-            (item) => (
-              id: item['id'] as String,
-              path: item['path'] as String,
-              dateMillis: item['dateMillis'] as int,
-              assignmentRaw: (item['assignmentRaw'] as String?) ?? '',
-              folderName: (item['folderName'] as String?) ?? '',
-            ),
-          )
-          .where(
-            (item) => item.path.isNotEmpty && !item.path.startsWith('mock://'),
-          )
-          .toList()
-        ..sort((a, b) => b.dateMillis.compareTo(a.dateMillis));
+  final items = _parseSmartCleanItems(rawItems);
   if (items.length < 2) return const [];
 
-  const maxItems = 320;
-  final scopedItems = items.take(maxItems).toList();
+  final features = <String, VisualFeature>{};
+  for (final item in _smartCleanFeatureItems(items)) {
+    try {
+      final file = File(item.path);
+      final decoded = img.decodeImage(file.readAsBytesSync());
+      if (decoded != null) features[item.id] = _featureFromImage(decoded);
+    } catch (_) {
+      // Ignore unreadable thumbnails.
+    }
+  }
+  return _buildVisualSmartCleanResults(items, features);
+}
+
+List<_SmartCleanItem> _smartCleanFeatureItems(List<_SmartCleanItem> items) {
+  final itemsById = <String, _SmartCleanItem>{};
+  final seenFolderKeys = <String>{};
+  for (final item in items) {
+    final folderKeys = _folderAssignmentKeys(item.assignmentRaw);
+    if (folderKeys.isEmpty) {
+      itemsById[item.id] = item;
+      continue;
+    }
+    for (final folderKey in folderKeys) {
+      if (seenFolderKeys.add(folderKey)) {
+        itemsById[item.id] = item;
+      }
+    }
+  }
+  return itemsById.values.toList();
+}
+
+List<Map<String, Object?>> _buildVisualSmartCleanResults(
+  List<_SmartCleanItem> items,
+  Map<String, VisualFeature> features,
+) {
+  if (items.length < 2) return const [];
+
+  final scopedItems = items;
   final itemById = {for (final item in scopedItems) item.id: item};
   final assignedFolderKeysById = <String, List<String>>{
     for (final item in scopedItems)
@@ -147,31 +243,6 @@ List<Map<String, Object?>> _analyzeVisualSmartCleanSync(
   final unassigned = scopedItems
       .where((item) => assignedFolderKeysById[item.id]!.isEmpty)
       .toList();
-  final analysisItemsById =
-      <
-        String,
-        ({
-          String id,
-          String path,
-          int dateMillis,
-          String assignmentRaw,
-          String folderName,
-        })
-      >{
-        for (final item in unassigned) item.id: item,
-        for (final group in folderGroups.values)
-          for (final item in group.take(6)) item.id: item,
-      };
-  final features = <String, VisualFeature>{};
-  for (final item in analysisItemsById.values) {
-    try {
-      final file = File(item.path);
-      final decoded = img.decodeImage(file.readAsBytesSync());
-      if (decoded != null) features[item.id] = _featureFromImage(decoded);
-    } catch (_) {
-      // Ignore unreadable thumbnails.
-    }
-  }
   if (features.length < 2) return const [];
   final readableUnassigned = unassigned
       .where((item) => features.containsKey(item.id))
@@ -187,7 +258,7 @@ List<Map<String, Object?>> _analyzeVisualSmartCleanSync(
         .where((item) => features.containsKey(item.id))
         .toList();
     if (groupItems.isEmpty) continue;
-    final samples = groupItems.take(6).toList();
+    final samples = [groupItems.first];
     final matched = <String>[];
     for (final candidate in readableUnassigned) {
       if (consumedUnassignedIds.contains(candidate.id)) continue;
@@ -214,7 +285,7 @@ List<Map<String, Object?>> _analyzeVisualSmartCleanSync(
     consumedUnassignedIds.addAll(matched);
     final representativeId = groupItems.first.id;
     final folderName = folderNames[folderKey] ?? '기존 폴더';
-    final imageIds = [representativeId, ...matched.take(11)];
+    final imageIds = [representativeId, ...matched];
     results.add({
       'type': 'existingFolder',
       'title': '$folderName에 추가 후보 ${matched.length}장',
@@ -222,14 +293,12 @@ List<Map<String, Object?>> _analyzeVisualSmartCleanSync(
       'imageIds': imageIds,
       'targetFolderKey': folderKey,
       'targetFolderName': folderName,
-      'selectableImageIds': matched.take(11).toList(),
+      'selectableImageIds': matched,
     });
-    if (results.length >= 3) break;
   }
 
   final freeUnassigned = readableUnassigned
       .where((item) => !consumedUnassignedIds.contains(item.id))
-      .take(120)
       .toList();
 
   // Near-duplicates across the whole same-stack scope. No time window.
@@ -250,7 +319,7 @@ List<Map<String, Object?>> _analyzeVisualSmartCleanSync(
       if (similarity >= 0.96 || distance <= 5) ids.add(b.id);
     }
     if (ids.length >= 2) {
-      final sortedIds = _sortIdsByNewest(ids, itemById).take(10).toList();
+      final sortedIds = _sortIdsByNewest(ids, itemById);
       usedDuplicateIds.addAll(sortedIds);
       consumedUnassignedIds.addAll(sortedIds);
       results.add({
@@ -260,7 +329,6 @@ List<Map<String, Object?>> _analyzeVisualSmartCleanSync(
         'imageIds': sortedIds,
         'selectableImageIds': sortedIds.skip(1).toList(),
       });
-      if (results.length >= 4) return results.take(4).toList();
     }
   }
 
@@ -312,14 +380,14 @@ List<Map<String, Object?>> _analyzeVisualSmartCleanSync(
   final sortedGroups =
       groups.values
           .where((ids) => ids.length >= 2)
-          .map((ids) => _sortIdsByNewest(ids, itemById).take(12).toList())
+          .map((ids) => _sortIdsByNewest(ids, itemById))
           .toList()
         ..sort((a, b) {
           final at = itemById[a.first]?.dateMillis ?? 0;
           final bt = itemById[b.first]?.dateMillis ?? 0;
           return bt.compareTo(at);
         });
-  for (final ids in sortedGroups.take(4 - results.length)) {
+  for (final ids in sortedGroups) {
     results.add({
       'type': 'flow',
       'title': '비슷한 화면 ${ids.length}장',
@@ -329,7 +397,7 @@ List<Map<String, Object?>> _analyzeVisualSmartCleanSync(
     });
   }
 
-  return results.take(4).toList();
+  return results;
 }
 
 List<String> _folderAssignmentKeys(String raw) => raw
@@ -473,11 +541,10 @@ double visualSimilarity(VisualFeature a, VisualFeature b) {
 int visualHashDistance(int a, int b) => _hammingDistance(a, b);
 
 int _hammingDistance(int a, int b) {
-  var value = a ^ b;
+  final value = a ^ b;
   var count = 0;
-  while (value != 0) {
-    count += value & 1;
-    value >>= 1;
+  for (var bit = 0; bit < 64; bit++) {
+    count += (value >> bit) & 1;
   }
   return count;
 }

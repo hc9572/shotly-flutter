@@ -54,6 +54,11 @@ Future<List<VisualSmartCleanResult>> analyzeVisualSmartClean(
   List<VisualSmartCleanInput> items,
 ) async => const [];
 
+Future<List<VisualSmartCleanResult>> analyzeVisualSmartCleanFromFeatures(
+  List<VisualSmartCleanInput> items,
+  Map<String, VisualFeature> features,
+) async => const [];
+
 double visualSimilarity(VisualFeature a, VisualFeature b) => 0;
 
 int visualHashDistance(int a, int b) => 64;

@@ -57,6 +57,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   double? _smartCleanProgress;
   String? _smartCleanMessage;
   List<_SmartCleanCandidate> _smartCleanCandidates = const [];
+  final Map<String, VisualFeature> _smartFeatureCache = {};
   final List<ScreenshotItem> _addedItems = <ScreenshotItem>[];
   late Map<String, String> _detailFolderNames;
   late Map<String, String> _detailFolderColors;
@@ -71,6 +72,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     _detailFolderNames = {...widget.folderNames};
     _detailFolderColors = {...widget.folderColors};
     _detailSetAssignments = {...widget.setAssignments};
+    _smartFeatureCache.addAll(widget.visualFeatures);
   }
 
   @override
@@ -306,30 +308,41 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       return;
     }
 
+    final featureItems = _smartCleanFeatureItems(targetItems);
+    final missingFeatureCount = featureItems
+        .where((item) => !_smartFeatureCache.containsKey(item.id))
+        .length;
+
     setState(() {
       _smartCleanRunning = true;
       _smartCleanProgress = null;
-      _smartCleanMessage = '${targetItems.length}장을 백그라운드로 훑는 중';
+      _smartCleanMessage =
+          '${targetItems.length}장 전체 기준 · 새 특징 $missingFeatureCount장 분석 중';
       _smartCleanCandidates = const [];
     });
 
     await Future<void>.delayed(const Duration(milliseconds: 80));
     debugPrint('SmartClean start: target=${targetItems.length}');
     final startedAt = DateTime.now();
+    final inputs = [
+      for (final item in targetItems)
+        VisualSmartCleanInput(
+          id: item.id,
+          path: item.thumbnailPath,
+          dateMillis: item.date.millisecondsSinceEpoch,
+          assignmentRaw: _detailSetAssignments[item.id] ?? '',
+          folderName: _folderNameForAssignedItem(item.id),
+        ),
+    ];
     List<VisualSmartCleanResult> rawCandidates;
     try {
-      rawCandidates = await analyzeVisualSmartClean([
-        for (final item in targetItems)
-          VisualSmartCleanInput(
-            id: item.id,
-            path: item.thumbnailPath,
-            dateMillis: item.date.millisecondsSinceEpoch,
-            assignmentRaw: _detailSetAssignments[item.id] ?? '',
-            folderName: _folderNameForAssignedItem(item.id),
-          ),
-      ]);
+      await _ensureSmartCleanFeatures(featureItems);
+      rawCandidates = await analyzeVisualSmartCleanFromFeatures(
+        inputs,
+        _smartFeatureCache,
+      );
       debugPrint(
-        'SmartClean done: candidates=${rawCandidates.length} elapsed=${DateTime.now().difference(startedAt).inMilliseconds}ms',
+        'SmartClean done: candidates=${rawCandidates.length} features=${_smartFeatureCache.length} elapsed=${DateTime.now().difference(startedAt).inMilliseconds}ms',
       );
     } catch (error, stackTrace) {
       debugPrint('SmartClean failed: $error');
@@ -372,6 +385,60 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
           ? '정리할 만한 후보가 아직 없어요'
           : '${candidates.length}개 후보를 찾았어요';
     });
+  }
+
+  List<ScreenshotItem> _smartCleanFeatureItems(
+    List<ScreenshotItem> sortedItems,
+  ) {
+    final itemsById = <String, ScreenshotItem>{};
+    final seenFolderKeys = <String>{};
+    for (final item in sortedItems) {
+      final folderKeys = _assignmentKeys(
+        _detailSetAssignments[item.id],
+      ).where(_isFolderSetKey).toList();
+      if (folderKeys.isEmpty) {
+        itemsById[item.id] = item;
+        continue;
+      }
+      for (final folderKey in folderKeys) {
+        if (seenFolderKeys.add(folderKey)) {
+          itemsById[item.id] = item;
+        }
+      }
+    }
+    return itemsById.values.toList();
+  }
+
+  Future<void> _ensureSmartCleanFeatures(List<ScreenshotItem> items) async {
+    const batchSize = 10;
+    final candidates = items
+        .where((item) => !_smartFeatureCache.containsKey(item.id))
+        .toList();
+    if (candidates.isEmpty) {
+      if (mounted) setState(() => _smartCleanProgress = 1);
+      return;
+    }
+
+    var processed = 0;
+    for (var start = 0; start < candidates.length; start += batchSize) {
+      final end = math.min(start + batchSize, candidates.length);
+      final batch = candidates.sublist(start, end);
+      final features = await extractVisualFeatures({
+        for (final item in batch) item.id: item.thumbnailPath,
+      });
+      _smartFeatureCache.addAll(features);
+      widget.visualFeatures.addAll(features);
+      processed = end;
+      debugPrint(
+        'SmartClean feature batch: $processed/${candidates.length} +${features.length}',
+      );
+      if (!mounted) return;
+      setState(() {
+        _smartCleanProgress = processed / candidates.length;
+        _smartCleanMessage = '이미지 특징 분석 중 $processed/${candidates.length}';
+      });
+      await Future<void>.delayed(Duration.zero);
+    }
   }
 
   Future<void> _handleSmartCleanCandidate(
