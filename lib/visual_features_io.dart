@@ -22,12 +22,18 @@ class VisualSmartCleanResult {
     required this.title,
     required this.subtitle,
     required this.imageIds,
+    this.targetFolderKey,
+    this.targetFolderName,
+    this.selectableImageIds = const [],
   });
 
   final String type;
   final String title;
   final String subtitle;
   final List<String> imageIds;
+  final String? targetFolderKey;
+  final String? targetFolderName;
+  final List<String> selectableImageIds;
 }
 
 class VisualSmartCleanInput {
@@ -35,16 +41,22 @@ class VisualSmartCleanInput {
     required this.id,
     required this.path,
     required this.dateMillis,
+    this.assignmentRaw = '',
+    this.folderName = '',
   });
 
   final String id;
   final String path;
   final int dateMillis;
+  final String assignmentRaw;
+  final String folderName;
 
   Map<String, Object?> toJson() => {
     'id': id,
     'path': path,
     'dateMillis': dateMillis,
+    'assignmentRaw': assignmentRaw,
+    'folderName': folderName,
   };
 }
 
@@ -69,6 +81,11 @@ Future<List<VisualSmartCleanResult>> analyzeVisualSmartClean(
         title: result['title'] as String,
         subtitle: result['subtitle'] as String,
         imageIds: (result['imageIds'] as List).cast<String>(),
+        targetFolderKey: result['targetFolderKey'] as String?,
+        targetFolderName: result['targetFolderName'] as String?,
+        selectableImageIds:
+            ((result['selectableImageIds'] as List?) ?? const [])
+                .cast<String>(),
       ),
   ];
 }
@@ -83,6 +100,8 @@ List<Map<String, Object?>> _analyzeVisualSmartCleanSync(
               id: item['id'] as String,
               path: item['path'] as String,
               dateMillis: item['dateMillis'] as int,
+              assignmentRaw: (item['assignmentRaw'] as String?) ?? '',
+              folderName: (item['folderName'] as String?) ?? '',
             ),
           )
           .where(
@@ -92,138 +111,252 @@ List<Map<String, Object?>> _analyzeVisualSmartCleanSync(
         ..sort((a, b) => b.dateMillis.compareTo(a.dateMillis));
   if (items.length < 2) return const [];
 
-  final itemById = {for (final item in items) item.id: item};
-  final metadata = <String, ({int size})>{};
+  const maxItems = 500;
+  final scopedItems = items.take(maxItems).toList();
+  final itemById = {for (final item in scopedItems) item.id: item};
+  final assignedFolderKeysById = <String, List<String>>{
+    for (final item in scopedItems)
+      item.id: _folderAssignmentKeys(item.assignmentRaw),
+  };
+  final folderGroups =
+      <
+        String,
+        List<
+          ({
+            String id,
+            String path,
+            int dateMillis,
+            String assignmentRaw,
+            String folderName,
+          })
+        >
+      >{};
+  final folderNames = <String, String>{};
+  for (final item in scopedItems) {
+    for (final folderKey in assignedFolderKeysById[item.id]!) {
+      folderGroups.putIfAbsent(folderKey, () => []).add(item);
+      if (item.folderName.trim().isNotEmpty)
+        folderNames[folderKey] = item.folderName.trim();
+    }
+  }
+  for (final group in folderGroups.values) {
+    group.sort((a, b) => b.dateMillis.compareTo(a.dateMillis));
+  }
+
+  final unassigned = scopedItems
+      .where((item) => assignedFolderKeysById[item.id]!.isEmpty)
+      .toList();
+  final analysisItemsById =
+      <
+        String,
+        ({
+          String id,
+          String path,
+          int dateMillis,
+          String assignmentRaw,
+          String folderName,
+        })
+      >{
+        for (final item in unassigned) item.id: item,
+        for (final group in folderGroups.values)
+          for (final item in group.take(6)) item.id: item,
+      };
   final features = <String, VisualFeature>{};
-  for (final item in items) {
+  for (final item in analysisItemsById.values) {
     try {
       final file = File(item.path);
-      metadata[item.id] = (size: file.lengthSync());
       final decoded = img.decodeImage(file.readAsBytesSync());
       if (decoded != null) features[item.id] = _featureFromImage(decoded);
     } catch (_) {
       // Ignore unreadable thumbnails.
     }
   }
-
-  final windows = <List<({String id, String path, int dateMillis})>>[];
-  var current = <({String id, String path, int dateMillis})>[];
-  for (final item in items) {
-    if (current.isEmpty) {
-      current = [item];
-      continue;
-    }
-    final gapMillis = (current.first.dateMillis - item.dateMillis).abs();
-    if (gapMillis <= const Duration(minutes: 45).inMilliseconds &&
-        current.length < 80) {
-      current.add(item);
-    } else {
-      windows.add(current);
-      current = [item];
-    }
-  }
-  if (current.isNotEmpty) windows.add(current);
+  if (features.length < 2) return const [];
+  final readableUnassigned = unassigned
+      .where((item) => features.containsKey(item.id))
+      .toList();
 
   final results = <Map<String, Object?>>[];
-  final usedDuplicateIds = <String>{};
-  for (final window in windows) {
-    if (window.length < 2) continue;
-    final duplicateIds = <String>{};
-    final capped = window.take(80).toList();
-    for (var i = 0; i < capped.length; i++) {
-      final a = capped[i];
-      final af = metadata[a.id];
-      if (af == null) continue;
-      for (var j = i + 1; j < capped.length; j++) {
-        final b = capped[j];
-        final bf = metadata[b.id];
-        if (bf == null) continue;
-        final aFeature = features[a.id];
-        final bFeature = features[b.id];
-        if (aFeature == null || bFeature == null) continue;
-        final sizeGap = (af.size - bf.size).abs();
-        final timeGap = (a.dateMillis - b.dateMillis).abs();
-        final allowedGap = math.max(
-          2048,
-          (math.max(af.size, bf.size) * 0.025).round(),
+  final consumedUnassignedIds = <String>{};
+
+  // Existing confirmed folders win first. Display representative is newest item.
+  for (final entry in folderGroups.entries) {
+    final folderKey = entry.key;
+    final groupItems = entry.value
+        .where((item) => features.containsKey(item.id))
+        .toList();
+    if (groupItems.isEmpty) continue;
+    final samples = groupItems.take(6).toList();
+    final matched = <String>[];
+    for (final candidate in readableUnassigned) {
+      if (consumedUnassignedIds.contains(candidate.id)) continue;
+      final candidateFeature = features[candidate.id];
+      if (candidateFeature == null) continue;
+      var bestSimilarity = 0.0;
+      var bestDistance = 64;
+      for (final sample in samples) {
+        final sampleFeature = features[sample.id];
+        if (sampleFeature == null) continue;
+        final similarity = visualSimilarity(candidateFeature, sampleFeature);
+        final distance = visualHashDistance(
+          candidateFeature.dHash,
+          sampleFeature.dHash,
         );
-        final distance = visualHashDistance(aFeature.dHash, bFeature.dHash);
-        final similarity = visualSimilarity(aFeature, bFeature);
-        if (timeGap <= const Duration(minutes: 10).inMilliseconds &&
-            sizeGap <= allowedGap &&
-            (distance <= 6 || similarity >= 0.94)) {
-          duplicateIds.add(a.id);
-          duplicateIds.add(b.id);
-        }
+        if (similarity > bestSimilarity) bestSimilarity = similarity;
+        if (distance < bestDistance) bestDistance = distance;
       }
+      if (bestSimilarity >= 0.88 || bestDistance <= 10)
+        matched.add(candidate.id);
     }
-    duplicateIds.removeAll(usedDuplicateIds);
-    if (duplicateIds.length >= 2) {
-      usedDuplicateIds.addAll(duplicateIds);
-      final ids = items
-          .where((item) => duplicateIds.contains(item.id))
-          .map((item) => item.id)
-          .take(10)
-          .toList();
+    if (matched.isEmpty) continue;
+    consumedUnassignedIds.addAll(matched);
+    final representativeId = groupItems.first.id;
+    final folderName = folderNames[folderKey] ?? '기존 폴더';
+    final imageIds = [representativeId, ...matched.take(11)];
+    results.add({
+      'type': 'existingFolder',
+      'title': '$folderName에 추가 후보 ${matched.length}장',
+      'subtitle': '최신 대표 이미지와 비슷한 새 화면이에요',
+      'imageIds': imageIds,
+      'targetFolderKey': folderKey,
+      'targetFolderName': folderName,
+      'selectableImageIds': matched.take(11).toList(),
+    });
+    if (results.length >= 3) break;
+  }
+
+  final freeUnassigned = readableUnassigned
+      .where((item) => !consumedUnassignedIds.contains(item.id))
+      .take(180)
+      .toList();
+
+  // Near-duplicates across the whole same-stack scope. No time window.
+  final usedDuplicateIds = <String>{};
+  for (var i = 0; i < freeUnassigned.length; i++) {
+    final a = freeUnassigned[i];
+    if (usedDuplicateIds.contains(a.id)) continue;
+    final aFeature = features[a.id];
+    if (aFeature == null) continue;
+    final ids = <String>{a.id};
+    for (var j = i + 1; j < freeUnassigned.length; j++) {
+      final b = freeUnassigned[j];
+      if (usedDuplicateIds.contains(b.id)) continue;
+      final bFeature = features[b.id];
+      if (bFeature == null) continue;
+      final distance = visualHashDistance(aFeature.dHash, bFeature.dHash);
+      final similarity = visualSimilarity(aFeature, bFeature);
+      if (similarity >= 0.96 || distance <= 5) ids.add(b.id);
+    }
+    if (ids.length >= 2) {
+      final sortedIds = _sortIdsByNewest(ids, itemById).take(10).toList();
+      usedDuplicateIds.addAll(sortedIds);
+      consumedUnassignedIds.addAll(sortedIds);
       results.add({
         'type': 'duplicates',
-        'title': '거의 같은 화면 ${ids.length}장',
-        'subtitle': '대표 1장만 남기고 나머지를 선택해둘게요',
-        'imageIds': ids,
+        'title': '거의 같은 화면 ${sortedIds.length}장',
+        'subtitle': '최신 1장만 대표로 보고 나머지를 선택해둘게요',
+        'imageIds': sortedIds,
+        'selectableImageIds': sortedIds.skip(1).toList(),
       });
-      if (results.length >= 3) break;
+      if (results.length >= 4) return results.take(4).toList();
     }
   }
 
-  for (final window in windows) {
-    if (window.length < 4) continue;
-    final flow = <String>[];
-    for (final item in window.take(24)) {
-      if (!metadata.containsKey(item.id)) continue;
-      if (flow.isEmpty) {
-        flow.add(item.id);
-        continue;
-      }
-      final previous = itemById[flow.last];
-      final previousMeta = metadata[flow.last];
-      final currentMeta = metadata[item.id];
-      final previousFeature = features[flow.last];
-      final currentFeature = features[item.id];
-      if (previous == null ||
-          previousMeta == null ||
-          currentMeta == null ||
-          previousFeature == null ||
-          currentFeature == null) {
-        continue;
-      }
-      final gapMillis = (previous.dateMillis - item.dateMillis).abs();
-      final sizeRatio =
-          math.min(previousMeta.size, currentMeta.size) /
-          math.max(previousMeta.size, currentMeta.size);
-      final similarity = visualSimilarity(previousFeature, currentFeature);
-      final hashDistance = visualHashDistance(
-        previousFeature.dHash,
-        currentFeature.dHash,
-      );
-      if (gapMillis <= const Duration(minutes: 7).inMilliseconds &&
-          sizeRatio >= 0.35 &&
-          (similarity >= 0.74 || hashDistance <= 18)) {
-        flow.add(item.id);
-      }
+  // Similar new groups across the whole same-stack scope. No time window.
+  final remaining = freeUnassigned
+      .where((item) => !consumedUnassignedIds.contains(item.id))
+      .toList();
+  final parent = <String, String>{
+    for (final item in remaining) item.id: item.id,
+  };
+  String find(String id) {
+    var root = parent[id] ?? id;
+    while (parent[root] != root) {
+      root = parent[root]!;
     }
-    if (flow.length >= 4) {
-      final ids = flow.take(12).toList();
-      results.add({
-        'type': 'flow',
-        'title': '비슷한 흐름 ${ids.length}장',
-        'subtitle': '한 폴더로 묶기 좋은 연속 화면이에요',
-        'imageIds': ids,
-      });
-      break;
+    var current = id;
+    while (parent[current] != current) {
+      final next = parent[current]!;
+      parent[current] = root;
+      current = next;
     }
+    return root;
+  }
+
+  void union(String a, String b) {
+    final ar = find(a);
+    final br = find(b);
+    if (ar != br) parent[br] = ar;
+  }
+
+  for (var i = 0; i < remaining.length; i++) {
+    final a = remaining[i];
+    final aFeature = features[a.id];
+    if (aFeature == null) continue;
+    for (var j = i + 1; j < remaining.length; j++) {
+      final b = remaining[j];
+      final bFeature = features[b.id];
+      if (bFeature == null) continue;
+      final similarity = visualSimilarity(aFeature, bFeature);
+      final distance = visualHashDistance(aFeature.dHash, bFeature.dHash);
+      if (similarity >= 0.90 || distance <= 10) union(a.id, b.id);
+    }
+  }
+
+  final groups = <String, List<String>>{};
+  for (final item in remaining) {
+    groups.putIfAbsent(find(item.id), () => []).add(item.id);
+  }
+  final sortedGroups =
+      groups.values
+          .where((ids) => ids.length >= 2)
+          .map((ids) => _sortIdsByNewest(ids, itemById).take(12).toList())
+          .toList()
+        ..sort((a, b) {
+          final at = itemById[a.first]?.dateMillis ?? 0;
+          final bt = itemById[b.first]?.dateMillis ?? 0;
+          return bt.compareTo(at);
+        });
+  for (final ids in sortedGroups.take(4 - results.length)) {
+    results.add({
+      'type': 'flow',
+      'title': '비슷한 화면 ${ids.length}장',
+      'subtitle': '같은 앱 안에서 한 폴더로 묶기 좋은 화면이에요',
+      'imageIds': ids,
+      'selectableImageIds': ids,
+    });
   }
 
   return results.take(4).toList();
+}
+
+List<String> _folderAssignmentKeys(String raw) => raw
+    .split('\u001F')
+    .map((key) => key.trim())
+    .where((key) => key.contains('::folder::'))
+    .toList();
+
+List<String> _sortIdsByNewest(
+  Iterable<String> ids,
+  Map<
+    String,
+    ({
+      String id,
+      String path,
+      int dateMillis,
+      String assignmentRaw,
+      String folderName,
+    })
+  >
+  itemById,
+) {
+  final sorted = ids.toList()
+    ..sort(
+      (a, b) => (itemById[b]?.dateMillis ?? 0).compareTo(
+        itemById[a]?.dateMillis ?? 0,
+      ),
+    );
+  return sorted;
 }
 
 Map<String, VisualFeature> _extractVisualFeaturesSync(

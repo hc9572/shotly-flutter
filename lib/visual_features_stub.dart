@@ -16,12 +16,18 @@ class VisualSmartCleanResult {
     required this.title,
     required this.subtitle,
     required this.imageIds,
+    this.targetFolderKey,
+    this.targetFolderName,
+    this.selectableImageIds = const [],
   });
 
   final String type;
   final String title;
   final String subtitle;
   final List<String> imageIds;
+  final String? targetFolderKey;
+  final String? targetFolderName;
+  final List<String> selectableImageIds;
 }
 
 class VisualSmartCleanInput {
@@ -29,11 +35,15 @@ class VisualSmartCleanInput {
     required this.id,
     required this.path,
     required this.dateMillis,
+    this.assignmentRaw = '',
+    this.folderName = '',
   });
 
   final String id;
   final String path;
   final int dateMillis;
+  final String assignmentRaw;
+  final String folderName;
 }
 
 Future<Map<String, VisualFeature>> extractVisualFeatures(

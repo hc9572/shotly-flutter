@@ -295,10 +295,9 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
 
   Future<void> _runSmartClean(List<ScreenshotItem> visibleItems) async {
     if (_smartCleanRunning) return;
-    final allTargetItems =
+    final targetItems =
         visibleItems.where((item) => item.thumbnailPath.isNotEmpty).toList()
           ..sort((a, b) => b.date.compareTo(a.date));
-    final targetItems = allTargetItems.take(80).toList();
     if (targetItems.length < 2) {
       setState(() {
         _smartCleanCandidates = const [];
@@ -310,9 +309,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     setState(() {
       _smartCleanRunning = true;
       _smartCleanProgress = null;
-      _smartCleanMessage = allTargetItems.length > targetItems.length
-          ? '최근 ${targetItems.length}장을 가볍게 훑는 중'
-          : '${targetItems.length}장을 가볍게 훑는 중';
+      _smartCleanMessage = '${targetItems.length}장을 백그라운드로 훑는 중';
       _smartCleanCandidates = const [];
     });
 
@@ -325,8 +322,10 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
             id: item.id,
             path: item.thumbnailPath,
             dateMillis: item.date.millisecondsSinceEpoch,
+            assignmentRaw: _detailSetAssignments[item.id] ?? '',
+            folderName: _folderNameForAssignedItem(item.id),
           ),
-      ]).timeout(const Duration(seconds: 18));
+      ]).timeout(const Duration(seconds: 6));
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -341,15 +340,20 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     final candidates = [
       for (final candidate in rawCandidates)
         _SmartCleanCandidate(
-          type: candidate.type == 'duplicates'
-              ? _SmartCleanCandidateType.duplicates
-              : _SmartCleanCandidateType.flow,
+          type: switch (candidate.type) {
+            'duplicates' => _SmartCleanCandidateType.duplicates,
+            'existingFolder' => _SmartCleanCandidateType.existingFolder,
+            _ => _SmartCleanCandidateType.flow,
+          },
           title: candidate.title,
           subtitle: candidate.subtitle,
           items: [
             for (final id in candidate.imageIds)
               if (itemById[id] != null) itemById[id]!,
           ],
+          targetFolderKey: candidate.targetFolderKey,
+          targetFolderName: candidate.targetFolderName,
+          selectableImageIds: candidate.selectableImageIds.toSet(),
         ),
     ].where((candidate) => candidate.items.length >= 2).toList();
     if (!mounted) return;
@@ -372,7 +376,12 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
             builder: (_) => _SmartCleanReviewScreen(candidate: candidate),
           ),
         );
-    if (!mounted || reviewedItems == null || reviewedItems.length < 2) return;
+    if (!mounted || reviewedItems == null || reviewedItems.isEmpty) return;
+
+    if (candidate.type == _SmartCleanCandidateType.flow &&
+        reviewedItems.length < 2) {
+      return;
+    }
 
     if (candidate.type == _SmartCleanCandidateType.duplicates) {
       final ids = reviewedItems.map((item) => item.id).toList();
@@ -394,6 +403,20 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       return;
     }
 
+    if (candidate.type == _SmartCleanCandidateType.existingFolder &&
+        candidate.targetFolderKey != null) {
+      final ids = reviewedItems.map((item) => item.id).toList();
+      await _addIdsToExistingFolder(candidate.targetFolderKey!, ids);
+      if (mounted) {
+        setState(() {
+          _smartCleanCandidates = const [];
+          _smartCleanMessage =
+              '${ids.length}장을 ${candidate.targetFolderName ?? '기존 폴더'}에 추가했어요';
+        });
+      }
+      return;
+    }
+
     final name = await _showShotlyTextDialog(
       context: context,
       title: '폴더 만들기',
@@ -406,6 +429,37 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       trimmed,
       reviewedItems.map((item) => item.id).toList(),
     );
+    if (mounted) {
+      setState(() {
+        _smartCleanCandidates = const [];
+        _smartCleanMessage = '${reviewedItems.length}장을 새 폴더로 묶었어요';
+      });
+    }
+  }
+
+  String _folderNameForAssignedItem(String imageId) {
+    for (final key in _assignmentKeys(_detailSetAssignments[imageId])) {
+      if (_isFolderSetKey(key)) return _detailFolderNames[key] ?? '기존 폴더';
+    }
+    return '';
+  }
+
+  Future<void> _addIdsToExistingFolder(
+    String folderKey,
+    List<String> ids,
+  ) async {
+    if (ids.isEmpty) return;
+    final nextAssignments = <String, String>{};
+    for (final id in ids) {
+      nextAssignments[id] = _addAssignmentKey(
+        _detailSetAssignments[id],
+        folderKey,
+      );
+    }
+    if (mounted) setState(() => _detailSetAssignments.addAll(nextAssignments));
+    for (final id in ids) {
+      await widget.onAssignImageToSet(id, folderKey);
+    }
   }
 
   Future<void> _hideSelected() async {

@@ -1,6 +1,6 @@
 part of 'main.dart';
 
-enum _SmartCleanCandidateType { duplicates, flow }
+enum _SmartCleanCandidateType { duplicates, flow, existingFolder }
 
 class _SmartCleanCandidate {
   const _SmartCleanCandidate({
@@ -8,12 +8,18 @@ class _SmartCleanCandidate {
     required this.title,
     required this.subtitle,
     required this.items,
+    this.targetFolderKey,
+    this.targetFolderName,
+    this.selectableImageIds = const {},
   });
 
   final _SmartCleanCandidateType type;
   final String title;
   final String subtitle;
   final List<ScreenshotItem> items;
+  final String? targetFolderKey;
+  final String? targetFolderName;
+  final Set<String> selectableImageIds;
 }
 
 class _SmartCleanPanel extends StatelessWidget {
@@ -132,9 +138,11 @@ class _SmartCleanCandidateTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final icon = candidate.type == _SmartCleanCandidateType.duplicates
-        ? Icons.content_copy_rounded
-        : Icons.folder_rounded;
+    final icon = switch (candidate.type) {
+      _SmartCleanCandidateType.duplicates => Icons.content_copy_rounded,
+      _SmartCleanCandidateType.existingFolder => Icons.drive_file_move_rounded,
+      _SmartCleanCandidateType.flow => Icons.folder_rounded,
+    };
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -217,6 +225,10 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.candidate.selectableImageIds.isNotEmpty) {
+      _selectedIds = {...widget.candidate.selectableImageIds};
+      return;
+    }
     final isDuplicates =
         widget.candidate.type == _SmartCleanCandidateType.duplicates;
     _selectedIds =
@@ -234,7 +246,9 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
   Widget build(BuildContext context) {
     final isDuplicates =
         widget.candidate.type == _SmartCleanCandidateType.duplicates;
-    final canConfirm = isDuplicates
+    final isExistingFolder =
+        widget.candidate.type == _SmartCleanCandidateType.existingFolder;
+    final canConfirm = isDuplicates || isExistingFolder
         ? _selectedIds.isNotEmpty
         : _selectedIds.length >= 2;
     return Scaffold(
@@ -258,7 +272,11 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isDuplicates ? '삭제할 화면 확인' : '묶을 사진 확인',
+                          isDuplicates
+                              ? '삭제할 화면 확인'
+                              : isExistingFolder
+                              ? '추가할 사진 확인'
+                              : '묶을 사진 확인',
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 color: const Color(0xFF1A1C1C),
@@ -269,6 +287,8 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
                         Text(
                           isDuplicates
                               ? '${_selectedIds.length}장 삭제 예정 · 남길 사진은 체크 해제'
+                              : isExistingFolder
+                              ? '${_selectedIds.length}장 추가 예정 · 대표 사진은 최신 이미지예요'
                               : '${_selectedIds.length}/${widget.candidate.items.length}장 선택됨 · 뺄 사진은 체크 해제',
                           style: Theme.of(context).textTheme.labelMedium
                               ?.copyWith(color: const Color(0xFF727785)),
@@ -292,15 +312,21 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
                 itemBuilder: (context, index) {
                   final item = widget.candidate.items[index];
                   final selected = _selectedIds.contains(item.id);
+                  final canSelect =
+                      widget.candidate.selectableImageIds.isEmpty ||
+                      widget.candidate.selectableImageIds.contains(item.id);
                   return _SmartCleanReviewTile(
                     item: item,
                     index: index,
                     selected: selected,
-                    onToggle: () => setState(() {
-                      if (!_selectedIds.add(item.id)) {
-                        _selectedIds.remove(item.id);
-                      }
-                    }),
+                    selectable: canSelect,
+                    onToggle: canSelect
+                        ? () => setState(() {
+                            if (!_selectedIds.add(item.id)) {
+                              _selectedIds.remove(item.id);
+                            }
+                          })
+                        : () {},
                     onOpen: () => Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => ImageViewerScreen(
@@ -336,6 +362,8 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
             child: Text(
               isDuplicates
                   ? '선택한 ${_selectedIds.length}장 삭제'
+                  : isExistingFolder
+                  ? '선택한 ${_selectedIds.length}장 추가'
                   : '선택한 ${_selectedIds.length}장 묶기',
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
@@ -351,6 +379,7 @@ class _SmartCleanReviewTile extends StatelessWidget {
     required this.item,
     required this.index,
     required this.selected,
+    required this.selectable,
     required this.onToggle,
     required this.onOpen,
   });
@@ -358,6 +387,7 @@ class _SmartCleanReviewTile extends StatelessWidget {
   final ScreenshotItem item;
   final int index;
   final bool selected;
+  final bool selectable;
   final VoidCallback onToggle;
   final VoidCallback onOpen;
 
@@ -368,7 +398,7 @@ class _SmartCleanReviewTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: onToggle,
+        onTap: selectable ? onToggle : onOpen,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -409,14 +439,16 @@ class _SmartCleanReviewTile extends StatelessWidget {
               top: 6,
               right: 6,
               child: GestureDetector(
-                onTap: onToggle,
+                onTap: selectable ? onToggle : null,
                 child: Container(
                   width: 20,
                   height: 20,
                   decoration: BoxDecoration(
                     color: selected
                         ? const Color(0xFF2170E4)
-                        : Colors.white.withValues(alpha: 0.86),
+                        : selectable
+                        ? Colors.white.withValues(alpha: 0.86)
+                        : Colors.black.withValues(alpha: 0.30),
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
                       color: selected
@@ -426,8 +458,14 @@ class _SmartCleanReviewTile extends StatelessWidget {
                     ),
                   ),
                   child: Icon(
-                    selected ? Icons.check_rounded : Icons.add_rounded,
-                    color: selected ? Colors.white : const Color(0xFF727785),
+                    selected
+                        ? Icons.check_rounded
+                        : selectable
+                        ? Icons.add_rounded
+                        : Icons.lock_rounded,
+                    color: selected || !selectable
+                        ? Colors.white
+                        : const Color(0xFF727785),
                     size: 14,
                   ),
                 ),
