@@ -183,7 +183,7 @@ class _SearchPageState extends State<_SearchPage> {
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                       children: [
                         _SearchResultSection(
-                          title: 'Stack',
+                          title: '앱별 화면',
                           results: stackResults,
                           expanded: _showAllStacks,
                           onToggleExpanded: () =>
@@ -191,7 +191,7 @@ class _SearchPageState extends State<_SearchPage> {
                           onOpen: _openResult,
                         ),
                         _SearchResultSection(
-                          title: 'Set / 그룹',
+                          title: '폴더 / 시간 묶음',
                           results: setResults,
                           expanded: _showAllSets,
                           onToggleExpanded: () =>
@@ -291,6 +291,18 @@ class _SearchPageState extends State<_SearchPage> {
                 onMoveImage: widget.onMoveImage,
                 onSaveSetMemo: widget.onSaveSetMemo,
                 onAssignImageToSet: widget.onAssignImageToSet,
+                onRenameFolder: (name) =>
+                    widget.onSaveFolderName(result.set!.key, name),
+                onChangeFolderColor: (colorKey) =>
+                    widget.onSaveFolderColor(result.set!.key, colorKey),
+                folderColorKey: widget.folderColors[result.set!.key],
+                onCreateFolderFromSelected: (name, ids) async {
+                  final folderKey = _buildFolderKey(result.stack.key);
+                  await widget.onSaveFolderName(folderKey, name);
+                  for (final id in ids) {
+                    await widget.onAssignImageToSet(id, folderKey);
+                  }
+                },
               );
             case _SearchResultKind.image:
               final images = result.stack.items;
@@ -534,7 +546,7 @@ class _SearchResultCard extends StatelessWidget {
   }
 }
 
-class _SearchSetResultScreen extends StatelessWidget {
+class _SearchSetResultScreen extends StatefulWidget {
   const _SearchSetResultScreen({
     required this.stack,
     required this.set,
@@ -546,6 +558,11 @@ class _SearchSetResultScreen extends StatelessWidget {
     required this.onSaveSetMemo,
     required this.onAssignImageToSet,
     this.onDeleteFolder,
+    this.onRenameFolder,
+    this.onChangeFolderColor,
+    this.folderColorKey,
+    this.onCreateFolderFromSelected,
+    this.folderMoveDestinations = const [],
   });
 
   final StackItem stack;
@@ -558,10 +575,44 @@ class _SearchSetResultScreen extends StatelessWidget {
   final Future<void> Function(String setKey, String memo) onSaveSetMemo;
   final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
   final Future<void> Function()? onDeleteFolder;
+  final Future<void> Function(String name)? onRenameFolder;
+  final Future<void> Function(String colorKey)? onChangeFolderColor;
+  final String? folderColorKey;
+  final Future<void> Function(String name, List<String> imageIds)?
+  onCreateFolderFromSelected;
+  final List<ScreenshotSet> folderMoveDestinations;
+
+  @override
+  State<_SearchSetResultScreen> createState() => _SearchSetResultScreenState();
+}
+
+class _SearchSetResultScreenState extends State<_SearchSetResultScreen> {
+  String? _folderNameOverride;
+  String? _folderColorKeyOverride;
+  final Set<String> _selectedIds = <String>{};
+  final Set<String> _removedImageIds = <String>{};
+  bool _isSelectionMode = false;
+
+  ScreenshotSet get _visibleSet => ScreenshotSet(
+    key: widget.set.key,
+    title: widget.set.title,
+    timeRange: widget.set.timeRange,
+    memo: widget.set.memo,
+    folderName: widget.set.folderName,
+    items: widget.set.items
+        .where((item) => !_removedImageIds.contains(item.id))
+        .toList(),
+  );
+
+  String get _currentFolderName =>
+      _folderNameOverride ?? _folderName(widget.set);
+
+  String? get _currentFolderColorKey =>
+      _folderColorKeyOverride ?? widget.folderColorKey;
 
   @override
   Widget build(BuildContext context) {
-    final isFolder = _isFolderSetKey(set.key);
+    final isFolder = _isFolderSetKey(widget.set.key);
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       body: SafeArea(
@@ -579,10 +630,10 @@ class _SearchSetResultScreen extends StatelessWidget {
                     Expanded(
                       child: Text(
                         isFolder
-                            ? _folderName(set)
-                            : (set.memo.trim().isEmpty
-                                  ? stack.name
-                                  : set.memo.trim()),
+                            ? _currentFolderName
+                            : (widget.set.memo.trim().isEmpty
+                                  ? widget.stack.name
+                                  : widget.set.memo.trim()),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.headlineSmall
@@ -592,12 +643,12 @@ class _SearchSetResultScreen extends StatelessWidget {
                             ),
                       ),
                     ),
-                    if (isFolder && onDeleteFolder != null)
+                    if (isFolder &&
+                        (widget.onRenameFolder != null ||
+                            widget.onChangeFolderColor != null ||
+                            widget.onDeleteFolder != null))
                       IconButton(
-                        onPressed: () async {
-                          await onDeleteFolder!();
-                          if (context.mounted) Navigator.of(context).pop();
-                        },
+                        onPressed: () => _showGroupDetailActions(context),
                         icon: const Icon(
                           Icons.more_vert_rounded,
                           color: Color(0xFF424754),
@@ -611,20 +662,28 @@ class _SearchSetResultScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
               sliver: SliverToBoxAdapter(
                 child: _SetSection(
-                  set: set,
-                  allStackKeys: allStackKeys,
-                  stackNames: stackNames,
-                  onExcludeImage: onExcludeImage,
-                  onDeleteOriginalImage: onDeleteOriginalImage,
-                  onMoveImage: onMoveImage,
-                  selectedIds: const {},
-                  selectionMode: false,
-                  onToggleSelection: (_) {},
+                  set: _visibleSet,
+                  allStackKeys: widget.allStackKeys,
+                  stackNames: widget.stackNames,
+                  onExcludeImage: widget.onExcludeImage,
+                  onDeleteOriginalImage: widget.onDeleteOriginalImage,
+                  onMoveImage: widget.onMoveImage,
+                  selectedIds: _selectedIds,
+                  selectionMode: _isSelectionMode,
+                  onToggleSelection: _toggleSelection,
                   showLocalActionBar: true,
-                  onSaveMemo: isFolder ? (_, _) async {} : onSaveSetMemo,
-                  onAssignImageToSet: onAssignImageToSet,
+                  onSaveMemo: isFolder ? (_, _) async {} : widget.onSaveSetMemo,
+                  onAssignImageToSet: widget.onAssignImageToSet,
                   suppressHeader: isFolder,
                   showTitle: false,
+                  onAddSelectedToFolder:
+                      widget.onCreateFolderFromSelected == null
+                      ? null
+                      : _createGroupFromSelected,
+                  folderMoveDestinations: widget.folderMoveDestinations,
+                  currentFolderKey: isFolder ? widget.set.key : null,
+                  onMoveImagesToFolder: _moveImagesToFolder,
+                  onClearSelection: _clearSelection,
                 ),
               ),
             ),
@@ -632,6 +691,178 @@ class _SearchSetResultScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedIds.clear();
+      _isSelectionMode = false;
+    });
+  }
+
+  void _toggleSelection(String imageId) {
+    setState(() {
+      _isSelectionMode = true;
+      if (!_selectedIds.add(imageId)) _selectedIds.remove(imageId);
+      if (_selectedIds.isEmpty) _isSelectionMode = false;
+    });
+  }
+
+  Future<void> _showGroupDetailActions(BuildContext context) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(height: 18),
+              if (widget.onRenameFolder != null)
+                ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: const Text('폴더 이름 변경'),
+                  onTap: () => Navigator.pop(context, 'rename'),
+                ),
+              if (widget.onChangeFolderColor != null)
+                ListTile(
+                  leading: const Icon(Icons.palette_outlined),
+                  title: const Text('폴더 색상 변경'),
+                  onTap: () => Navigator.pop(context, 'color'),
+                ),
+              if (widget.onDeleteFolder != null)
+                ListTile(
+                  leading: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: Color(0xFFE05656),
+                  ),
+                  title: const Text(
+                    '폴더 삭제',
+                    style: TextStyle(color: Color(0xFFE05656)),
+                  ),
+                  onTap: () => Navigator.pop(context, 'delete'),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!context.mounted || action == null) return;
+    if (action == 'rename' && widget.onRenameFolder != null) {
+      final name = await _showShotlyTextDialog(
+        context: context,
+        title: '폴더 이름 변경',
+        initialValue: _currentFolderName,
+        hintText: '폴더 이름',
+        primaryLabel: '저장',
+      );
+      final trimmed = name?.trim();
+      if (trimmed == null || trimmed.isEmpty) return;
+      await widget.onRenameFolder!(trimmed);
+      if (mounted) setState(() => _folderNameOverride = trimmed);
+      return;
+    }
+    if (action == 'color' && widget.onChangeFolderColor != null) {
+      final picked = await showModalBottomSheet<String>(
+        context: context,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (context) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: _folderColorOptions
+                  .map(
+                    (option) => _FolderColorDot(
+                      option: option,
+                      selected: option.key == _currentFolderColorKey,
+                      onTap: () => Navigator.pop(context, option.key),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+        ),
+      );
+      if (picked != null) {
+        await widget.onChangeFolderColor!(picked);
+        if (mounted) setState(() => _folderColorKeyOverride = picked);
+      }
+      return;
+    }
+    if (action == 'delete' && widget.onDeleteFolder != null) {
+      await widget.onDeleteFolder!();
+      if (context.mounted) Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _moveImagesToFolder(
+    String folderKey,
+    List<String> imageIds,
+  ) async {
+    if (imageIds.isEmpty) return;
+    for (final id in imageIds) {
+      await widget.onAssignImageToSet(id, folderKey);
+      if (_isFolderSetKey(widget.set.key)) {
+        await widget.onAssignImageToSet(
+          id,
+          '$_removeAssignmentPrefix${widget.set.key}',
+        );
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _removedImageIds.addAll(imageIds);
+        _selectedIds.clear();
+        _isSelectionMode = false;
+      });
+    }
+  }
+
+  Future<void> _createGroupFromSelected(List<String> imageIds) async {
+    if (widget.onCreateFolderFromSelected == null || imageIds.isEmpty) return;
+    final name = await _showShotlyTextDialog(
+      context: context,
+      title: '폴더 만들기',
+      hintText: '폴더 이름',
+      primaryLabel: '만들기',
+    );
+    final trimmed = name?.trim();
+    if (trimmed == null || trimmed.isEmpty) return;
+    await widget.onCreateFolderFromSelected!(trimmed, imageIds);
+    if (_isFolderSetKey(widget.set.key)) {
+      for (final id in imageIds) {
+        await widget.onAssignImageToSet(
+          id,
+          '$_removeAssignmentPrefix${widget.set.key}',
+        );
+      }
+    }
+    if (mounted) {
+      setState(() {
+        if (_isFolderSetKey(widget.set.key)) {
+          _removedImageIds.addAll(imageIds);
+        }
+        _selectedIds.clear();
+        _isSelectionMode = false;
+      });
+    }
   }
 }
 

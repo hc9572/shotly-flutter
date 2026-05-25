@@ -42,6 +42,7 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName).setMethodCallHandler { call, result ->
             when (call.method) {
                 "requestPhotoPermission" -> requestPhotoPermission(result)
+                "hasPhotoPermission" -> result.success(hasPhotoPermission())
                 "openPhotoSettings" -> openPhotoSettings(result)
                 "getScreenshots" -> runOnIo(result) { loadScreenshots() }
                 "pickImage" -> pickImage(result)
@@ -75,12 +76,7 @@ class MainActivity : FlutterActivity() {
             return
         }
         pendingPermissionResult = result
-        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Manifest.permission.READ_MEDIA_IMAGES
-        } else {
-            Manifest.permission.READ_EXTERNAL_STORAGE
-        }
-        ActivityCompat.requestPermissions(this, arrayOf(permission), permissionRequestCode)
+        ActivityCompat.requestPermissions(this, photoPermissions(), permissionRequestCode)
     }
 
     private fun openPhotoSettings(result: MethodChannel.Result) {
@@ -97,18 +93,26 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun hasPhotoPermission(): Boolean {
-        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Manifest.permission.READ_MEDIA_IMAGES
-        } else {
-            Manifest.permission.READ_EXTERNAL_STORAGE
+        return photoPermissions().any { permission ->
+            ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
         }
-        return ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun photoPermissions(): Array<String> {
+        return when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> arrayOf(
+                Manifest.permission.READ_MEDIA_IMAGES,
+                Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
+            )
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
+            else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == permissionRequestCode) {
-            val granted = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
+            val granted = grantResults.any { it == PackageManager.PERMISSION_GRANTED }
             pendingPermissionResult?.success(granted)
             pendingPermissionResult = null
         }

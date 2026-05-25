@@ -64,7 +64,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 _RecoverySummaryTile(
                   icon: Icons.layers_clear_outlined,
-                  title: '숨긴 Stack',
+                  title: '숨긴 앱',
                   count: _hiddenStacks.length,
                   onTap: () => _showHiddenStacks(context),
                 ),
@@ -203,10 +203,10 @@ class _HiddenStacksPageState extends State<HiddenStacksPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           children: [
-            _SettingsPageHeader(title: '숨긴 Stack'),
+            _SettingsPageHeader(title: '숨긴 앱'),
             const SizedBox(height: 20),
             if (_stacks.isEmpty)
-              const _EmptyRecoveryMessage(message: '숨긴 Stack이 없어요')
+              const _EmptyRecoveryMessage(message: '숨긴 앱이 없어요')
             else
               ..._stacks.map(
                 (stack) => ListTile(
@@ -225,7 +225,7 @@ class _HiddenStacksPageState extends State<HiddenStacksPage> {
                     ),
                   ),
                   subtitle: Text(
-                    '${stack.items.length} images',
+                    '${stack.items.length}장 숨김',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: const Color(0xFF727785),
                     ),
@@ -286,7 +286,7 @@ class _HiddenImagesPageState extends State<HiddenImagesPage> {
                   : TextButton.icon(
                       onPressed: _deleteAll,
                       icon: const Icon(
-                        Icons.delete_rounded,
+                        Icons.delete_outline_rounded,
                         size: 18,
                         color: Color(0xFFB42318),
                       ),
@@ -338,7 +338,7 @@ class _HiddenImagesPageState extends State<HiddenImagesPage> {
                       IconButton(
                         onPressed: () => _deleteOne(item.id),
                         icon: const Icon(
-                          Icons.delete_rounded,
+                          Icons.delete_outline_rounded,
                           color: Color(0xFFB42318),
                         ),
                       ),
@@ -362,9 +362,9 @@ class _HiddenImagesPageState extends State<HiddenImagesPage> {
   Future<void> _deleteOne(String imageId) async {
     final confirmed = await _showShotlyConfirmDialog(
       context: context,
-      title: '원본 파일 삭제',
-      body: '이 이미지를 기기 앨범 원본에서도 삭제할까요? 이 작업은 되돌릴 수 없어요.',
-      primaryLabel: '삭제',
+      title: '기기 앨범에서도 삭제',
+      body: '숨김 목록에서만 지우는 게 아니라, 이 이미지 원본을 기기 앨범에서도 삭제해요. 이 작업은 되돌릴 수 없어요.',
+      primaryLabel: '원본 삭제',
       destructive: true,
     );
     if (confirmed == true &&
@@ -377,9 +377,10 @@ class _HiddenImagesPageState extends State<HiddenImagesPage> {
   Future<void> _deleteAll() async {
     final confirmed = await _showShotlyConfirmDialog(
       context: context,
-      title: '숨긴 이미지 전체 삭제',
-      body: '숨긴 이미지 ${_images.length}장을 기기 앨범 원본에서도 모두 삭제할까요? 이 작업은 되돌릴 수 없어요.',
-      primaryLabel: '전체 삭제',
+      title: '숨긴 이미지 원본 전체 삭제',
+      body:
+          '숨긴 이미지 ${_images.length}장의 원본을 기기 앨범에서도 모두 삭제해요. Android 시스템 확인창이 한 번 더 뜰 수 있고, 삭제 후에는 되돌릴 수 없어요.',
+      primaryLabel: '원본 전체 삭제',
       destructive: true,
     );
     if (confirmed != true) return;
@@ -461,7 +462,7 @@ class _PermissionStatusTile extends StatelessWidget {
           ? Icons.check_circle_outline_rounded
           : Icons.error_outline_rounded,
       title: '사진 접근 권한',
-      subtitle: hasPermission ? '허용됨' : '허용 안 됨',
+      subtitle: hasPermission ? '허용됨' : '설정에서 다시 허용할 수 있어요',
       trailing: const Icon(
         Icons.chevron_right_rounded,
         color: Color(0xFF727785),
@@ -569,7 +570,8 @@ class _PermissionState extends StatelessWidget {
   Widget build(BuildContext context) {
     return _CenteredMessage(
       title: '사진 접근 권한이 필요해요',
-      body: '사진 원본은 클라우드에 업로드하지 않고, 이 기기 안에서만 읽어요.',
+      body:
+          '스크린샷을 앱별로 정리하려면 사진 접근 권한이 필요해요. 원본은 클라우드에 업로드하지 않고, 이 기기 안에서만 읽어요.',
       buttonText: '권한 허용하기',
       onPressed: onRequest,
     );

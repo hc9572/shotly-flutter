@@ -61,7 +61,7 @@ List<ScreenshotSet> _buildScreenshotSets(
     final manualKeys = _assignmentKeys(setAssignments[item.id]);
     final groupKeys = manualKeys.where(_isFolderSetKey).toList();
     final setKeys = manualKeys.where((key) => !_isFolderSetKey(key)).toList();
-    if (manualKeys.isEmpty || groupKeys.isNotEmpty) {
+    if (groupKeys.isEmpty) {
       autoItems.add(item);
     }
     for (final key in [...setKeys, ...groupKeys]) {
@@ -121,7 +121,7 @@ List<ScreenshotSet> _buildScreenshotSets(
               ? folderNames[key]!.trim()
               : (migratedFolderName?.isNotEmpty == true
                     ? migratedFolderName
-                    : '새 그룹'))
+                    : '새 폴더'))
         : null;
     return ScreenshotSet(
       key: key,
@@ -157,7 +157,7 @@ bool _folderBelongsToStack(String folderKey, String stackKey) =>
 String _folderName(ScreenshotSet folder) =>
     folder.folderName?.trim().isNotEmpty == true
     ? folder.folderName!.trim()
-    : '새 그룹';
+    : '새 폴더';
 
 bool _isSameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;

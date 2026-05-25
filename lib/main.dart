@@ -13,14 +13,81 @@ import 'visual_features.dart';
 part 'models_native.dart';
 part 'home_widgets_calendar.dart';
 part 'search.dart';
+part 'stack_card.dart';
 part 'stack_detail.dart';
+part 'stack_smart_clean.dart';
+part 'stack_folders.dart';
+part 'stack_sections.dart';
+part 'stack_selection_widgets.dart';
 part 'image_viewer.dart';
 part 'dialogs.dart';
 part 'shotly_helpers.dart';
 part 'settings.dart';
 
 void main() {
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('Shotly runtime error: $error');
+    debugPrintStack(stackTrace: stack);
+    return true;
+  };
+  ErrorWidget.builder = (details) {
+    FlutterError.presentError(details);
+    return const _ShotlyRuntimeErrorView();
+  };
   runApp(const ShotlyApp());
+}
+
+class _ShotlyRuntimeErrorView extends StatelessWidget {
+  const _ShotlyRuntimeErrorView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFF8F9FA),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Icon(
+                  Icons.error_outline_rounded,
+                  color: Color(0xFF727785),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                '화면을 불러오지 못했어요',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: const Color(0xFF1A1C1C),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '뒤로 갔다가 다시 열어봐요. 오류 내용은 개발 로그에 남겨둘게요.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF727785),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class ShotlyApp extends StatelessWidget {
@@ -123,7 +190,8 @@ class ShotlyHomeScreen extends StatefulWidget {
   State<ShotlyHomeScreen> createState() => _ShotlyHomeScreenState();
 }
 
-class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
+class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
+    with WidgetsBindingObserver {
   final _searchController = TextEditingController();
   final _localStore = ShotlyLocalStore();
   List<ScreenshotItem> _screenshots = const [];
@@ -149,14 +217,29 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     unawaited(_restoreLocalState());
-    unawaited(_load());
+    unawaited(_load(requestPermission: false));
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshPermissionAfterResume());
+    }
+  }
+
+  Future<void> _refreshPermissionAfterResume() async {
+    final hasPermission = await ShotlyNative.hasPhotoPermission();
+    if (!mounted || hasPermission == _hasPermission) return;
+    await _load(requestPermission: false);
   }
 
   Future<void> _restoreLocalState() async {
@@ -197,13 +280,15 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
     });
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool requestPermission = true}) async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
     try {
-      _hasPermission = await ShotlyNative.requestPhotoPermission();
+      _hasPermission = requestPermission
+          ? await ShotlyNative.requestPhotoPermission()
+          : await ShotlyNative.hasPhotoPermission();
       if (_hasPermission) {
         final screenshots = await ShotlyNative.getScreenshots();
         screenshots.sort(
@@ -211,6 +296,8 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
         );
         _screenshots = screenshots;
         _visualFeatures.clear();
+      } else {
+        _screenshots = const [];
       }
     } on PlatformException catch (e) {
       _error = e.message ?? e.code;
@@ -390,8 +477,8 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
   Future<void> _showCreateStackDialog() async {
     final name = await _showShotlyTextDialog(
       context: context,
-      title: 'Stack 추가',
-      hintText: 'Stack 이름',
+      title: '앱 추가',
+      hintText: '앱 이름',
       primaryLabel: '추가',
       validator: (value) {
         final trimmed = value.trim();
@@ -405,7 +492,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
                   stack.name.toLowerCase() == trimmed.toLowerCase() ||
                   stack.key.toLowerCase() == trimmed.toLowerCase(),
             );
-        return exists ? '이미 같은 이름의 Stack이 있어요.' : null;
+        return exists ? '이미 같은 이름의 앱이 있어요.' : null;
       },
     );
     final trimmed = name?.trim();
@@ -748,7 +835,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen> {
               const SizedBox(height: 16),
               _AddMenuTile(
                 icon: Icons.layers_rounded,
-                title: 'Stack 추가',
+                title: '앱 추가',
                 onTap: () => Navigator.of(context).pop('stack'),
               ),
               _AddMenuTile(

@@ -37,29 +37,35 @@ Future<T?> _showShotlyActionSheet<T>(
             ],
           ),
           padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (title != null) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: Text(
-                    title,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: const Color(0xFF727785),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.62,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (title != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(color: const Color(0xFF727785)),
+                      ),
+                    ),
+                  ],
+                  ...items.map(
+                    (item) => _ShotlyMenuRow(
+                      icon: item.icon,
+                      title: item.title,
+                      onTap: () => Navigator.of(context).pop(item.value),
                     ),
                   ),
-                ),
-              ],
-              ...items.map(
-                (item) => _ShotlyMenuRow(
-                  icon: item.icon,
-                  title: item.title,
-                  onTap: () => Navigator.of(context).pop(item.value),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -216,6 +222,9 @@ class _ShotlyTextDialogState extends State<_ShotlyTextDialog> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF727785),
+                  ),
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text('취소'),
                 ),
@@ -360,6 +369,9 @@ Future<bool?> _showShotlyConfirmDialog({
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF727785),
+                  ),
                   onPressed: () => Navigator.of(context).pop(false),
                   child: const Text('취소'),
                 ),

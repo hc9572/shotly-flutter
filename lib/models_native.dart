@@ -95,6 +95,12 @@ class ShotlyNative {
     return result ?? false;
   }
 
+  static Future<bool> hasPhotoPermission() async {
+    if (kIsWeb) return true;
+    final result = await _channel.invokeMethod<bool>('hasPhotoPermission');
+    return result ?? false;
+  }
+
   static Future<bool> openPhotoSettings() async {
     if (kIsWeb) return false;
     final result = await _channel.invokeMethod<bool>('openPhotoSettings');

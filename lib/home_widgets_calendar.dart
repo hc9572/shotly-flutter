@@ -128,7 +128,7 @@ class _SummarySortRow extends StatelessWidget {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                '$screenshotCount개 스크린샷 · $stackCount개 Stack',
+                '$screenshotCount개 스크린샷 · $stackCount개 앱',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: const Color(0xFF727785),
                   fontWeight: FontWeight.w500,

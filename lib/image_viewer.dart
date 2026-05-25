@@ -106,7 +106,7 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
                           ),
                           const SizedBox(width: 10),
                           _ViewerCircleButton(
-                            icon: Icons.delete_rounded,
+                            icon: Icons.delete_outline_rounded,
                             destructive: true,
                             onTap: () async {
                               final confirmed = await _showShotlyConfirmDialog(
