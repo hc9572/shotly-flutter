@@ -463,7 +463,10 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
             onDelete: () => _deleteSelected(context),
             onMove: () => _moveSelected(context),
             onHide: _hideSelected,
-            onFolder: widget.onAddSelectedToFolder == null
+            onFolder:
+                widget.onAddSelectedToFolder == null &&
+                    (widget.folderMoveDestinations.isEmpty ||
+                        widget.onMoveImagesToFolder == null)
                 ? null
                 : () => _addSelectedToFolder(context),
           ),
@@ -538,39 +541,23 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
   }
 
   Future<void> _moveSelected(BuildContext context) async {
-    final destinations = <_ShotlyActionItem<String>>[
-      ...widget.folderMoveDestinations
-          .where((folder) => folder.key != widget.currentFolderKey)
-          .map(
-            (folder) => _ShotlyActionItem(
-              value: 'folder:${folder.key}',
-              icon: Icons.grid_view_rounded,
-              title: '폴더 · ${_folderName(folder)}',
-            ),
-          ),
-      ...widget.allStackKeys.map(
-        (key) => _ShotlyActionItem(
-          value: 'stack:$key',
-          icon: Icons.layers_rounded,
-          title: widget.stackNames[key] ?? key,
-        ),
-      ),
-    ];
     final target = await _showShotlyActionSheet<String>(
       context,
-      title: '이동할 위치',
-      items: destinations,
+      title: '이동할 앱',
+      items: widget.allStackKeys
+          .map(
+            (key) => _ShotlyActionItem(
+              value: key,
+              icon: Icons.layers_rounded,
+              title: widget.stackNames[key] ?? key,
+            ),
+          )
+          .toList(),
     );
     if (target == null) return;
     final selected = _effectiveSelectedIds.toList();
-    if (target.startsWith('folder:')) {
-      final folderKey = target.substring('folder:'.length);
-      await widget.onMoveImagesToFolder?.call(folderKey, selected);
-    } else {
-      final stackKey = target.substring('stack:'.length);
-      for (final id in selected) {
-        await widget.onMoveImage(id, stackKey);
-      }
+    for (final id in selected) {
+      await widget.onMoveImage(id, target);
     }
     setState(() {
       _locallyHiddenIds.addAll(selected);
@@ -581,9 +568,42 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
 
   Future<void> _addSelectedToFolder(BuildContext context) async {
     final selected = _effectiveSelectedIds.toList();
-    if (selected.isEmpty || widget.onAddSelectedToFolder == null) return;
-    await widget.onAddSelectedToFolder!(selected);
-    if (mounted) setState(_selectedIds.clear);
+    if (selected.isEmpty) return;
+    final folderItems = widget.folderMoveDestinations
+        .where((folder) => folder.key != widget.currentFolderKey)
+        .map(
+          (folder) => _ShotlyActionItem(
+            value: folder.key,
+            icon: Icons.grid_view_rounded,
+            title: _folderName(folder),
+          ),
+        )
+        .toList();
+    final target = await _showShotlyActionSheet<String>(
+      context,
+      title: '이동할 폴더',
+      items: [
+        if (widget.onAddSelectedToFolder != null)
+          const _ShotlyActionItem(
+            value: '__new_folder__',
+            icon: Icons.create_new_folder_rounded,
+            title: '새 폴더 만들기',
+          ),
+        ...folderItems,
+      ],
+    );
+    if (target == null) return;
+    if (target == '__new_folder__') {
+      await widget.onAddSelectedToFolder?.call(selected);
+    } else {
+      await widget.onMoveImagesToFolder?.call(target, selected);
+    }
+    if (mounted) {
+      setState(() {
+        _locallyHiddenIds.addAll(selected);
+        _selectedIds.clear();
+      });
+    }
     widget.onClearSelection?.call();
   }
 
