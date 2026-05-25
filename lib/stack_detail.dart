@@ -66,6 +66,19 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   String get _stackName =>
       widget.stackNames[widget.stack.key] ?? widget.stack.name;
 
+  List<ScreenshotItem> get _visibleItems => [
+    ..._addedItems,
+    ...widget.stack.items,
+  ].where((item) => !_deletedImageIds.contains(item.id)).toList();
+
+  List<ScreenshotSet> get _currentFolderSets => _buildScreenshotSets(
+    widget.stack.key,
+    _visibleItems,
+    widget.setMemos,
+    _detailFolderNames,
+    _detailSetAssignments,
+  ).where((set) => _isFolderSetKey(set.key)).toList();
+
   @override
   void initState() {
     super.initState();
@@ -94,10 +107,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final visibleItems = [
-      ..._addedItems,
-      ...widget.stack.items,
-    ].where((item) => !_deletedImageIds.contains(item.id)).toList();
+    final visibleItems = _visibleItems;
     final sets = _buildScreenshotSets(
       widget.stack.key,
       visibleItems,
@@ -473,35 +483,11 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       return;
     }
 
-    if (candidate.type == _SmartCleanCandidateType.existingFolder &&
-        candidate.targetFolderKey != null) {
-      await _addIdsToExistingFolder(candidate.targetFolderKey!, ids);
-      if (mounted) {
-        setState(() {
-          _smartCleanCandidates = const [];
-          _smartCleanMessage =
-              '${ids.length}장을 ${candidate.targetFolderName ?? '기존 폴더'}에 묶었어요';
-        });
-      }
+    if (ids.length < 2 &&
+        candidate.type != _SmartCleanCandidateType.existingFolder) {
       return;
     }
-
-    if (ids.length < 2) return;
-    final name = await _showShotlyTextDialog(
-      context: context,
-      title: '폴더 만들기',
-      hintText: '폴더 이름',
-      primaryLabel: '묶기',
-    );
-    final trimmed = name?.trim();
-    if (trimmed == null || trimmed.isEmpty) return;
-    await _createFolderFromIds(trimmed, ids);
-    if (mounted) {
-      setState(() {
-        _smartCleanCandidates = const [];
-        _smartCleanMessage = '${ids.length}장을 새 폴더로 묶었어요';
-      });
-    }
+    await _showSmartCleanFolderPicker(ids);
   }
 
   String _folderNameForAssignedItem(String imageId) {
@@ -509,6 +495,56 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       if (_isFolderSetKey(key)) return _detailFolderNames[key] ?? '기존 폴더';
     }
     return '';
+  }
+
+  Future<void> _showSmartCleanFolderPicker(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final folders = _currentFolderSets;
+    final target = await _showShotlyActionSheet<String>(
+      context,
+      title: '이동할 폴더',
+      items: [
+        const _ShotlyActionItem(
+          value: '__new_folder__',
+          icon: Icons.create_new_folder_rounded,
+          title: '새 폴더 만들기',
+        ),
+        ...folders.map(
+          (folder) => _ShotlyActionItem(
+            value: folder.key,
+            icon: Icons.grid_view_rounded,
+            title: _folderName(folder),
+          ),
+        ),
+      ],
+    );
+    if (target == null || !mounted) return;
+    var message = '';
+    if (target == '__new_folder__') {
+      final name = await _showShotlyTextDialog(
+        context: context,
+        title: '폴더 만들기',
+        hintText: '폴더 이름',
+        primaryLabel: '만들기',
+      );
+      final trimmed = name?.trim();
+      if (trimmed == null || trimmed.isEmpty) return;
+      await _createFolderFromIds(trimmed, ids);
+      message = '${ids.length}장을 새 폴더로 묶었어요';
+    } else {
+      await _addIdsToExistingFolder(target, ids);
+      final folderName = folders
+          .where((folder) => folder.key == target)
+          .map(_folderName)
+          .firstOrNull;
+      message = '${ids.length}장을 ${folderName ?? '기존 폴더'}에 묶었어요';
+    }
+    if (mounted) {
+      setState(() {
+        _smartCleanCandidates = const [];
+        _smartCleanMessage = message;
+      });
+    }
   }
 
   Future<void> _addIdsToExistingFolder(
