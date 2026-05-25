@@ -88,19 +88,20 @@ class _SmartCleanPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Smart Clean',
+                      '비슷한 화면 찾기',
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         color: const Color(0xFF1A1C1C),
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      message ?? '이 앱 안에서만 중복/비슷한 흐름을 찾아요',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: const Color(0xFF727785),
+                    if (message != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        message!,
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(color: const Color(0xFF727785)),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
