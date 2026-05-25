@@ -20,7 +20,8 @@ Current rules:
 - An analysis request considers every screenshot in that app stack, not a 10-minute window and not a fixed image-count sample.
 - Screenshots already assigned to folders stay assigned and are not treated as new grouping targets.
 - Existing folders are compared through their newest screenshot as the representative image, so small recent UI changes are prioritized.
-- New/unassigned screenshots are compared against existing folder representatives first, then against each other for duplicate or similar-flow candidates.
+- New/unassigned screenshots are compared against existing folder representatives first, then against each other; all candidates are shown as similar screens.
+- In candidate review, every image is selectable. Selected images can either be deleted or grouped into a folder.
 - Feature extraction is batched and cached in memory, and the heavier grouping work runs off the UI isolate so the app should remain usable while analysis is running.
 - There is no fixed Smart Clean wall-clock timeout; unreadable thumbnails are skipped instead of failing the full analysis.
 

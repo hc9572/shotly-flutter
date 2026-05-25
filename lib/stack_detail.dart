@@ -444,24 +444,19 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   Future<void> _handleSmartCleanCandidate(
     _SmartCleanCandidate candidate,
   ) async {
-    final reviewedItems = await Navigator.of(context)
-        .push<List<ScreenshotItem>>(
+    final reviewResult = await Navigator.of(context)
+        .push<_SmartCleanReviewResult>(
           MaterialPageRoute(
             builder: (_) => _SmartCleanReviewScreen(candidate: candidate),
           ),
         );
-    if (!mounted || reviewedItems == null || reviewedItems.isEmpty) return;
+    if (!mounted || reviewResult == null || reviewResult.items.isEmpty) return;
 
-    if (candidate.type == _SmartCleanCandidateType.flow &&
-        reviewedItems.length < 2) {
-      return;
-    }
-
-    if (candidate.type == _SmartCleanCandidateType.duplicates) {
-      final ids = reviewedItems.map((item) => item.id).toList();
+    final ids = reviewResult.items.map((item) => item.id).toList();
+    if (reviewResult.action == _SmartCleanReviewAction.delete) {
       final confirmed = await _showShotlyConfirmDialog(
         context: context,
-        title: '중복 화면 삭제',
+        title: '선택한 화면 삭제',
         body: '선택한 ${ids.length}장을 기기 앨범 원본에서도 삭제할까요? 이 작업은 되돌릴 수 없어요.',
         primaryLabel: '삭제',
         destructive: true,
@@ -472,6 +467,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
         setState(() {
           _deletedImageIds.addAll(ids);
           _smartCleanCandidates = const [];
+          _smartCleanMessage = '${ids.length}장을 삭제했어요';
         });
       }
       return;
@@ -479,18 +475,18 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
 
     if (candidate.type == _SmartCleanCandidateType.existingFolder &&
         candidate.targetFolderKey != null) {
-      final ids = reviewedItems.map((item) => item.id).toList();
       await _addIdsToExistingFolder(candidate.targetFolderKey!, ids);
       if (mounted) {
         setState(() {
           _smartCleanCandidates = const [];
           _smartCleanMessage =
-              '${ids.length}장을 ${candidate.targetFolderName ?? '기존 폴더'}에 추가했어요';
+              '${ids.length}장을 ${candidate.targetFolderName ?? '기존 폴더'}에 묶었어요';
         });
       }
       return;
     }
 
+    if (ids.length < 2) return;
     final name = await _showShotlyTextDialog(
       context: context,
       title: '폴더 만들기',
@@ -499,14 +495,11 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     );
     final trimmed = name?.trim();
     if (trimmed == null || trimmed.isEmpty) return;
-    await _createFolderFromIds(
-      trimmed,
-      reviewedItems.map((item) => item.id).toList(),
-    );
+    await _createFolderFromIds(trimmed, ids);
     if (mounted) {
       setState(() {
         _smartCleanCandidates = const [];
-        _smartCleanMessage = '${reviewedItems.length}장을 새 폴더로 묶었어요';
+        _smartCleanMessage = '${ids.length}장을 새 폴더로 묶었어요';
       });
     }
   }

@@ -288,8 +288,8 @@ List<Map<String, Object?>> _buildVisualSmartCleanResults(
     final imageIds = [representativeId, ...matched];
     results.add({
       'type': 'existingFolder',
-      'title': '$folderName에 추가 후보 ${matched.length}장',
-      'subtitle': '최신 대표 이미지와 비슷한 새 화면이에요',
+      'title': '비슷한 화면 ${imageIds.length}장',
+      'subtitle': '$folderName 폴더와 비슷한 화면이에요',
       'imageIds': imageIds,
       'targetFolderKey': folderKey,
       'targetFolderName': folderName,
@@ -324,8 +324,8 @@ List<Map<String, Object?>> _buildVisualSmartCleanResults(
       consumedUnassignedIds.addAll(sortedIds);
       results.add({
         'type': 'duplicates',
-        'title': '거의 같은 화면 ${sortedIds.length}장',
-        'subtitle': '최신 1장만 대표로 보고 나머지를 선택해둘게요',
+        'title': '비슷한 화면 ${sortedIds.length}장',
+        'subtitle': '삭제하거나 폴더로 묶을 수 있는 화면이에요',
         'imageIds': sortedIds,
         'selectableImageIds': sortedIds.skip(1).toList(),
       });
@@ -391,7 +391,7 @@ List<Map<String, Object?>> _buildVisualSmartCleanResults(
     results.add({
       'type': 'flow',
       'title': '비슷한 화면 ${ids.length}장',
-      'subtitle': '같은 앱 안에서 한 폴더로 묶기 좋은 화면이에요',
+      'subtitle': '삭제하거나 폴더로 묶을 수 있는 화면이에요',
       'imageIds': ids,
       'selectableImageIds': ids,
     });

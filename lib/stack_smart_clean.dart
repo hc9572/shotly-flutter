@@ -2,6 +2,15 @@ part of 'main.dart';
 
 enum _SmartCleanCandidateType { duplicates, flow, existingFolder }
 
+enum _SmartCleanReviewAction { delete, folder }
+
+class _SmartCleanReviewResult {
+  const _SmartCleanReviewResult({required this.action, required this.items});
+
+  final _SmartCleanReviewAction action;
+  final List<ScreenshotItem> items;
+}
+
 class _SmartCleanCandidate {
   const _SmartCleanCandidate({
     required this.type,
@@ -138,11 +147,7 @@ class _SmartCleanCandidateTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final icon = switch (candidate.type) {
-      _SmartCleanCandidateType.duplicates => Icons.content_copy_rounded,
-      _SmartCleanCandidateType.existingFolder => Icons.drive_file_move_rounded,
-      _SmartCleanCandidateType.flow => Icons.folder_rounded,
-    };
+    const icon = Icons.folder_rounded;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -225,16 +230,7 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.candidate.selectableImageIds.isNotEmpty) {
-      _selectedIds = {...widget.candidate.selectableImageIds};
-      return;
-    }
-    final isDuplicates =
-        widget.candidate.type == _SmartCleanCandidateType.duplicates;
-    _selectedIds =
-        (isDuplicates ? widget.candidate.items.skip(1) : widget.candidate.items)
-            .map((item) => item.id)
-            .toSet();
+    _selectedIds = widget.candidate.items.map((item) => item.id).toSet();
   }
 
   List<ScreenshotItem> get _selectedItems => [
@@ -244,13 +240,11 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDuplicates =
-        widget.candidate.type == _SmartCleanCandidateType.duplicates;
-    final isExistingFolder =
-        widget.candidate.type == _SmartCleanCandidateType.existingFolder;
-    final canConfirm = isDuplicates || isExistingFolder
-        ? _selectedIds.isNotEmpty
-        : _selectedIds.length >= 2;
+    final canDelete = _selectedIds.isNotEmpty;
+    final canFolder =
+        _selectedIds.length >= 2 ||
+        (widget.candidate.type == _SmartCleanCandidateType.existingFolder &&
+            _selectedIds.isNotEmpty);
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       body: SafeArea(
@@ -272,11 +266,7 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isDuplicates
-                              ? '삭제할 화면 확인'
-                              : isExistingFolder
-                              ? '추가할 사진 확인'
-                              : '묶을 사진 확인',
+                          '비슷한 화면 확인',
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 color: const Color(0xFF1A1C1C),
@@ -285,11 +275,7 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          isDuplicates
-                              ? '${_selectedIds.length}장 삭제 예정 · 남길 사진은 체크 해제'
-                              : isExistingFolder
-                              ? '${_selectedIds.length}장 추가 예정 · 대표 사진은 최신 이미지예요'
-                              : '${_selectedIds.length}/${widget.candidate.items.length}장 선택됨 · 뺄 사진은 체크 해제',
+                          '${_selectedIds.length}/${widget.candidate.items.length}장 선택됨 · 삭제하거나 폴더로 묶을 수 있어요',
                           style: Theme.of(context).textTheme.labelMedium
                               ?.copyWith(color: const Color(0xFF727785)),
                         ),
@@ -311,22 +297,15 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
                 itemCount: widget.candidate.items.length,
                 itemBuilder: (context, index) {
                   final item = widget.candidate.items[index];
-                  final selected = _selectedIds.contains(item.id);
-                  final canSelect =
-                      widget.candidate.selectableImageIds.isEmpty ||
-                      widget.candidate.selectableImageIds.contains(item.id);
                   return _SmartCleanReviewTile(
                     item: item,
                     index: index,
-                    selected: selected,
-                    selectable: canSelect,
-                    onToggle: canSelect
-                        ? () => setState(() {
-                            if (!_selectedIds.add(item.id)) {
-                              _selectedIds.remove(item.id);
-                            }
-                          })
-                        : () {},
+                    selected: _selectedIds.contains(item.id),
+                    onToggle: () => setState(() {
+                      if (!_selectedIds.add(item.id)) {
+                        _selectedIds.remove(item.id);
+                      }
+                    }),
                     onOpen: () => Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => ImageViewerScreen(
@@ -345,29 +324,63 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
       ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(20, 10, 20, 16),
-        child: SizedBox(
-          height: 52,
-          child: FilledButton(
-            onPressed: canConfirm
-                ? () => Navigator.of(context).pop(_selectedItems)
-                : null,
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF2170E4),
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: const Color(0xFFE2E5EA),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
+        child: Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 52,
+                child: OutlinedButton(
+                  onPressed: canDelete
+                      ? () => Navigator.of(context).pop(
+                          _SmartCleanReviewResult(
+                            action: _SmartCleanReviewAction.delete,
+                            items: _selectedItems,
+                          ),
+                        )
+                      : null,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFD04444),
+                    side: const BorderSide(color: Color(0xFFF0B8B8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                  child: Text(
+                    '삭제 ${_selectedIds.length}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
               ),
             ),
-            child: Text(
-              isDuplicates
-                  ? '선택한 ${_selectedIds.length}장 삭제'
-                  : isExistingFolder
-                  ? '선택한 ${_selectedIds.length}장 추가'
-                  : '선택한 ${_selectedIds.length}장 묶기',
-              style: const TextStyle(fontWeight: FontWeight.w700),
+            const SizedBox(width: 10),
+            Expanded(
+              child: SizedBox(
+                height: 52,
+                child: FilledButton(
+                  onPressed: canFolder
+                      ? () => Navigator.of(context).pop(
+                          _SmartCleanReviewResult(
+                            action: _SmartCleanReviewAction.folder,
+                            items: _selectedItems,
+                          ),
+                        )
+                      : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF2170E4),
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: const Color(0xFFE2E5EA),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                  child: Text(
+                    '폴더로 묶기 ${_selectedIds.length}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -379,7 +392,6 @@ class _SmartCleanReviewTile extends StatelessWidget {
     required this.item,
     required this.index,
     required this.selected,
-    required this.selectable,
     required this.onToggle,
     required this.onOpen,
   });
@@ -387,7 +399,6 @@ class _SmartCleanReviewTile extends StatelessWidget {
   final ScreenshotItem item;
   final int index;
   final bool selected;
-  final bool selectable;
   final VoidCallback onToggle;
   final VoidCallback onOpen;
 
@@ -398,7 +409,7 @@ class _SmartCleanReviewTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: selectable ? onToggle : onOpen,
+        onTap: onToggle,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -439,16 +450,14 @@ class _SmartCleanReviewTile extends StatelessWidget {
               top: 6,
               right: 6,
               child: GestureDetector(
-                onTap: selectable ? onToggle : null,
+                onTap: onToggle,
                 child: Container(
                   width: 20,
                   height: 20,
                   decoration: BoxDecoration(
                     color: selected
                         ? const Color(0xFF2170E4)
-                        : selectable
-                        ? Colors.white.withValues(alpha: 0.86)
-                        : Colors.black.withValues(alpha: 0.30),
+                        : Colors.white.withValues(alpha: 0.86),
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
                       color: selected
@@ -458,14 +467,8 @@ class _SmartCleanReviewTile extends StatelessWidget {
                     ),
                   ),
                   child: Icon(
-                    selected
-                        ? Icons.check_rounded
-                        : selectable
-                        ? Icons.add_rounded
-                        : Icons.lock_rounded,
-                    color: selected || !selectable
-                        ? Colors.white
-                        : const Color(0xFF727785),
+                    selected ? Icons.check_rounded : Icons.add_rounded,
+                    color: selected ? Colors.white : const Color(0xFF727785),
                     size: 14,
                   ),
                 ),
