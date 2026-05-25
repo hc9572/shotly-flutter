@@ -1,6 +1,6 @@
 # Shotly Flutter 전환 메모
 
-업데이트: 2026-05-22
+업데이트: 2026-05-25
 
 ## 현재 결정
 
@@ -82,6 +82,20 @@ MethodChannel: `shotly/native`
 }
 ```
 
+
+### Smart Clean / 유사 이미지 묶기
+
+- 앱/Stack 상세에서 Smart Clean 분석 실행
+- 분석 범위는 해당 앱/Stack 안의 전체 스크린샷
+- 10분 시간창 제한 제거
+- 고정 분석 timeout 제거
+- 이미 폴더에 들어간 이미지는 새 그룹 후보에서 제외
+- 기존 폴더는 최신 이미지 1장을 대표 이미지로 사용
+- 새 스크린샷은 기존 폴더 대표 이미지와 먼저 비교한 뒤, 남은 미분류끼리 중복/유사 흐름 후보 생성
+- 특징 추출은 10장 단위 isolate 배치로 실행
+- 추출된 특징은 메모리에 캐시하여 같은 세션 재분석 시 재사용
+- 64비트 perceptual hash 비교가 음수 hash에서 무한 루프에 빠지던 문제 수정
+
 ### 로컬 기능
 
 - Stack 이름 수정
@@ -91,6 +105,7 @@ MethodChannel: `shotly/native`
 - 이미지 숨기기/제외
 - 이미지 다른 Stack으로 이동
 - 유사 화면 후보 보기
+- Smart Clean 후보 검토 후 삭제/기존 폴더 추가/새 폴더 생성
 
 ## 검증 결과
 
@@ -100,6 +115,8 @@ MethodChannel: `shotly/native`
 - `flutter test` 통과
 - `flutter build web --base-href /shotly-flutter/ --pwa-strategy=none` 통과
 - `flutter build apk --debug` 통과
+- Android 실기기 `SM S931N` debug install/run 통과
+- Smart Clean 14장 Stack 분석 838ms 완료 로그 확인
 - GitHub Pages deploy workflow 통과
 
 ## 남은 일
@@ -125,5 +142,6 @@ MethodChannel: `shotly/native`
 - 온디바이스 screenshot 판별 모델 검토
 - OCR 검색
 - 전역 유사 화면 검색
+- Smart Clean 특징 캐시 영구 저장/DB migration
 - 선택 로그인/클라우드 백업
 - 멀티 디바이스 동기화
