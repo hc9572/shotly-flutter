@@ -34,18 +34,24 @@ class _SmartCleanCandidate {
 class _SmartCleanPanel extends StatelessWidget {
   const _SmartCleanPanel({
     required this.running,
+    required this.analyzed,
+    required this.expanded,
     required this.progress,
     required this.message,
     required this.candidates,
     required this.onAnalyze,
+    required this.onToggleExpanded,
     required this.onCandidateTap,
   });
 
   final bool running;
+  final bool analyzed;
+  final bool expanded;
   final double? progress;
   final String? message;
   final List<_SmartCleanCandidate> candidates;
   final VoidCallback onAnalyze;
+  final VoidCallback onToggleExpanded;
   final Future<void> Function(_SmartCleanCandidate candidate) onCandidateTap;
 
   @override
@@ -98,13 +104,24 @@ class _SmartCleanPanel extends StatelessWidget {
                   ],
                 ),
               ),
+              if (candidates.isNotEmpty)
+                IconButton(
+                  onPressed: running ? null : onToggleExpanded,
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(
+                    expanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: const Color(0xFF727785),
+                  ),
+                ),
               TextButton(
                 onPressed: running ? null : onAnalyze,
                 style: TextButton.styleFrom(
                   foregroundColor: const Color(0xFF2170E4),
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                 ),
-                child: Text(running ? '분석 중' : '분석하기'),
+                child: Text(running ? '분석 중' : (analyzed ? '다시 분석하기' : '분석하기')),
               ),
             ],
           ),
@@ -120,7 +137,7 @@ class _SmartCleanPanel extends StatelessWidget {
               ),
             ),
           ],
-          if (candidates.isNotEmpty) ...[
+          if (candidates.isNotEmpty && expanded) ...[
             const SizedBox(height: 12),
             for (final candidate in candidates) ...[
               _SmartCleanCandidateTile(
@@ -182,28 +199,14 @@ class _SmartCleanCandidateTile extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    candidate.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: const Color(0xFF1A1C1C),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    candidate.subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: const Color(0xFF727785),
-                    ),
-                  ),
-                ],
+              child: Text(
+                candidate.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: const Color(0xFF1A1C1C),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
             Icon(icon, size: 18, color: const Color(0xFF727785)),

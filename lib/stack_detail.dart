@@ -49,11 +49,30 @@ class StackDetailScreen extends StatefulWidget {
   State<StackDetailScreen> createState() => _StackDetailScreenState();
 }
 
+class _SmartCleanSessionCache {
+  const _SmartCleanSessionCache({
+    required this.candidates,
+    required this.message,
+    required this.analyzed,
+    required this.expanded,
+  });
+
+  final List<_SmartCleanCandidate> candidates;
+  final String? message;
+  final bool analyzed;
+  final bool expanded;
+}
+
+final Map<String, _SmartCleanSessionCache> _smartCleanSessionCache =
+    <String, _SmartCleanSessionCache>{};
+
 class _StackDetailScreenState extends State<StackDetailScreen> {
   final Set<String> _deletedImageIds = <String>{};
   final Set<String> _selectedImageIds = <String>{};
   bool _isSelectionMode = false;
   bool _smartCleanRunning = false;
+  bool _smartCleanAnalyzed = false;
+  bool _smartCleanExpanded = true;
   double? _smartCleanProgress;
   String? _smartCleanMessage;
   List<_SmartCleanCandidate> _smartCleanCandidates = const [];
@@ -86,6 +105,13 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     _detailFolderColors = {...widget.folderColors};
     _detailSetAssignments = {...widget.setAssignments};
     _smartFeatureCache.addAll(widget.visualFeatures);
+    final cached = _smartCleanSessionCache[widget.stack.key];
+    if (cached != null) {
+      _smartCleanCandidates = cached.candidates;
+      _smartCleanMessage = cached.message;
+      _smartCleanAnalyzed = cached.analyzed;
+      _smartCleanExpanded = cached.expanded;
+    }
   }
 
   @override
@@ -191,10 +217,13 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                         const SizedBox(height: 16),
                         _SmartCleanPanel(
                           running: _smartCleanRunning,
+                          analyzed: _smartCleanAnalyzed,
+                          expanded: _smartCleanExpanded,
                           progress: _smartCleanProgress,
                           message: _smartCleanMessage,
                           candidates: _smartCleanCandidates,
                           onAnalyze: () => _runSmartClean(visibleItems),
+                          onToggleExpanded: _toggleSmartCleanExpanded,
                           onCandidateTap: _handleSmartCleanCandidate,
                         ),
                         if (folderSets.isNotEmpty) ...[
@@ -305,6 +334,33 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     await ShotlyNative.shareImages(_selectedImageIds.toList());
   }
 
+  void _toggleSmartCleanExpanded() {
+    setState(() => _smartCleanExpanded = !_smartCleanExpanded);
+    _saveSmartCleanSessionCache();
+  }
+
+  void _saveSmartCleanSessionCache() {
+    _smartCleanSessionCache[widget.stack.key] = _SmartCleanSessionCache(
+      candidates: _smartCleanCandidates,
+      message: _smartCleanMessage,
+      analyzed: _smartCleanAnalyzed,
+      expanded: _smartCleanExpanded,
+    );
+  }
+
+  void _removeSmartCleanCandidate(_SmartCleanCandidate candidate) {
+    setState(() {
+      _smartCleanCandidates = _smartCleanCandidates
+          .where((item) => !identical(item, candidate))
+          .toList();
+      _smartCleanMessage = _smartCleanCandidates.isEmpty
+          ? '남은 후보가 없어요. 필요하면 다시 분석해요'
+          : '${_smartCleanCandidates.length}개 후보가 남았어요';
+      _smartCleanExpanded = _smartCleanCandidates.isNotEmpty;
+    });
+    _saveSmartCleanSessionCache();
+  }
+
   Future<void> _runSmartClean(List<ScreenshotItem> visibleItems) async {
     if (_smartCleanRunning) return;
     final targetItems =
@@ -325,6 +381,8 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
 
     setState(() {
       _smartCleanRunning = true;
+      _smartCleanAnalyzed = true;
+      _smartCleanExpanded = true;
       _smartCleanProgress = null;
       _smartCleanMessage =
           '${targetItems.length}장 전체 기준 · 새 특징 $missingFeatureCount장 분석 중';
@@ -361,9 +419,11 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       setState(() {
         _smartCleanRunning = false;
         _smartCleanProgress = 1;
+        _smartCleanAnalyzed = true;
         _smartCleanCandidates = const [];
         _smartCleanMessage = '분석 중 문제가 생겼어요. 로그를 확인해볼게요';
       });
+      _saveSmartCleanSessionCache();
       return;
     }
     final itemById = {for (final item in targetItems) item.id: item};
@@ -390,11 +450,14 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     setState(() {
       _smartCleanRunning = false;
       _smartCleanProgress = 1;
+      _smartCleanAnalyzed = true;
+      _smartCleanExpanded = candidates.isNotEmpty;
       _smartCleanCandidates = candidates;
       _smartCleanMessage = candidates.isEmpty
           ? '정리할 만한 후보가 아직 없어요'
           : '${candidates.length}개 후보를 찾았어요';
     });
+    _saveSmartCleanSessionCache();
   }
 
   List<ScreenshotItem> _smartCleanFeatureItems(
@@ -476,9 +539,9 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
           mounted) {
         setState(() {
           _deletedImageIds.addAll(ids);
-          _smartCleanCandidates = const [];
           _smartCleanMessage = '${ids.length}장을 삭제했어요';
         });
+        _removeSmartCleanCandidate(candidate);
       }
       return;
     }
@@ -487,7 +550,8 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
         candidate.type != _SmartCleanCandidateType.existingFolder) {
       return;
     }
-    await _showSmartCleanFolderPicker(ids);
+    final moved = await _showSmartCleanFolderPicker(ids);
+    if (moved) _removeSmartCleanCandidate(candidate);
   }
 
   String _folderNameForAssignedItem(String imageId) {
@@ -497,8 +561,8 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     return '';
   }
 
-  Future<void> _showSmartCleanFolderPicker(List<String> ids) async {
-    if (ids.isEmpty) return;
+  Future<bool> _showSmartCleanFolderPicker(List<String> ids) async {
+    if (ids.isEmpty) return false;
     final folders = _currentFolderSets;
     final target = await _showShotlyActionSheet<String>(
       context,
@@ -518,7 +582,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
         ),
       ],
     );
-    if (target == null || !mounted) return;
+    if (target == null || !mounted) return false;
     var message = '';
     if (target == '__new_folder__') {
       final name = await _showShotlyTextDialog(
@@ -528,7 +592,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
         primaryLabel: '만들기',
       );
       final trimmed = name?.trim();
-      if (trimmed == null || trimmed.isEmpty) return;
+      if (trimmed == null || trimmed.isEmpty) return false;
       await _createFolderFromIds(trimmed, ids);
       message = '${ids.length}장을 새 폴더로 묶었어요';
     } else {
@@ -545,6 +609,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
         _smartCleanMessage = message;
       });
     }
+    return true;
   }
 
   Future<void> _addIdsToExistingFolder(
