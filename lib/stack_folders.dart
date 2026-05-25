@@ -474,7 +474,7 @@ class _FolderColorDot extends StatelessWidget {
         width: 42,
         height: 42,
         decoration: BoxDecoration(
-          color: option.color,
+          color: option.darkColor,
           shape: BoxShape.circle,
           border: Border.all(
             color: selected ? const Color(0xFF1A1C1C) : Colors.white,
@@ -482,18 +482,14 @@ class _FolderColorDot extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: option.darkColor.withValues(alpha: 0.20),
+              color: option.darkColor.withValues(alpha: 0.22),
               blurRadius: 9,
               offset: const Offset(0, 4),
             ),
           ],
         ),
         child: selected
-            ? const Icon(
-                Icons.check_rounded,
-                size: 20,
-                color: Color(0xFF1A1C1C),
-              )
+            ? const Icon(Icons.check_rounded, size: 20, color: Colors.white)
             : null,
       ),
     );
