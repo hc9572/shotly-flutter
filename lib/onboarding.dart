@@ -104,15 +104,13 @@ class _ShotlyOnboardingScreen extends StatelessWidget {
               Container(
                 width: 54,
                 height: 54,
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF111111),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: const Icon(
-                  Icons.auto_awesome_rounded,
                   color: Colors.white,
-                  size: 26,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFEDEFF3)),
                 ),
+                child: Image.asset('assets/images/shotly_logo.png'),
               ),
               const SizedBox(height: 28),
               Text(

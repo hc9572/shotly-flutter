@@ -244,7 +244,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                             onDeleteOriginalImage: _deleteOriginalImage,
                             onMoveImage: widget.onMoveImage,
                             onSaveSetMemo: widget.onSaveSetMemo,
-                            onAssignImageToSet: widget.onAssignImageToSet,
+                            onAssignImageToSet: _assignImageToSetFromFolder,
                             onCreateFolderFromSelected: _createFolderFromIds,
                           ),
                           const SizedBox(height: 24),
@@ -752,6 +752,30 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     setState(() => _detailFolderNames[folderKey] = name);
     await widget.onSaveFolderName(folderKey, name);
     return folderKey;
+  }
+
+  Future<void> _assignImageToSetFromFolder(
+    String imageId,
+    String setKey,
+  ) async {
+    final next = setKey.startsWith(_removeAssignmentPrefix)
+        ? _removeAssignmentKey(
+            _detailSetAssignments[imageId],
+            setKey.substring(_removeAssignmentPrefix.length),
+          )
+        : setKey.isEmpty
+        ? null
+        : _addAssignmentKey(_detailSetAssignments[imageId], setKey);
+    if (mounted) {
+      setState(() {
+        if (next == null || next.isEmpty) {
+          _detailSetAssignments.remove(imageId);
+        } else {
+          _detailSetAssignments[imageId] = next;
+        }
+      });
+    }
+    await widget.onAssignImageToSet(imageId, setKey);
   }
 
   Future<void> _createFolderFromIds(String name, List<String> ids) async {
