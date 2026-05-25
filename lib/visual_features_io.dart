@@ -111,7 +111,7 @@ List<Map<String, Object?>> _analyzeVisualSmartCleanSync(
         ..sort((a, b) => b.dateMillis.compareTo(a.dateMillis));
   if (items.length < 2) return const [];
 
-  const maxItems = 500;
+  const maxItems = 320;
   final scopedItems = items.take(maxItems).toList();
   final itemById = {for (final item in scopedItems) item.id: item};
   final assignedFolderKeysById = <String, List<String>>{
@@ -229,7 +229,7 @@ List<Map<String, Object?>> _analyzeVisualSmartCleanSync(
 
   final freeUnassigned = readableUnassigned
       .where((item) => !consumedUnassignedIds.contains(item.id))
-      .take(180)
+      .take(120)
       .toList();
 
   // Near-duplicates across the whole same-stack scope. No time window.

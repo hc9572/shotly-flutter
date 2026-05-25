@@ -314,6 +314,8 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     });
 
     await Future<void>.delayed(const Duration(milliseconds: 80));
+    debugPrint('SmartClean start: target=${targetItems.length}');
+    final startedAt = DateTime.now();
     List<VisualSmartCleanResult> rawCandidates;
     try {
       rawCandidates = await analyzeVisualSmartClean([
@@ -325,14 +327,19 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
             assignmentRaw: _detailSetAssignments[item.id] ?? '',
             folderName: _folderNameForAssignedItem(item.id),
           ),
-      ]).timeout(const Duration(seconds: 6));
-    } catch (_) {
+      ]);
+      debugPrint(
+        'SmartClean done: candidates=${rawCandidates.length} elapsed=${DateTime.now().difference(startedAt).inMilliseconds}ms',
+      );
+    } catch (error, stackTrace) {
+      debugPrint('SmartClean failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
       if (!mounted) return;
       setState(() {
         _smartCleanRunning = false;
         _smartCleanProgress = 1;
         _smartCleanCandidates = const [];
-        _smartCleanMessage = '분석 시간이 길어졌어요. 잠시 후 다시 시도해봐요';
+        _smartCleanMessage = '분석 중 문제가 생겼어요. 로그를 확인해볼게요';
       });
       return;
     }
