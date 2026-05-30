@@ -17,6 +17,7 @@ import android.provider.Settings
 import android.util.Size
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.google.firebase.analytics.FirebaseAnalytics
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -50,6 +51,11 @@ class MainActivity : FlutterActivity() {
                 "hasPhotoPermission" -> result.success(hasPhotoPermission())
                 "openPhotoSettings" -> openPhotoSettings(result)
                 "openUrl" -> openUrl(call.argument<String>("url"), result)
+                "logAnalyticsEvent" -> logAnalyticsEvent(
+                    call.argument<String>("name"),
+                    call.argument<Map<String, Any?>>("parameters"),
+                    result
+                )
                 "getScreenshots" -> runOnIo(result) { loadScreenshots() }
                 "pickImage" -> pickImage(result)
                 "getImagePreview" -> runOnIo(result) { getImagePreviewPath(call.argument<String>("imageId")) }
@@ -113,6 +119,30 @@ class MainActivity : FlutterActivity() {
             result.success(true)
         } catch (e: Exception) {
             result.error("url_unavailable", "링크를 열 수 없어요.", null)
+        }
+    }
+
+    private fun logAnalyticsEvent(name: String?, parameters: Map<String, Any?>?, result: MethodChannel.Result) {
+        if (name.isNullOrBlank()) {
+            result.success(false)
+            return
+        }
+        return try {
+            val bundle = Bundle()
+            parameters.orEmpty().forEach { (key, value) ->
+                when (value) {
+                    is String -> bundle.putString(key, value)
+                    is Int -> bundle.putInt(key, value)
+                    is Long -> bundle.putLong(key, value)
+                    is Double -> bundle.putDouble(key, value)
+                    is Float -> bundle.putDouble(key, value.toDouble())
+                    is Boolean -> bundle.putString(key, value.toString())
+                }
+            }
+            FirebaseAnalytics.getInstance(this).logEvent(name, bundle)
+            result.success(true)
+        } catch (e: Exception) {
+            result.success(false)
         }
     }
 

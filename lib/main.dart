@@ -4,6 +4,8 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -60,15 +62,18 @@ String stDate(DateTime date) {
   return '${weekdays[date.weekday - 1]}, ${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} $hour:$minute';
 }
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   _registerShotlyLicenses();
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
+    FirebaseCrashlytics.instance.recordFlutterFatalError(details);
   };
   PlatformDispatcher.instance.onError = (error, stack) {
     debugPrint('Shotly runtime error: $error');
     debugPrintStack(stackTrace: stack);
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
     return true;
   };
   ErrorWidget.builder = (details) {

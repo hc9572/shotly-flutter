@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 /// Privacy-safe product event logger.
 ///
@@ -7,7 +8,21 @@ import 'package:flutter/foundation.dart';
 class ShotlyAnalytics {
   const ShotlyAnalytics._();
 
-  static const bool enabled = false;
+  static const bool enabled = true;
+  static const _channel = MethodChannel('shotly/native');
+  static const Set<String> _allowedEvents = {
+    'app_open',
+    'photo_permission_granted',
+    'photo_permission_denied',
+    'screen_analysis_started',
+    'screen_analysis_completed',
+    'screen_analysis_failed',
+    'backup_exported',
+    'backup_imported',
+    'delete_original_requested',
+    'delete_original_succeeded',
+    'delete_original_failed',
+  };
 
   static Future<void> log(
     String name, {
@@ -18,10 +33,24 @@ class ShotlyAnalytics {
     if (kDebugMode) {
       debugPrint('ShotlyAnalytics $name $safeParameters');
     }
-    if (!enabled) return;
+    if (!enabled || kIsWeb) return;
+    if (!_allowedEvents.contains(name)) {
+      if (kDebugMode) {
+        debugPrint('ShotlyAnalytics blocked non-allowlisted event: $name');
+      }
+      return;
+    }
 
-    // Future provider hook: Firebase Analytics, custom server log, etc.
-    // Only send the allowlisted product events/aggregate parameters documented in
-    // docs/release/ANALYTICS_EVENTS.md.
+    try {
+      await _channel.invokeMethod<bool>('logAnalyticsEvent', {
+        'name': name,
+        'parameters': safeParameters,
+      });
+    } catch (error, stack) {
+      if (kDebugMode) {
+        debugPrint('ShotlyAnalytics provider unavailable: $error');
+        debugPrintStack(stackTrace: stack);
+      }
+    }
   }
 }

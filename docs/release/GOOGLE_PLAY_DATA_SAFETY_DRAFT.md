@@ -6,13 +6,13 @@ Current implementation target: paid app, no ads, no IAP/subscription, local-firs
 
 - Photos/videos: **Not collected by Shotly servers**. App reads local screenshots on device for organization and similar screen analysis.
 - Files/docs: Backup export/import is user-initiated local JSON via Android document picker. Phone transfer sends the same backup JSON directly between the user's old and new phones over local Wi‑Fi after QR pairing. Original images are not included.
-- App activity / analytics: **Not currently collected**. Code has a disabled privacy-safe event abstraction for future use.
-- Crash logs/diagnostics: **Not currently collected** unless Crashlytics or another provider is added later.
+- App activity / analytics: **Collected** via Firebase Analytics using privacy-safe allowlisted product events only.
+- Crash logs/diagnostics: **Collected** via Firebase Crashlytics for stability and troubleshooting.
+- Device or other IDs: **May be collected** by Firebase SDKs for analytics/crash reporting identifiers.
 
 ## Data sharing
 
-- No data shared with third parties in current implementation.
-- If analytics/crash provider is added, disclose provider processing before release.
+- Firebase processes analytics/crash data as a service provider. Do not upload screenshots, image content, file names, notes, folder names, or search queries.
 
 ## Security
 
@@ -29,4 +29,4 @@ Current implementation target: paid app, no ads, no IAP/subscription, local-firs
 
 ## Before Play submission
 
-If `ShotlyAnalytics.enabled` remains false and no analytics/crash SDK is added, answer Data Safety as no collected/shared user data, while explaining local photo access in app permission/store listing text.
+Answer Data Safety using the Firebase-enabled state: photos/images are accessed locally but not collected; app activity, crash logs/diagnostics, and Firebase identifiers may be collected for analytics, app functionality, and product improvement.

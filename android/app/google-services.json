@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "537165026651",
+    "project_id": "shotly-nadool",
+    "storage_bucket": "shotly-nadool.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:537165026651:android:0892e6b378a52e8159367e",
+        "android_client_info": {
+          "package_name": "com.shotly.shotly_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyABO6xqZYuiXVLvO-sZiP_KJ3KCGMkni38"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

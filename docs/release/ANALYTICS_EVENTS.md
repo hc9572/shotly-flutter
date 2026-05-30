@@ -1,6 +1,6 @@
 # Shotly Analytics Events
 
-Shotly uses only privacy-safe product events. Analytics is currently disabled in code (`ShotlyAnalytics.enabled = false`) until a provider is selected.
+Shotly uses only privacy-safe product events. Firebase Analytics and Crashlytics are enabled for Android release builds using `ShotlyAnalytics` allowlisted events.
 
 ## Allowed events
 
@@ -29,4 +29,4 @@ Do not send or store:
 
 ## Provider rule
 
-If Firebase Analytics, Crashlytics, or custom server logs are added later, keep payloads aggregate-only and update Privacy Policy + Google Play Data Safety before release.
+Firebase Analytics and Crashlytics payloads must remain aggregate-only. Update Privacy Policy + Google Play Data Safety before every release if new providers or event parameters are added.
