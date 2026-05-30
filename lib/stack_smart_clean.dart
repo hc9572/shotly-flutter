@@ -242,30 +242,17 @@ class _SmartCleanCandidateTile extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 7),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    st('폴더 후보 ${index + 1}', 'Folder candidate ${index + 1}'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: const Color(0xFF1A1C1C),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                Text(
-                  st(
-                    '${candidate.items.length}장',
-                    '${candidate.items.length} photos',
-                  ),
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: const Color(0xFF727785),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
+            Text(
+              st(
+                '${candidate.items.length}장',
+                '${candidate.items.length} photos',
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: const Color(0xFF1A1C1C),
+                fontWeight: FontWeight.w700,
+              ),
             ),
             if (candidate.type == _SmartCleanCandidateType.existingFolder &&
                 candidate.targetFolderName != null) ...[
