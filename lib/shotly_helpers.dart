@@ -189,7 +189,6 @@ class _Thumb extends StatelessWidget {
     this.height,
     this.radius = 12,
     this.borderColor = Colors.transparent,
-    this.favorite = false,
   });
 
   final String path;
@@ -197,7 +196,6 @@ class _Thumb extends StatelessWidget {
   final double? height;
   final double radius;
   final Color borderColor;
-  final bool favorite;
 
   @override
   Widget build(BuildContext context) {
@@ -212,30 +210,7 @@ class _Thumb extends StatelessWidget {
                 borderRadius: BorderRadius.circular(radius),
                 border: Border.all(color: borderColor),
               ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            _buildThumbnail(path, width, height),
-            if (favorite)
-              Positioned(
-                top: 6,
-                right: 6,
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.star_rounded,
-                    size: 16,
-                    color: Color(0xFFFFC940),
-                  ),
-                ),
-              ),
-          ],
-        ),
+        child: _buildThumbnail(path, width, height),
       ),
     );
   }

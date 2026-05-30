@@ -154,7 +154,6 @@ class _StackCard extends StatelessWidget {
                   height: 160,
                   radius: 12,
                   borderColor: Colors.transparent,
-                  favorite: favoriteImageIds.contains(stack.items[index].id),
                 ),
               ),
             ),
