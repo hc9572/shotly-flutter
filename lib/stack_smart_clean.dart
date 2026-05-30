@@ -246,7 +246,7 @@ class _SmartCleanCandidateTile extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    st('그룹 ${index + 1}', 'Group ${index + 1}'),
+                    st('폴더 후보 ${index + 1}', 'Folder candidate ${index + 1}'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -466,7 +466,7 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
                   child: Text(
                     st(
                       '폴더로 묶기 ${_selectedIds.length}',
-                      'Group ${_selectedIds.length}',
+                      'Create folder ${_selectedIds.length}',
                     ),
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),

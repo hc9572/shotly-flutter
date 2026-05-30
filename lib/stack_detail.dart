@@ -180,7 +180,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                             const Spacer(),
                             if (widget.onAddImageToStack != null)
                               IconButton(
-                                onPressed: _addImageToCurrentStack,
+                                onPressed: () => _showStackAddActions(context),
                                 padding: EdgeInsets.zero,
                                 visualDensity: VisualDensity.compact,
                                 constraints: const BoxConstraints.tightFor(
@@ -523,7 +523,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     }
     return st(
       '삭제하거나 폴더로 묶을 수 있는 화면이에요',
-      'Screens you can delete or group into a folder',
+      'Screens you can delete or make into a folder',
     );
   }
 
@@ -644,12 +644,12 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     final folders = _currentFolderSets;
     final target = await _showShotlyActionSheet<String>(
       context,
-      title: st('이동할 폴더', 'Move to folder'),
+      title: st('폴더로 묶기', 'Make folder'),
       items: [
         _ShotlyActionItem(
           value: '__new_folder__',
           icon: Icons.create_new_folder_rounded,
-          title: st('새 폴더 만들기', 'Create new folder'),
+          title: st('새 폴더로 묶기', 'Create new folder'),
         ),
         ...folders.map(
           (folder) => _ShotlyActionItem(
@@ -663,15 +663,9 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     if (target == null || !mounted) return false;
     var message = '';
     if (target == '__new_folder__') {
-      final name = await _showShotlyTextDialog(
-        context: context,
-        title: st('폴더 만들기', 'Create folder'),
-        hintText: st('폴더 이름', 'Folder name'),
-        primaryLabel: st('만들기', 'Create'),
-      );
-      final trimmed = name?.trim();
-      if (trimmed == null || trimmed.isEmpty) return false;
-      await _createFolderFromIds(trimmed, ids);
+      final config = await _showCreateFolderFlow(context);
+      if (config == null) return false;
+      await _createFolderFromIds(config.name, ids, colorKey: config.colorKey);
       message = st(
         '${ids.length}장을 새 폴더로 묶었어요',
         'Grouped ${ids.length} photos into a new folder',
@@ -739,6 +733,51 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     }
   }
 
+  Future<void> _showStackAddActions(BuildContext context) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _AddMenuTile(
+                icon: Icons.add_photo_alternate_rounded,
+                title: st('사진 추가', 'Add photo'),
+                onTap: () => Navigator.of(context).pop('photo'),
+              ),
+              _AddMenuTile(
+                icon: Icons.create_new_folder_rounded,
+                title: st('폴더 추가', 'Add folder'),
+                onTap: () => Navigator.of(context).pop('folder'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    if (action == 'photo') {
+      await _addImageToCurrentStack();
+    } else if (action == 'folder') {
+      await _createFolder(context);
+    }
+  }
+
   Future<void> _addImageToCurrentStack() async {
     final image = await widget.onAddImageToStack?.call(widget.stack.key);
     if (image == null || !mounted) return;
@@ -756,11 +795,11 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   ) async {
     final target = await _showShotlyActionSheet<String>(
       context,
-      title: st('이동할 폴더', 'Move to folder'),
+      title: st('폴더 선택', 'Choose folder'),
       items: [
         _ShotlyActionItem(
           value: '__new_folder__',
-          icon: Icons.grid_view_rounded,
+          icon: Icons.create_new_folder_rounded,
           title: st('새 폴더 만들기', 'Create new folder'),
         ),
         ...folders.map(
@@ -776,15 +815,12 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     var folderKey = target;
     if (target == '__new_folder__') {
       if (!context.mounted) return;
-      final name = await _showShotlyTextDialog(
-        context: context,
-        title: st('폴더 만들기', 'Create folder'),
-        hintText: st('폴더 이름', 'Folder name'),
-        primaryLabel: st('만들기', 'Create'),
+      final config = await _showCreateFolderFlow(context);
+      if (config == null) return;
+      folderKey = await _createFolderWithName(
+        config.name,
+        colorKey: config.colorKey,
       );
-      final trimmed = name?.trim();
-      if (trimmed == null || trimmed.isEmpty) return;
-      folderKey = await _createFolderWithName(trimmed);
     }
     await _assignSelectedToFolder(folderKey, _selectedImageIds.toList());
   }
@@ -822,21 +858,122 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   }
 
   Future<String?> _createFolder(BuildContext context) async {
+    final config = await _showCreateFolderFlow(context);
+    if (config == null) return null;
+    return _createFolderWithName(config.name, colorKey: config.colorKey);
+  }
+
+  Future<({String name, String colorKey})?> _showCreateFolderFlow(
+    BuildContext context,
+  ) async {
     final name = await _showShotlyTextDialog(
       context: context,
       title: st('폴더 만들기', 'Create folder'),
       hintText: st('폴더 이름', 'Folder name'),
-      primaryLabel: st('만들기', 'Create'),
+      primaryLabel: st('다음', 'Next'),
     );
     final trimmed = name?.trim();
-    if (trimmed == null || trimmed.isEmpty) return null;
-    return _createFolderWithName(trimmed);
+    if (trimmed == null || trimmed.isEmpty || !context.mounted) return null;
+    final colorKey = await _showFolderColorPicker(
+      context,
+      initialColorKey: _folderColorOptions.first.key,
+      title: st('폴더 색상 선택', 'Choose folder color'),
+      primaryLabel: st('완료', 'Done'),
+    );
+    if (colorKey == null) return null;
+    return (name: trimmed, colorKey: colorKey);
   }
 
-  Future<String> _createFolderWithName(String name) async {
+  Future<String?> _showFolderColorPicker(
+    BuildContext context, {
+    required String initialColorKey,
+    required String title,
+    required String primaryLabel,
+  }) async {
+    var selected = _folderColorFor(initialColorKey).key;
+    return showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    for (final option in _folderColorOptions)
+                      _FolderColorDot(
+                        option: option,
+                        selected: option.key == selected,
+                        onTap: () => setModalState(() => selected = option.key),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(context).pop(selected),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF111111),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      primaryLabel,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<String> _createFolderWithName(String name, {String? colorKey}) async {
     final folderKey = _buildFolderKey(widget.stack.key);
-    setState(() => _detailFolderNames[folderKey] = name);
+    setState(() {
+      _detailFolderNames[folderKey] = name;
+      if (colorKey != null && colorKey.trim().isNotEmpty) {
+        _detailFolderColors[folderKey] = colorKey;
+      }
+    });
     await widget.onSaveFolderName(folderKey, name);
+    if (colorKey != null && colorKey.trim().isNotEmpty) {
+      await widget.onSaveFolderColor(folderKey, colorKey);
+    }
     return folderKey;
   }
 
@@ -864,10 +1001,14 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     await widget.onAssignImageToSet(imageId, setKey);
   }
 
-  Future<void> _createFolderFromIds(String name, List<String> ids) async {
+  Future<void> _createFolderFromIds(
+    String name,
+    List<String> ids, {
+    String? colorKey,
+  }) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty || ids.isEmpty) return;
-    final folderKey = await _createFolderWithName(trimmed);
+    final folderKey = await _createFolderWithName(trimmed, colorKey: colorKey);
     final nextAssignments = <String, String>{};
     for (final id in ids) {
       nextAssignments[id] = _addAssignmentKey(
