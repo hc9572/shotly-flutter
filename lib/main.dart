@@ -265,6 +265,8 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   final Set<String> _hiddenStackKeys = {};
   final Set<String> _excludedImageIds = {};
   final Set<String> _favoriteImageIds = {};
+  final Set<String> _homeSelectedImageIds = {};
+  bool _isHomeSelectionMode = false;
   final List<String> _pinnedStackKeys = [];
   bool _isLoading = true;
   bool _hasPermission = false;
@@ -508,6 +510,30 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   }
 
   List<ScreenshotItem> get _filteredScreenshots => _calendarScreenshots;
+
+  List<ScreenshotItem> get _visibleScreenshots => _screenshots
+      .where((item) => !_excludedImageIds.contains(item.id))
+      .toList();
+
+  bool get _shouldUseUnclassifiedHome {
+    if (_visibleScreenshots.isEmpty) return false;
+    if (_manualStackNames.isNotEmpty || _imageAssignments.isNotEmpty) {
+      return false;
+    }
+    return !_visibleScreenshots.any((item) => item.appName.trim().isNotEmpty);
+  }
+
+  List<ScreenshotSet> get _unclassifiedHomeSets => _buildScreenshotSets(
+    'Unknown',
+    _filteredScreenshots,
+    _setMemos,
+    _folderNames,
+    _setAssignments,
+  ).where((set) => !_isFolderSetKey(set.key)).toList();
+
+  List<StackItem> get _availableStackTargets => _stacks
+      .where((stack) => stack.key != 'Unknown' && stack.name != 'Unknown')
+      .toList();
 
   List<StackItem> get _searchSourceStacks {
     final grouped = <String, List<ScreenshotItem>>{};
@@ -1078,6 +1104,109 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   bool _textMatches(String text, String query) =>
       text.toLowerCase().contains(query.toLowerCase());
 
+  void _toggleHomeSelection(String imageId) {
+    setState(() {
+      _isHomeSelectionMode = true;
+      if (!_homeSelectedImageIds.add(imageId)) {
+        _homeSelectedImageIds.remove(imageId);
+      }
+      if (_homeSelectedImageIds.isEmpty) _isHomeSelectionMode = false;
+    });
+  }
+
+  void _toggleHomeDateSelection(List<String> imageIds) {
+    setState(() {
+      _isHomeSelectionMode = true;
+      final allSelected = imageIds.every(_homeSelectedImageIds.contains);
+      if (allSelected) {
+        _homeSelectedImageIds.removeAll(imageIds);
+      } else {
+        _homeSelectedImageIds.addAll(imageIds);
+      }
+      if (_homeSelectedImageIds.isEmpty) _isHomeSelectionMode = false;
+    });
+  }
+
+  void _clearHomeSelection() {
+    setState(() {
+      _homeSelectedImageIds.clear();
+      _isHomeSelectionMode = false;
+    });
+  }
+
+  Future<void> _shareHomeSelected() async {
+    await ShotlyNative.shareImages(_homeSelectedImageIds.toList());
+  }
+
+  Future<void> _hideHomeSelected() async {
+    final selected = _homeSelectedImageIds.toList();
+    for (final id in selected) {
+      await _excludeImage(id);
+    }
+    _clearHomeSelection();
+  }
+
+  Future<void> _deleteHomeSelected(BuildContext context) async {
+    final confirmed = await _showShotlyConfirmDialog(
+      context: context,
+      title: st('선택한 사진 삭제', 'Delete selected photos'),
+      body: st(
+        '선택한 ${_homeSelectedImageIds.length}장을 기기 앨범 원본에서도 삭제할까요? 이 작업은 되돌릴 수 없어요.',
+        'Delete ${_homeSelectedImageIds.length} selected originals from your device gallery? This can’t be undone.',
+      ),
+      primaryLabel: st('삭제', 'Delete'),
+      destructive: true,
+    );
+    if (confirmed != true) return;
+    await _deleteOriginalImages(_homeSelectedImageIds.toList());
+    _clearHomeSelection();
+  }
+
+  Future<void> _moveHomeSelectedToStack(BuildContext context) async {
+    final targets = _availableStackTargets;
+    final target = await _showShotlyActionSheet<String>(
+      context,
+      title: st('이동할 앱', 'Move to app'),
+      items: [
+        _ShotlyActionItem(
+          value: '__new_stack__',
+          icon: Icons.layers_rounded,
+          title: st('새 앱 만들기', 'Create new app'),
+        ),
+        ...targets.map(
+          (stack) => _ShotlyActionItem(
+            value: stack.key,
+            icon: Icons.layers_rounded,
+            title: stack.name,
+          ),
+        ),
+      ],
+    );
+    if (target == null || !context.mounted) return;
+    var stackKey = target;
+    if (target == '__new_stack__') {
+      final name = await _showShotlyTextDialog(
+        context: context,
+        title: st('앱 만들기', 'Create app'),
+        hintText: st('앱 이름', 'App name'),
+        primaryLabel: st('만들기', 'Create'),
+      );
+      final trimmed = name?.trim();
+      if (trimmed == null || trimmed.isEmpty) return;
+      stackKey = trimmed;
+      setState(() {
+        _manualStackNames.add(stackKey);
+        _stackNames[stackKey] = trimmed;
+      });
+      await _localStore.renameStack(stackKey, trimmed);
+    }
+    final selected = _homeSelectedImageIds.toList();
+    for (final id in selected) {
+      await _moveImage(id, stackKey);
+    }
+    _clearHomeSelection();
+  }
+
   Future<void> _showAddMenu() async {
     final action = await showModalBottomSheet<String>(
       context: context,
@@ -1123,7 +1252,11 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   Widget build(BuildContext context) {
     final filteredScreenshots = _filteredScreenshots
       ..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
-    final stacks = _stacks;
+    final useUnclassifiedHome = _shouldUseUnclassifiedHome;
+    final stacks = useUnclassifiedHome ? const <StackItem>[] : _stacks;
+    final unclassifiedDateGroups = useUnclassifiedHome
+        ? _groupSetsByDate(_unclassifiedHomeSets)
+        : const <_SetDateGroup>[];
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       body: SafeArea(
@@ -1189,9 +1322,58 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
                               onSelectSort: _saveSortMode,
                             ),
                             const SizedBox(height: 26),
-                            if (_screenshots.isEmpty && stacks.isEmpty)
+                            if (_screenshots.isEmpty &&
+                                stacks.isEmpty &&
+                                !useUnclassifiedHome)
                               const _EmptyState()
-                            else if (stacks.isEmpty)
+                            else if (useUnclassifiedHome) ...[
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 18),
+                                child: Text(
+                                  st(
+                                    '앱 이름을 알 수 없는 스크린샷을 날짜별로 모았어요. 길게 눌러 앱으로 정리할 수 있어요.',
+                                    'Screenshots without app names are grouped by date. Long-press to organize them into apps.',
+                                  ),
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        color: const Color(0xFF727785),
+                                        height: 1.35,
+                                      ),
+                                ),
+                              ),
+                              if (unclassifiedDateGroups.isEmpty)
+                                const _NoResultState()
+                              else
+                                ...unclassifiedDateGroups.map(
+                                  (dateGroup) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 22),
+                                    child: _SetDateSection(
+                                      dateLabel: dateGroup.dateLabel,
+                                      sets: dateGroup.sets,
+                                      allStackKeys: _availableStackTargets
+                                          .map((stack) => stack.key)
+                                          .toList(),
+                                      stackNames: _stackNames,
+                                      favoriteImageIds: _favoriteImageIds,
+                                      onExcludeImage: _excludeImage,
+                                      onDeleteOriginalImage:
+                                          _deleteOriginalImage,
+                                      onToggleFavoriteImage:
+                                          _toggleFavoriteImage,
+                                      onMoveImage: _moveImage,
+                                      selectedIds: _homeSelectedImageIds,
+                                      selectionMode: _isHomeSelectionMode,
+                                      onToggleSelection: _toggleHomeSelection,
+                                      onToggleDateSelection:
+                                          _toggleHomeDateSelection,
+                                      showLocalActionBar: false,
+                                      onSaveMemo: _saveSetMemo,
+                                      onAssignImageToSet: _assignImageToSet,
+                                      viewerItems: filteredScreenshots,
+                                    ),
+                                  ),
+                                ),
+                            ] else if (stacks.isEmpty)
                               const _NoResultState()
                             else
                               ...stacks.map(
@@ -1251,6 +1433,19 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
                 child: _SortDropdown(
                   selected: _sortMode,
                   onSelect: _saveSortMode,
+                ),
+              ),
+            if (useUnclassifiedHome && _isHomeSelectionMode)
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 20,
+                child: _SelectionActionBar(
+                  onCancel: _clearHomeSelection,
+                  onShare: _shareHomeSelected,
+                  onDelete: () => _deleteHomeSelected(context),
+                  onMove: () => _moveHomeSelectedToStack(context),
+                  onHide: _hideHomeSelected,
                 ),
               ),
           ],
