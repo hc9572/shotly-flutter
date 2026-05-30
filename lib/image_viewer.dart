@@ -5,11 +5,15 @@ class ImageViewerScreen extends StatefulWidget {
     super.key,
     required this.items,
     required this.initialIndex,
+    required this.favoriteImageIds,
+    required this.onToggleFavoriteImage,
     required this.onDeleteOriginalImage,
   });
 
   final List<ScreenshotItem> items;
   final int initialIndex;
+  final Set<String> favoriteImageIds;
+  final Future<void> Function(String imageId) onToggleFavoriteImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
 
   @override
@@ -24,6 +28,8 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
       <String, Future<String?>>{};
 
   ScreenshotItem get _currentItem => widget.items[_currentIndex];
+  bool get _currentFavorite =>
+      widget.favoriteImageIds.contains(_currentItem.id);
 
   @override
   void initState() {
@@ -100,6 +106,19 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
                       child: Row(
                         children: [
                           _ViewerCircleButton(
+                            icon: _currentFavorite
+                                ? Icons.star_rounded
+                                : Icons.star_border_rounded,
+                            highlighted: _currentFavorite,
+                            onTap: () async {
+                              await widget.onToggleFavoriteImage(
+                                _currentItem.id,
+                              );
+                              if (mounted) setState(() {});
+                            },
+                          ),
+                          const SizedBox(width: 10),
+                          _ViewerCircleButton(
                             icon: Icons.share_rounded,
                             onTap: () =>
                                 ShotlyNative.shareImages([_currentItem.id]),
@@ -111,10 +130,12 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
                             onTap: () async {
                               final confirmed = await _showShotlyConfirmDialog(
                                 context: context,
-                                title: '원본 파일 삭제',
-                                body:
-                                    '이 이미지를 기기 앨범 원본에서도 삭제할까요? 삭제 후 Shotly 목록에서도 사라져요.',
-                                primaryLabel: '삭제',
+                                title: st('원본 파일 삭제', 'Delete original file'),
+                                body: st(
+                                  '이 이미지를 기기 앨범 원본에서도 삭제할까요? 삭제 후 Shotly 목록에서도 사라져요.',
+                                  'Delete this original image from your device gallery? It will also disappear from Shotly.',
+                                ),
+                                primaryLabel: st('삭제', 'Delete'),
                                 destructive: true,
                               );
                               if (confirmed == true) {
@@ -155,11 +176,13 @@ class _ViewerCircleButton extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.destructive = false,
+    this.highlighted = false,
   });
 
   final IconData icon;
   final VoidCallback onTap;
   final bool destructive;
+  final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
@@ -179,7 +202,11 @@ class _ViewerCircleButton extends StatelessWidget {
           ),
           child: Icon(
             icon,
-            color: destructive ? const Color(0xFFFFD0CC) : Colors.white,
+            color: destructive
+                ? const Color(0xFFFFD0CC)
+                : highlighted
+                ? const Color(0xFFFFC940)
+                : Colors.white,
             size: 22,
           ),
         ),

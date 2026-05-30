@@ -11,9 +11,9 @@ After GitHub Pages deploys, preview URL:
 https://hc9572.github.io/shotly-flutter/
 
 
-## Smart Clean behavior
+## Screen Analysis behavior
 
-Smart Clean runs locally on the device inside the current app/stack detail screen.
+Screen Analysis runs locally on the device inside the current app/stack detail screen.
 
 Current rules:
 
@@ -23,7 +23,7 @@ Current rules:
 - New/unassigned screenshots are compared against existing folder representatives first, then against each other; all candidates are shown as similar screens.
 - In candidate review, every image is selectable. Selected images can either be deleted or grouped into a folder.
 - Feature extraction is batched and cached in memory, and the heavier grouping work runs off the UI isolate so the app should remain usable while analysis is running.
-- There is no fixed Smart Clean wall-clock timeout; unreadable thumbnails are skipped instead of failing the full analysis.
+- There is no fixed Screen Analysis wall-clock timeout; unreadable thumbnails are skipped instead of failing the full analysis.
 
 Developer verification used for the current main version:
 
@@ -33,7 +33,7 @@ flutter test
 flutter run -d R3CY302237D --debug
 ```
 
-Connected Android smoke evidence: Smart Clean completed a 14-image stack in 838 ms after feature extraction batching.
+Connected Android smoke evidence: Screen Analysis completed a 14-image stack in 838 ms after feature extraction batching.
 
 ## Local development
 

@@ -9,6 +9,7 @@ class _StackCard extends StatelessWidget {
     required this.folderNames,
     required this.folderColors,
     required this.setAssignments,
+    required this.favoriteImageIds,
     required this.visualFeatures,
     required this.onRenameStack,
     required this.onHideStack,
@@ -17,6 +18,7 @@ class _StackCard extends StatelessWidget {
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
     required this.onDeleteOriginalImages,
+    required this.onToggleFavoriteImage,
     required this.onMoveImage,
     this.onAddImageToStack,
     required this.onSaveSetMemo,
@@ -32,6 +34,7 @@ class _StackCard extends StatelessWidget {
   final Map<String, String> folderNames;
   final Map<String, String> folderColors;
   final Map<String, String> setAssignments;
+  final Set<String> favoriteImageIds;
   final Map<String, VisualFeature> visualFeatures;
   final Future<void> Function(String stackKey, String name) onRenameStack;
   final Future<void> Function(String stackKey) onHideStack;
@@ -40,6 +43,7 @@ class _StackCard extends StatelessWidget {
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
   final Future<bool> Function(List<String> imageIds) onDeleteOriginalImages;
+  final Future<void> Function(String imageId) onToggleFavoriteImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
   final Future<ScreenshotItem?> Function(String stackKey)? onAddImageToStack;
   final Future<void> Function(String setKey, String memo) onSaveSetMemo;
@@ -62,12 +66,14 @@ class _StackCard extends StatelessWidget {
             folderNames: folderNames,
             folderColors: folderColors,
             setAssignments: setAssignments,
+            favoriteImageIds: favoriteImageIds,
             visualFeatures: visualFeatures,
             onRenameStack: onRenameStack,
             onHideStack: onHideStack,
             onExcludeImage: onExcludeImage,
             onDeleteOriginalImage: onDeleteOriginalImage,
             onDeleteOriginalImages: onDeleteOriginalImages,
+            onToggleFavoriteImage: onToggleFavoriteImage,
             onMoveImage: onMoveImage,
             onAddImageToStack: onAddImageToStack,
             onSaveSetMemo: onSaveSetMemo,
@@ -148,6 +154,7 @@ class _StackCard extends StatelessWidget {
                   height: 160,
                   radius: 12,
                   borderColor: Colors.transparent,
+                  favorite: favoriteImageIds.contains(stack.items[index].id),
                 ),
               ),
             ),
@@ -164,17 +171,17 @@ class _StackCard extends StatelessWidget {
         _ShotlyActionItem(
           value: 'pin',
           icon: pinned ? Icons.push_pin_outlined : Icons.push_pin_rounded,
-          title: pinned ? '고정 해제' : '고정 하기',
+          title: pinned ? st('고정 해제', 'Unpin') : st('고정 하기', 'Pin'),
         ),
-        const _ShotlyActionItem(
+        _ShotlyActionItem(
           value: 'rename',
           icon: Icons.edit_rounded,
-          title: '앱 이름 수정',
+          title: st('앱 이름 수정', 'Rename app'),
         ),
-        const _ShotlyActionItem(
+        _ShotlyActionItem(
           value: 'hide',
           icon: Icons.visibility_off_rounded,
-          title: '앱 숨기기',
+          title: st('앱 숨기기', 'Hide app'),
         ),
       ],
     );
@@ -182,10 +189,10 @@ class _StackCard extends StatelessWidget {
     if (action == 'rename' && context.mounted) {
       final name = await _showShotlyTextDialog(
         context: context,
-        title: '앱 이름 수정',
+        title: st('앱 이름 수정', 'Rename app'),
         initialValue: stack.name,
-        hintText: '앱 이름',
-        primaryLabel: '저장',
+        hintText: st('앱 이름', 'App name'),
+        primaryLabel: st('저장', 'Save'),
       );
       if (name != null) await onRenameStack(stack.key, name);
     }

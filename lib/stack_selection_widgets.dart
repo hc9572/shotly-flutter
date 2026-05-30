@@ -17,11 +17,11 @@ class _HeaderSelectionCircle extends StatelessWidget {
         height: 19,
         decoration: BoxDecoration(
           color: selected
-              ? const Color(0xFF2170E4)
+              ? const Color(0xFF111111)
               : Colors.white.withValues(alpha: 0.88),
           borderRadius: BorderRadius.circular(99),
           border: Border.all(
-            color: selected ? const Color(0xFF2170E4) : const Color(0xFFD5D8DF),
+            color: selected ? const Color(0xFF111111) : const Color(0xFFD5D8DF),
           ),
         ),
         child: selected
@@ -37,6 +37,8 @@ class _SelectableThumb extends StatelessWidget {
     required this.item,
     required this.selected,
     required this.selecting,
+    required this.favorite,
+    required this.onToggleFavorite,
     required this.onTap,
     required this.onLongPress,
   });
@@ -44,6 +46,8 @@ class _SelectableThumb extends StatelessWidget {
   final ScreenshotItem item;
   final bool selected;
   final bool selecting;
+  final bool favorite;
+  final VoidCallback onToggleFavorite;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
@@ -60,10 +64,34 @@ class _SelectableThumb extends StatelessWidget {
               path: item.thumbnailPath,
               radius: 14,
               borderColor: selected
-                  ? const Color(0xFF2170E4)
+                  ? const Color(0xFF111111)
                   : Colors.transparent,
             ),
           ),
+          if (!selecting && favorite)
+            Positioned(
+              right: 5,
+              top: 5,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onToggleFavorite,
+                child: SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: const [
+                      Icon(Icons.star_rounded, size: 22, color: Colors.white),
+                      Icon(
+                        Icons.star_rounded,
+                        size: 18,
+                        color: Color(0xFFFFC940),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           if (selecting)
             Positioned(
               right: 7,
@@ -73,12 +101,12 @@ class _SelectableThumb extends StatelessWidget {
                 height: 24,
                 decoration: BoxDecoration(
                   color: selected
-                      ? const Color(0xFF2170E4)
+                      ? const Color(0xFF111111)
                       : Colors.white.withValues(alpha: 0.88),
                   borderRadius: BorderRadius.circular(99),
                   border: Border.all(
                     color: selected
-                        ? const Color(0xFF2170E4)
+                        ? const Color(0xFF111111)
                         : const Color(0xFFD5D8DF),
                   ),
                 ),
@@ -136,28 +164,28 @@ class _SelectionActionBar extends StatelessWidget {
               children: [
                 _SelectionActionButton(
                   icon: Icons.drive_file_move_rounded,
-                  label: '이동',
+                  label: st('이동', 'Move'),
                   onTap: onMove,
                 ),
                 if (onFolder != null)
                   _SelectionActionButton(
                     icon: Icons.grid_view_rounded,
-                    label: '폴더',
+                    label: st('폴더', 'Folder'),
                     onTap: onFolder!,
                   ),
                 _SelectionActionButton(
                   icon: Icons.share_rounded,
-                  label: '공유',
+                  label: st('공유', 'Share'),
                   onTap: onShare,
                 ),
                 _SelectionActionButton(
                   icon: Icons.visibility_off_rounded,
-                  label: '숨기기',
+                  label: st('숨기기', 'Hide'),
                   onTap: onHide,
                 ),
                 _SelectionActionButton(
                   icon: Icons.delete_outline_rounded,
-                  label: '삭제',
+                  label: st('삭제', 'Delete'),
                   onTap: onDelete,
                   destructive: true,
                 ),

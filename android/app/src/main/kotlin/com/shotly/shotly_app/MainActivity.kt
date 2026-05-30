@@ -29,9 +29,14 @@ class MainActivity : FlutterActivity() {
     private val permissionRequestCode = 9210
     private val pickImageRequestCode = 9211
     private val deleteImageRequestCode = 9212
+    private val saveBackupRequestCode = 9213
+    private val openBackupRequestCode = 9214
     private var pendingPermissionResult: MethodChannel.Result? = null
     private var pendingPickImageResult: MethodChannel.Result? = null
     private var pendingDeleteImageResult: MethodChannel.Result? = null
+    private var pendingSaveBackupResult: MethodChannel.Result? = null
+    private var pendingOpenBackupResult: MethodChannel.Result? = null
+    private var pendingBackupContent: String? = null
     private var pendingDeleteImageUri: Uri? = null
     private var pendingDeleteImageUris: List<Uri>? = null
     private val ioExecutor = Executors.newSingleThreadExecutor()
@@ -51,6 +56,8 @@ class MainActivity : FlutterActivity() {
                 "deleteOriginalImage" -> deleteOriginalImage(call.argument<String>("imageId"), result)
                 "deleteOriginalImages" -> deleteOriginalImages(call.argument<List<String>>("imageIds"), result)
                 "shareImages" -> shareImages(call.argument<List<String>>("imageIds"), result)
+                "saveBackupFile" -> saveBackupFile(call.argument<String>("filename"), call.argument<String>("content"), result)
+                "openBackupFile" -> openBackupFile(result)
                 else -> result.notImplemented()
             }
         }
@@ -166,6 +173,38 @@ class MainActivity : FlutterActivity() {
             pendingDeleteImageUri = null
             pendingDeleteImageUris = null
         }
+        if (requestCode == saveBackupRequestCode) {
+            val uri = data?.data
+            val content = pendingBackupContent
+            if (resultCode == RESULT_OK && uri != null && content != null) {
+                try {
+                    contentResolver.openOutputStream(uri)?.use { output ->
+                        output.write(content.toByteArray(Charsets.UTF_8))
+                    }
+                    pendingSaveBackupResult?.success(true)
+                } catch (e: Exception) {
+                    pendingSaveBackupResult?.error("backup_save_failed", "백업 파일을 저장하지 못했어요.", null)
+                }
+            } else {
+                pendingSaveBackupResult?.success(false)
+            }
+            pendingSaveBackupResult = null
+            pendingBackupContent = null
+        }
+        if (requestCode == openBackupRequestCode) {
+            val uri = data?.data
+            if (resultCode == RESULT_OK && uri != null) {
+                try {
+                    val content = contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                    pendingOpenBackupResult?.success(content)
+                } catch (e: Exception) {
+                    pendingOpenBackupResult?.error("backup_open_failed", "백업 파일을 열 수 없어요.", null)
+                }
+            } else {
+                pendingOpenBackupResult?.success(null)
+            }
+            pendingOpenBackupResult = null
+        }
     }
 
     private fun getImagePreview(imageId: String?, result: MethodChannel.Result) {
@@ -257,6 +296,38 @@ class MainActivity : FlutterActivity() {
         }
         startActivity(Intent.createChooser(intent, "Share via"))
         result.success(true)
+    }
+
+    private fun saveBackupFile(filename: String?, content: String?, result: MethodChannel.Result) {
+        if (pendingSaveBackupResult != null) {
+            result.error("backup_save_in_progress", "Backup save is already in progress.", null)
+            return
+        }
+        if (content.isNullOrBlank()) {
+            result.error("backup_empty", "백업할 데이터가 없어요.", null)
+            return
+        }
+        pendingSaveBackupResult = result
+        pendingBackupContent = content
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+            putExtra(Intent.EXTRA_TITLE, filename ?: "shotly-backup.json")
+        }
+        startActivityForResult(intent, saveBackupRequestCode)
+    }
+
+    private fun openBackupFile(result: MethodChannel.Result) {
+        if (pendingOpenBackupResult != null) {
+            result.error("backup_open_in_progress", "Backup picker is already open.", null)
+            return
+        }
+        pendingOpenBackupResult = result
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+        }
+        startActivityForResult(intent, openBackupRequestCode)
     }
 
     private fun imageUriForId(imageId: String?): Uri? {

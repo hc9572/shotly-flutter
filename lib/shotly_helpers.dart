@@ -121,7 +121,7 @@ List<ScreenshotSet> _buildScreenshotSets(
               ? folderNames[key]!.trim()
               : (migratedFolderName?.isNotEmpty == true
                     ? migratedFolderName
-                    : '새 폴더'))
+                    : st('새 폴더', 'New folder')))
         : null;
     return ScreenshotSet(
       key: key,
@@ -157,15 +157,12 @@ bool _folderBelongsToStack(String folderKey, String stackKey) =>
 String _folderName(ScreenshotSet folder) =>
     folder.folderName?.trim().isNotEmpty == true
     ? folder.folderName!.trim()
-    : '새 폴더';
+    : st('새 폴더', 'New folder');
 
 bool _isSameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
 
-String _formatSetTitle(DateTime date) {
-  final weekdays = ['월', '화', '수', '목', '금', '토', '일'];
-  return '${date.year}년 ${date.month}월 ${date.day}일 (${weekdays[date.weekday - 1]}) ${date.hour.toString().padLeft(2, '0')}시 ${date.minute.toString().padLeft(2, '0')}분';
-}
+String _formatSetTitle(DateTime date) => stDate(date);
 
 String _formatSetDate(DateTime date) {
   return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
@@ -176,7 +173,7 @@ String _formatTimeRange(List<ScreenshotItem> items) {
       .where((item) => item.dateTakenMillis > 0)
       .map((item) => item.date)
       .toList();
-  if (times.isEmpty) return '촬영 시간 정보 없음';
+  if (times.isEmpty) return st('촬영 시간 정보 없음', 'No capture time info');
   times.sort();
   String format(DateTime date) =>
       '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
@@ -192,6 +189,7 @@ class _Thumb extends StatelessWidget {
     this.height,
     this.radius = 12,
     this.borderColor = Colors.transparent,
+    this.favorite = false,
   });
 
   final String path;
@@ -199,6 +197,7 @@ class _Thumb extends StatelessWidget {
   final double? height;
   final double radius;
   final Color borderColor;
+  final bool favorite;
 
   @override
   Widget build(BuildContext context) {
@@ -213,7 +212,30 @@ class _Thumb extends StatelessWidget {
                 borderRadius: BorderRadius.circular(radius),
                 border: Border.all(color: borderColor),
               ),
-        child: _buildThumbnail(path, width, height),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _buildThumbnail(path, width, height),
+            if (favorite)
+              Positioned(
+                top: 6,
+                right: 6,
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.star_rounded,
+                    size: 16,
+                    color: Color(0xFFFFC940),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

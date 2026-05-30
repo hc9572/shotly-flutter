@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'local_store_models.dart';
@@ -15,6 +16,7 @@ class ShotlyLocalStore implements LocalStore {
   static const _stackNamesPrefsKey = 'shotly.stackNames';
   static const _hiddenStacksPrefsKey = 'shotly.hiddenStacks';
   static const _excludedImagesPrefsKey = 'shotly.excludedImages';
+  static const _favoriteImagesPrefsKey = 'shotly.favoriteImages';
   static const _imageAssignmentsPrefsKey = 'shotly.imageAssignments';
   static const _setMemosPrefsKey = 'shotly.setMemos';
   static const _folderNamesPrefsKey = 'shotly.folderNames';
@@ -57,6 +59,9 @@ class ShotlyLocalStore implements LocalStore {
         .get();
     final excludedRows = await _db
         .customSelect('SELECT image_id FROM excluded_images')
+        .get();
+    final favoriteRows = await _db
+        .customSelect('SELECT image_id FROM favorite_images')
         .get();
     final pinnedRows = await _db
         .customSelect(
@@ -101,6 +106,9 @@ class ShotlyLocalStore implements LocalStore {
       excludedImageIds: {
         for (final row in excludedRows) row.read<String>('image_id'),
       },
+      favoriteImageIds: {
+        for (final row in favoriteRows) row.read<String>('image_id'),
+      },
       pinnedStackKeys: [
         for (final row in pinnedRows) row.read<String>('stack_key'),
       ],
@@ -108,6 +116,102 @@ class ShotlyLocalStore implements LocalStore {
           ? null
           : settingRows.first.read<String>('value'),
     );
+  }
+
+  @override
+  Future<void> replaceAll(LocalShotlyState state) async {
+    await _db.ensureOpen();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _db.transaction(() async {
+      for (final table in const [
+        'manual_stacks',
+        'stack_customizations',
+        'image_assignments',
+        'set_memos',
+        'folder_names',
+        'folder_colors',
+        'set_assignments',
+        'hidden_stacks',
+        'excluded_images',
+        'favorite_images',
+        'pinned_stacks',
+        'settings',
+      ]) {
+        await _db.customStatement('DELETE FROM $table');
+      }
+      for (final name in state.manualStackNames) {
+        await _db.customStatement(
+          'INSERT OR IGNORE INTO manual_stacks(name, created_at) VALUES (?, ?)',
+          [name, now],
+        );
+      }
+      for (final entry in state.stackNames.entries) {
+        await _db.customStatement(
+          'INSERT OR REPLACE INTO stack_customizations(stack_key, name, updated_at) VALUES (?, ?, ?)',
+          [entry.key, entry.value, now],
+        );
+      }
+      for (final entry in state.imageAssignments.entries) {
+        await _db.customStatement(
+          'INSERT OR REPLACE INTO image_assignments(image_id, stack_key, updated_at) VALUES (?, ?, ?)',
+          [entry.key, entry.value, now],
+        );
+      }
+      for (final entry in state.setMemos.entries) {
+        await _db.customStatement(
+          'INSERT OR REPLACE INTO set_memos(set_key, memo, updated_at) VALUES (?, ?, ?)',
+          [entry.key, entry.value, now],
+        );
+      }
+      for (final entry in state.folderNames.entries) {
+        await _db.customStatement(
+          'INSERT OR REPLACE INTO folder_names(folder_key, name, updated_at) VALUES (?, ?, ?)',
+          [entry.key, entry.value, now],
+        );
+      }
+      for (final entry in state.folderColors.entries) {
+        await _db.customStatement(
+          'INSERT OR REPLACE INTO folder_colors(folder_key, color_key, updated_at) VALUES (?, ?, ?)',
+          [entry.key, entry.value, now],
+        );
+      }
+      for (final entry in state.setAssignments.entries) {
+        await _db.customStatement(
+          'INSERT OR REPLACE INTO set_assignments(image_id, set_key, updated_at) VALUES (?, ?, ?)',
+          [entry.key, entry.value, now],
+        );
+      }
+      for (final stackKey in state.hiddenStackKeys) {
+        await _db.customStatement(
+          'INSERT OR IGNORE INTO hidden_stacks(stack_key, created_at) VALUES (?, ?)',
+          [stackKey, now],
+        );
+      }
+      for (final imageId in state.excludedImageIds) {
+        await _db.customStatement(
+          'INSERT OR IGNORE INTO excluded_images(image_id, created_at) VALUES (?, ?)',
+          [imageId, now],
+        );
+      }
+      for (final imageId in state.favoriteImageIds) {
+        await _db.customStatement(
+          'INSERT OR IGNORE INTO favorite_images(image_id, created_at) VALUES (?, ?)',
+          [imageId, now],
+        );
+      }
+      for (final stackKey in state.pinnedStackKeys) {
+        await _db.customStatement(
+          'INSERT OR IGNORE INTO pinned_stacks(stack_key, created_at) VALUES (?, ?)',
+          [stackKey, now],
+        );
+      }
+      if (state.sortModeName != null) {
+        await _db.customStatement(
+          'INSERT OR REPLACE INTO settings(key, value, updated_at) VALUES (?, ?, ?)',
+          ['sort_mode', state.sortModeName!, now],
+        );
+      }
+    });
   }
 
   @override
@@ -159,6 +263,24 @@ class ShotlyLocalStore implements LocalStore {
     await _db.ensureOpen();
     await _db.customStatement(
       'DELETE FROM excluded_images WHERE image_id = ?',
+      [imageId],
+    );
+  }
+
+  @override
+  Future<void> favoriteImage(String imageId) async {
+    await _db.ensureOpen();
+    await _db.customStatement(
+      'INSERT OR IGNORE INTO favorite_images(image_id, created_at) VALUES (?, ?)',
+      [imageId, DateTime.now().millisecondsSinceEpoch],
+    );
+  }
+
+  @override
+  Future<void> unfavoriteImage(String imageId) async {
+    await _db.ensureOpen();
+    await _db.customStatement(
+      'DELETE FROM favorite_images WHERE image_id = ?',
       [imageId],
     );
   }
@@ -331,6 +453,13 @@ class ShotlyLocalStore implements LocalStore {
         [imageId, now],
       );
     }
+    for (final imageId
+        in prefs.getStringList(_favoriteImagesPrefsKey) ?? const <String>[]) {
+      await _db.customStatement(
+        'INSERT OR IGNORE INTO favorite_images(image_id, created_at) VALUES (?, ?)',
+        [imageId, now],
+      );
+    }
     for (final stackKey
         in prefs.getStringList(_pinnedStacksPrefsKey) ?? const <String>[]) {
       await _db.customStatement(
@@ -430,6 +559,12 @@ class ShotlyDatabase extends GeneratedDatabase {
       )
     ''');
     await customStatement('''
+      CREATE TABLE IF NOT EXISTS favorite_images (
+        image_id TEXT PRIMARY KEY NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await customStatement('''
       CREATE TABLE IF NOT EXISTS pinned_stacks (
         stack_key TEXT PRIMARY KEY NOT NULL,
         created_at INTEGER NOT NULL
@@ -459,7 +594,7 @@ Future<Directory> _databaseDirectory() async {
   final override = Platform.environment['SHOTLY_DB_DIR'];
   if (override != null && override.isNotEmpty) return Directory(override);
   if (Platform.isAndroid) {
-    return Directory('/data/data/com.shotly.shotly_app/files');
+    return getApplicationSupportDirectory();
   }
   final home = Platform.environment['HOME'];
   if (home != null && home.isNotEmpty) {

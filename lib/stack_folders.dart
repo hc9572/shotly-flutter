@@ -33,6 +33,7 @@ class _FolderStrip extends StatelessWidget {
     required this.allStackKeys,
     required this.stackNames,
     required this.folderColors,
+    required this.favoriteImageIds,
     required this.selectedIds,
     required this.onAddSelectedToFolder,
     required this.onDeleteFolder,
@@ -40,6 +41,7 @@ class _FolderStrip extends StatelessWidget {
     required this.onChangeFolderColor,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
+    required this.onToggleFavoriteImage,
     required this.onMoveImage,
     required this.onSaveSetMemo,
     required this.onAssignImageToSet,
@@ -51,6 +53,7 @@ class _FolderStrip extends StatelessWidget {
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
   final Map<String, String> folderColors;
+  final Set<String> favoriteImageIds;
   final Set<String> selectedIds;
   final Future<void> Function(ScreenshotSet folder) onAddSelectedToFolder;
   final Future<void> Function(ScreenshotSet folder) onDeleteFolder;
@@ -59,6 +62,7 @@ class _FolderStrip extends StatelessWidget {
   onChangeFolderColor;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
+  final Future<void> Function(String imageId) onToggleFavoriteImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
   final Future<void> Function(String setKey, String memo) onSaveSetMemo;
   final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
@@ -86,6 +90,7 @@ class _FolderStrip extends StatelessWidget {
                   allStackKeys: allStackKeys,
                   stackNames: stackNames,
                   folderMoveDestinations: folders,
+                  favoriteImageIds: favoriteImageIds,
                   selectedIds: selectedIds,
                   onAddSelected: () => onAddSelectedToFolder(folder),
                   onDelete: () => onDeleteFolder(folder),
@@ -94,6 +99,7 @@ class _FolderStrip extends StatelessWidget {
                       onChangeFolderColor(folder.key, colorKey),
                   onExcludeImage: onExcludeImage,
                   onDeleteOriginalImage: onDeleteOriginalImage,
+                  onToggleFavoriteImage: onToggleFavoriteImage,
                   onMoveImage: onMoveImage,
                   onSaveSetMemo: onSaveSetMemo,
                   onAssignImageToSet: onAssignImageToSet,
@@ -115,6 +121,7 @@ class _FolderCard extends StatelessWidget {
     required this.allStackKeys,
     required this.stackNames,
     required this.folderMoveDestinations,
+    required this.favoriteImageIds,
     required this.selectedIds,
     required this.onAddSelected,
     required this.onDelete,
@@ -122,6 +129,7 @@ class _FolderCard extends StatelessWidget {
     required this.onChangeColor,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
+    required this.onToggleFavoriteImage,
     required this.onMoveImage,
     required this.onSaveSetMemo,
     required this.onAssignImageToSet,
@@ -134,6 +142,7 @@ class _FolderCard extends StatelessWidget {
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
   final List<ScreenshotSet> folderMoveDestinations;
+  final Set<String> favoriteImageIds;
   final Set<String> selectedIds;
   final Future<void> Function() onAddSelected;
   final Future<void> Function() onDelete;
@@ -141,6 +150,7 @@ class _FolderCard extends StatelessWidget {
   final Future<void> Function(String colorKey) onChangeColor;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
+  final Future<void> Function(String imageId) onToggleFavoriteImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
   final Future<void> Function(String setKey, String memo) onSaveSetMemo;
   final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
@@ -163,8 +173,10 @@ class _FolderCard extends StatelessWidget {
                   set: folder,
                   allStackKeys: allStackKeys,
                   stackNames: stackNames,
+                  favoriteImageIds: favoriteImageIds,
                   onExcludeImage: onExcludeImage,
                   onDeleteOriginalImage: onDeleteOriginalImage,
+                  onToggleFavoriteImage: onToggleFavoriteImage,
                   onMoveImage: onMoveImage,
                   onSaveSetMemo: onSaveSetMemo,
                   onAssignImageToSet: onAssignImageToSet,
@@ -228,7 +240,10 @@ class _FolderCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  '${folder.items.length}장',
+                  st(
+                    '${folder.items.length}장',
+                    '${folder.items.length} photos',
+                  ),
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: option.darkColor,
                     fontWeight: FontWeight.w700,
@@ -267,12 +282,12 @@ class _FolderCard extends StatelessWidget {
               const SizedBox(height: 18),
               ListTile(
                 leading: const Icon(Icons.edit_outlined),
-                title: const Text('폴더 이름 변경'),
+                title: Text(st('폴더 이름 변경', 'Rename folder')),
                 onTap: () => Navigator.pop(context, 'rename'),
               ),
               ListTile(
                 leading: const Icon(Icons.palette_outlined),
-                title: const Text('폴더 색상 변경'),
+                title: Text(st('폴더 색상 변경', 'Change folder color')),
                 onTap: () => Navigator.pop(context, 'color'),
               ),
               ListTile(
@@ -280,9 +295,9 @@ class _FolderCard extends StatelessWidget {
                   Icons.delete_outline_rounded,
                   color: Color(0xFFE05656),
                 ),
-                title: const Text(
-                  '폴더 삭제',
-                  style: TextStyle(color: Color(0xFFE05656)),
+                title: Text(
+                  st('폴더 삭제', 'Delete folder'),
+                  style: const TextStyle(color: Color(0xFFE05656)),
                 ),
                 onTap: () => Navigator.pop(context, 'delete'),
               ),
@@ -298,10 +313,10 @@ class _FolderCard extends StatelessWidget {
       if (!context.mounted) return;
       final name = await _showShotlyTextDialog(
         context: context,
-        title: '폴더 이름 변경',
+        title: st('폴더 이름 변경', 'Rename folder'),
         initialValue: _folderName(folder),
-        hintText: '폴더 이름',
-        primaryLabel: '저장',
+        hintText: st('폴더 이름', 'Folder name'),
+        primaryLabel: st('저장', 'Save'),
       );
       if (name != null) await onRename(name);
     } else if (action == 'color') {
@@ -335,7 +350,7 @@ class _FolderCard extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               Text(
-                '폴더 색상',
+                st('폴더 색상', 'Folder color'),
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),

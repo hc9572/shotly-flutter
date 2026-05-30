@@ -83,16 +83,16 @@ MethodChannel: `shotly/native`
 ```
 
 
-### Smart Clean / 유사 이미지 묶기
+### Screen Analysis / 유사 이미지 묶기
 
-- 앱/Stack 상세에서 Smart Clean 분석 실행
+- 앱/Stack 상세에서 Screen Analysis 분석 실행
 - 분석 범위는 해당 앱/Stack 안의 전체 스크린샷
 - 10분 시간창 제한 제거
 - 고정 분석 timeout 제거
 - 이미 폴더에 들어간 이미지는 새 그룹 후보에서 제외
 - 기존 폴더는 최신 이미지 1장을 대표 이미지로 사용
 - 새 스크린샷은 기존 폴더 대표 이미지와 먼저 비교한 뒤, 남은 미분류끼리 비슷한 화면 후보 생성
-- Smart Clean 후보는 '비슷한 화면'으로 통일 표시
+- Screen Analysis 후보는 '비슷한 화면'으로 통일 표시
 - 후보 상세에서는 첫 이미지 잠금 없이 전체 선택 가능
 - 선택된 이미지를 삭제하거나 폴더로 묶는 두 액션 제공
 - 특징 추출은 10장 단위 isolate 배치로 실행
@@ -108,7 +108,7 @@ MethodChannel: `shotly/native`
 - 이미지 숨기기/제외
 - 이미지 다른 Stack으로 이동
 - 유사 화면 후보 보기
-- Smart Clean 후보 검토 후 삭제/기존 폴더 추가/새 폴더 생성
+- Screen Analysis 후보 검토 후 삭제/기존 폴더 추가/새 폴더 생성
 
 ## 검증 결과
 
@@ -119,7 +119,7 @@ MethodChannel: `shotly/native`
 - `flutter build web --base-href /shotly-flutter/ --pwa-strategy=none` 통과
 - `flutter build apk --debug` 통과
 - Android 실기기 `SM S931N` debug install/run 통과
-- Smart Clean 14장 Stack 분석 838ms 완료 로그 확인
+- Screen Analysis 14장 Stack 분석 838ms 완료 로그 확인
 - GitHub Pages deploy workflow 통과
 
 ## 남은 일
@@ -145,6 +145,6 @@ MethodChannel: `shotly/native`
 - 온디바이스 screenshot 판별 모델 검토
 - OCR 검색
 - 전역 유사 화면 검색
-- Smart Clean 특징 캐시 영구 저장/DB migration
+- Screen Analysis 특징 캐시 영구 저장/DB migration
 - 선택 로그인/클라우드 백업
 - 멀티 디바이스 동기화

@@ -6,8 +6,10 @@ class _SetDateSection extends StatelessWidget {
     required this.sets,
     required this.allStackKeys,
     required this.stackNames,
+    required this.favoriteImageIds,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
+    required this.onToggleFavoriteImage,
     required this.onMoveImage,
     required this.selectedIds,
     required this.selectionMode,
@@ -23,8 +25,10 @@ class _SetDateSection extends StatelessWidget {
   final List<ScreenshotSet> sets;
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
+  final Set<String> favoriteImageIds;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
+  final Future<void> Function(String imageId) onToggleFavoriteImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
   final Set<String> selectedIds;
   final bool selectionMode;
@@ -55,8 +59,10 @@ class _SetDateSection extends StatelessWidget {
               set: entry.$2,
               allStackKeys: allStackKeys,
               stackNames: stackNames,
+              favoriteImageIds: favoriteImageIds,
               onExcludeImage: onExcludeImage,
               onDeleteOriginalImage: onDeleteOriginalImage,
+              onToggleFavoriteImage: onToggleFavoriteImage,
               onMoveImage: onMoveImage,
               selectedIds: selectedIds,
               selectionMode: selectionMode,
@@ -85,8 +91,10 @@ class _SetSection extends StatefulWidget {
     required this.set,
     required this.allStackKeys,
     required this.stackNames,
+    required this.favoriteImageIds,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
+    required this.onToggleFavoriteImage,
     required this.onMoveImage,
     required this.selectedIds,
     required this.selectionMode,
@@ -111,8 +119,10 @@ class _SetSection extends StatefulWidget {
   final ScreenshotSet set;
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
+  final Set<String> favoriteImageIds;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
+  final Future<void> Function(String imageId) onToggleFavoriteImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
   final Set<String> selectedIds;
   final bool selectionMode;
@@ -180,8 +190,10 @@ class _SetSectionState extends State<_SetSection> {
       viewerItems: widget.viewerItems,
       allStackKeys: widget.allStackKeys,
       stackNames: widget.stackNames,
+      favoriteImageIds: widget.favoriteImageIds,
       onExcludeImage: widget.onExcludeImage,
       onDeleteOriginalImage: widget.onDeleteOriginalImage,
+      onToggleFavoriteImage: widget.onToggleFavoriteImage,
       onMoveImage: widget.onMoveImage,
       selectedIds: widget.selectedIds,
       selectionMode: widget.selectionMode,
@@ -228,13 +240,15 @@ class _SetSectionState extends State<_SetSection> {
               const SizedBox(height: 12),
               _AddMenuTile(
                 icon: Icons.edit_note_rounded,
-                title: _memoText.trim().isEmpty ? '메모 추가' : '메모 수정',
+                title: _memoText.trim().isEmpty
+                    ? st('메모 추가', 'Add note')
+                    : st('메모 수정', 'Edit note'),
                 onTap: () => Navigator.of(context).pop('memo'),
               ),
               if (_memoText.trim().isNotEmpty)
                 _AddMenuTile(
                   icon: Icons.notes_rounded,
-                  title: '메모 삭제',
+                  title: st('메모 삭제', 'Delete note'),
                   onTap: () => Navigator.of(context).pop('clear_memo'),
                 ),
             ],
@@ -267,19 +281,21 @@ class _SetSectionState extends State<_SetSection> {
         _memoText = previous;
         _memoController.text = previous;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('메모를 저장하지 못했습니다: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(st('메모를 저장하지 못했습니다: $e', 'Couldn’t save note: $e')),
+        ),
+      );
     }
   }
 
   Future<String?> _editMemo(BuildContext context) async {
     final value = await _showShotlyTextDialog(
       context: context,
-      title: 'Set 메모',
+      title: st('Set 메모', 'Set note'),
       initialValue: _memoText,
-      hintText: '예: 온보딩 플로우',
-      primaryLabel: '저장',
+      hintText: st('예: 온보딩 플로우', 'e.g. Onboarding flow'),
+      primaryLabel: st('저장', 'Save'),
       minLines: 1,
       maxLines: 3,
     );
@@ -299,8 +315,10 @@ class _ImageGridSection extends StatefulWidget {
     this.showHeaderCheckbox = false,
     this.viewerItems,
     required this.stackNames,
+    required this.favoriteImageIds,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
+    required this.onToggleFavoriteImage,
     required this.onMoveImage,
     this.selectedIds,
     this.selectionMode,
@@ -324,8 +342,10 @@ class _ImageGridSection extends StatefulWidget {
   final List<ScreenshotItem>? viewerItems;
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
+  final Set<String> favoriteImageIds;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
+  final Future<void> Function(String imageId) onToggleFavoriteImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
   final Set<String>? selectedIds;
   final bool? selectionMode;
@@ -448,6 +468,11 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
               item: item,
               selected: _effectiveSelectedIds.contains(item.id),
               selecting: _isSelecting,
+              favorite: widget.favoriteImageIds.contains(item.id),
+              onToggleFavorite: () async {
+                await widget.onToggleFavoriteImage(item.id);
+                if (mounted) setState(() {});
+              },
               onTap: () => _isSelecting
                   ? _toggleSelection(item.id)
                   : _openImageViewer(context, item),
@@ -508,6 +533,8 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
         builder: (_) => ImageViewerScreen(
           items: viewerItems,
           initialIndex: index < 0 ? 0 : index,
+          favoriteImageIds: widget.favoriteImageIds,
+          onToggleFavoriteImage: widget.onToggleFavoriteImage,
           onDeleteOriginalImage: widget.onDeleteOriginalImage,
         ),
       ),
@@ -524,10 +551,12 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
   Future<void> _hideSelected() async {
     final confirmed = await _showShotlyConfirmDialog(
       context: context,
-      title: '선택한 사진 숨기기',
-      body:
-          '선택한 ${_effectiveSelectedIds.length}장을 Shotly 목록에서 숨길까요? 숨긴 항목은 설정에서 다시 확인할 수 있어요.',
-      primaryLabel: '숨기기',
+      title: st('선택한 사진 숨기기', 'Hide selected photos'),
+      body: st(
+        '선택한 ${_effectiveSelectedIds.length}장을 Shotly 목록에서 숨길까요? 숨긴 항목은 설정에서 다시 확인할 수 있어요.',
+        'Hide ${_effectiveSelectedIds.length} selected photos from Shotly? Hidden items can be restored in Settings.',
+      ),
+      primaryLabel: st('숨기기', 'Hide'),
     );
     if (confirmed != true) return;
     final selected = _effectiveSelectedIds.toList();
@@ -543,7 +572,7 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
   Future<void> _moveSelected(BuildContext context) async {
     final target = await _showShotlyActionSheet<String>(
       context,
-      title: '이동할 앱',
+      title: st('이동할 앱', 'Move to app'),
       items: widget.allStackKeys
           .map(
             (key) => _ShotlyActionItem(
@@ -581,13 +610,13 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
         .toList();
     final target = await _showShotlyActionSheet<String>(
       context,
-      title: '이동할 폴더',
+      title: st('이동할 폴더', 'Move to folder'),
       items: [
         if (widget.onAddSelectedToFolder != null)
-          const _ShotlyActionItem(
+          _ShotlyActionItem(
             value: '__new_folder__',
             icon: Icons.create_new_folder_rounded,
-            title: '새 폴더 만들기',
+            title: st('새 폴더 만들기', 'Create new folder'),
           ),
         ...folderItems,
       ],
@@ -610,10 +639,12 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
   Future<void> _deleteSelected(BuildContext context) async {
     final confirmed = await _showShotlyConfirmDialog(
       context: context,
-      title: '원본 파일 삭제',
-      body:
-          '선택한 ${_effectiveSelectedIds.length}장을 Shotly뿐 아니라 기기 앨범 원본에서도 삭제할까요? 이 작업은 되돌릴 수 없어요.',
-      primaryLabel: '삭제',
+      title: st('원본 파일 삭제', 'Delete original file'),
+      body: st(
+        '선택한 ${_effectiveSelectedIds.length}장을 Shotly뿐 아니라 기기 앨범 원본에서도 삭제할까요? 이 작업은 되돌릴 수 없어요.',
+        'Delete ${_effectiveSelectedIds.length} selected originals from both Shotly and your device gallery? This can’t be undone.',
+      ),
+      primaryLabel: st('삭제', 'Delete'),
       destructive: true,
     );
     if (confirmed != true) return;

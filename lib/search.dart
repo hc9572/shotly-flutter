@@ -32,12 +32,14 @@ class _SearchPage extends StatefulWidget {
     required this.folderNames,
     required this.folderColors,
     required this.setAssignments,
+    required this.favoriteImageIds,
     required this.stackMatchesQuery,
     required this.onRenameStack,
     required this.onHideStack,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
     required this.onDeleteOriginalImages,
+    required this.onToggleFavoriteImage,
     required this.onMoveImage,
     this.onAddImageToStack,
     required this.onSaveSetMemo,
@@ -54,12 +56,14 @@ class _SearchPage extends StatefulWidget {
   final Map<String, String> folderNames;
   final Map<String, String> folderColors;
   final Map<String, String> setAssignments;
+  final Set<String> favoriteImageIds;
   final bool Function(StackItem stack, String query) stackMatchesQuery;
   final Future<void> Function(String stackKey, String name) onRenameStack;
   final Future<void> Function(String stackKey) onHideStack;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
   final Future<bool> Function(List<String> imageIds) onDeleteOriginalImages;
+  final Future<void> Function(String imageId) onToggleFavoriteImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
   final Future<ScreenshotItem?> Function(String stackKey)? onAddImageToStack;
   final Future<void> Function(String setKey, String memo) onSaveSetMemo;
@@ -139,7 +143,10 @@ class _SearchPageState extends State<_SearchPage> {
                           fontWeight: FontWeight.w500,
                         ),
                         decoration: InputDecoration(
-                          hintText: '앱 이름, 파일명, 경로 검색',
+                          hintText: st(
+                            '앱 이름, 파일명, 경로 검색',
+                            'Search app name, file name, or path',
+                          ),
                           hintStyle: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
                                 color: const Color(0xFF727785),
@@ -183,24 +190,27 @@ class _SearchPageState extends State<_SearchPage> {
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                       children: [
                         _SearchResultSection(
-                          title: '앱별 화면',
+                          title: st('앱', 'Apps'),
                           results: stackResults,
+                          folderColors: widget.folderColors,
                           expanded: _showAllStacks,
                           onToggleExpanded: () =>
                               setState(() => _showAllStacks = !_showAllStacks),
                           onOpen: _openResult,
                         ),
                         _SearchResultSection(
-                          title: '폴더 / 시간 묶음',
+                          title: st('폴더', 'Folders'),
                           results: setResults,
+                          folderColors: widget.folderColors,
                           expanded: _showAllSets,
                           onToggleExpanded: () =>
                               setState(() => _showAllSets = !_showAllSets),
                           onOpen: _openResult,
                         ),
                         _SearchResultSection(
-                          title: '사진',
+                          title: st('사진', 'Photos'),
                           results: imageResults,
+                          folderColors: widget.folderColors,
                           expanded: _showAllImages,
                           onToggleExpanded: () =>
                               setState(() => _showAllImages = !_showAllImages),
@@ -231,12 +241,9 @@ class _SearchPageState extends State<_SearchPage> {
         widget.setAssignments,
       );
       for (final set in sets) {
+        if (!_isFolderSetKey(set.key)) continue;
         final setMatches =
-            _matches(set.memo, query) ||
-            (_isFolderSetKey(set.key) && _matches(_folderName(set), query)) ||
-            _matches(set.timeRange, query) ||
-            (set.items.isNotEmpty &&
-                _matches(_formatSetDate(set.items.first.date), query));
+            _matches(set.memo, query) || _matches(_folderName(set), query);
         if (setMatches && setKeys.add(set.key)) {
           results.add(_SearchResult.set(stack, set));
         }
@@ -267,12 +274,14 @@ class _SearchPageState extends State<_SearchPage> {
                 folderNames: widget.folderNames,
                 folderColors: widget.folderColors,
                 setAssignments: widget.setAssignments,
+                favoriteImageIds: widget.favoriteImageIds,
                 visualFeatures: const {},
                 onRenameStack: widget.onRenameStack,
                 onHideStack: widget.onHideStack,
                 onExcludeImage: widget.onExcludeImage,
                 onDeleteOriginalImage: widget.onDeleteOriginalImage,
                 onDeleteOriginalImages: widget.onDeleteOriginalImages,
+                onToggleFavoriteImage: widget.onToggleFavoriteImage,
                 onMoveImage: widget.onMoveImage,
                 onAddImageToStack: widget.onAddImageToStack,
                 onSaveSetMemo: widget.onSaveSetMemo,
@@ -286,8 +295,10 @@ class _SearchPageState extends State<_SearchPage> {
                 set: result.set!,
                 allStackKeys: widget.allStackKeys,
                 stackNames: widget.stackNames,
+                favoriteImageIds: widget.favoriteImageIds,
                 onExcludeImage: widget.onExcludeImage,
                 onDeleteOriginalImage: widget.onDeleteOriginalImage,
+                onToggleFavoriteImage: widget.onToggleFavoriteImage,
                 onMoveImage: widget.onMoveImage,
                 onSaveSetMemo: widget.onSaveSetMemo,
                 onAssignImageToSet: widget.onAssignImageToSet,
@@ -312,6 +323,8 @@ class _SearchPageState extends State<_SearchPage> {
               return ImageViewerScreen(
                 items: images,
                 initialIndex: index < 0 ? 0 : index,
+                favoriteImageIds: widget.favoriteImageIds,
+                onToggleFavoriteImage: widget.onToggleFavoriteImage,
                 onDeleteOriginalImage: widget.onDeleteOriginalImage,
               );
           }
@@ -328,7 +341,10 @@ class _SearchEmptyHint extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Text(
-        '찾고 싶은 앱, 파일명, 경로를 검색해보세요.',
+        st(
+          '찾고 싶은 앱, 파일명, 경로를 검색해보세요.',
+          'Search by app name, file name, or path.',
+        ),
         style: Theme.of(
           context,
         ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785)),
@@ -344,7 +360,7 @@ class _SearchNoResults extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Text(
-        '검색 결과가 없습니다.',
+        st('검색 결과가 없습니다.', 'No results found.'),
         style: Theme.of(
           context,
         ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785)),
@@ -357,6 +373,7 @@ class _SearchResultSection extends StatelessWidget {
   const _SearchResultSection({
     required this.title,
     required this.results,
+    required this.folderColors,
     required this.expanded,
     required this.onToggleExpanded,
     required this.onOpen,
@@ -364,6 +381,7 @@ class _SearchResultSection extends StatelessWidget {
 
   final String title;
   final List<_SearchResult> results;
+  final Map<String, String> folderColors;
   final bool expanded;
   final VoidCallback onToggleExpanded;
   final ValueChanged<_SearchResult> onOpen;
@@ -404,7 +422,9 @@ class _SearchResultSection extends StatelessWidget {
                     minimumSize: const Size(0, 32),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: Text(expanded ? '접기' : '더보기'),
+                  child: Text(
+                    expanded ? st('접기', 'Collapse') : st('더보기', 'Show more'),
+                  ),
                 ),
             ],
           ),
@@ -417,6 +437,7 @@ class _SearchResultSection extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _SearchResultCard(
                   result: result,
+                  folderColors: folderColors,
                   onTap: () => onOpen(result),
                 ),
               ),
@@ -460,9 +481,14 @@ class _SearchImageGrid extends StatelessWidget {
 }
 
 class _SearchResultCard extends StatelessWidget {
-  const _SearchResultCard({required this.result, required this.onTap});
+  const _SearchResultCard({
+    required this.result,
+    required this.folderColors,
+    required this.onTap,
+  });
 
   final _SearchResult result;
+  final Map<String, String> folderColors;
   final VoidCallback onTap;
 
   @override
@@ -487,6 +513,13 @@ class _SearchResultCard extends StatelessWidget {
       _SearchResultKind.set => set!.items.take(8).toList(),
       _SearchResultKind.image => [result.image!],
     };
+    final isFolder =
+        result.kind == _SearchResultKind.set &&
+        set != null &&
+        _isFolderSetKey(set.key);
+    final folderColor = isFolder
+        ? _folderColorFor(folderColors[set.key])
+        : null;
 
     return InkWell(
       onTap: onTap,
@@ -498,6 +531,22 @@ class _SearchResultCard extends StatelessWidget {
           children: [
             Row(
               children: [
+                if (isFolder) ...[
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: folderColor!.color,
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Icon(
+                      Icons.folder_rounded,
+                      size: 19,
+                      color: folderColor.darkColor,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ],
                 Expanded(
                   child: Text(
                     title,
@@ -552,8 +601,10 @@ class _SearchSetResultScreen extends StatefulWidget {
     required this.set,
     required this.allStackKeys,
     required this.stackNames,
+    required this.favoriteImageIds,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
+    required this.onToggleFavoriteImage,
     required this.onMoveImage,
     required this.onSaveSetMemo,
     required this.onAssignImageToSet,
@@ -569,8 +620,10 @@ class _SearchSetResultScreen extends StatefulWidget {
   final ScreenshotSet set;
   final List<String> allStackKeys;
   final Map<String, String> stackNames;
+  final Set<String> favoriteImageIds;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
+  final Future<void> Function(String imageId) onToggleFavoriteImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
   final Future<void> Function(String setKey, String memo) onSaveSetMemo;
   final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
@@ -665,8 +718,10 @@ class _SearchSetResultScreenState extends State<_SearchSetResultScreen> {
                   set: _visibleSet,
                   allStackKeys: widget.allStackKeys,
                   stackNames: widget.stackNames,
+                  favoriteImageIds: widget.favoriteImageIds,
                   onExcludeImage: widget.onExcludeImage,
                   onDeleteOriginalImage: widget.onDeleteOriginalImage,
+                  onToggleFavoriteImage: widget.onToggleFavoriteImage,
                   onMoveImage: widget.onMoveImage,
                   selectedIds: _selectedIds,
                   selectionMode: _isSelectionMode,
@@ -733,13 +788,13 @@ class _SearchSetResultScreenState extends State<_SearchSetResultScreen> {
               if (widget.onRenameFolder != null)
                 ListTile(
                   leading: const Icon(Icons.edit_outlined),
-                  title: const Text('폴더 이름 변경'),
+                  title: Text(st('폴더 이름 변경', 'Rename folder')),
                   onTap: () => Navigator.pop(context, 'rename'),
                 ),
               if (widget.onChangeFolderColor != null)
                 ListTile(
                   leading: const Icon(Icons.palette_outlined),
-                  title: const Text('폴더 색상 변경'),
+                  title: Text(st('폴더 색상 변경', 'Change folder color')),
                   onTap: () => Navigator.pop(context, 'color'),
                 ),
               if (widget.onDeleteFolder != null)
@@ -748,8 +803,8 @@ class _SearchSetResultScreenState extends State<_SearchSetResultScreen> {
                     Icons.delete_outline_rounded,
                     color: Color(0xFFE05656),
                   ),
-                  title: const Text(
-                    '폴더 삭제',
+                  title: Text(
+                    st('폴더 삭제', 'Delete folder'),
                     style: TextStyle(color: Color(0xFFE05656)),
                   ),
                   onTap: () => Navigator.pop(context, 'delete'),
@@ -763,10 +818,10 @@ class _SearchSetResultScreenState extends State<_SearchSetResultScreen> {
     if (action == 'rename' && widget.onRenameFolder != null) {
       final name = await _showShotlyTextDialog(
         context: context,
-        title: '폴더 이름 변경',
+        title: st('폴더 이름 변경', 'Rename folder'),
         initialValue: _currentFolderName,
-        hintText: '폴더 이름',
-        primaryLabel: '저장',
+        hintText: st('폴더 이름', 'Folder name'),
+        primaryLabel: st('저장', 'Save'),
       );
       final trimmed = name?.trim();
       if (trimmed == null || trimmed.isEmpty) return;
@@ -839,9 +894,9 @@ class _SearchSetResultScreenState extends State<_SearchSetResultScreen> {
     if (widget.onCreateFolderFromSelected == null || imageIds.isEmpty) return;
     final name = await _showShotlyTextDialog(
       context: context,
-      title: '폴더 만들기',
-      hintText: '폴더 이름',
-      primaryLabel: '만들기',
+      title: st('폴더 만들기', 'Create folder'),
+      hintText: st('폴더 이름', 'Folder name'),
+      primaryLabel: st('만들기', 'Create'),
     );
     final trimmed = name?.trim();
     if (trimmed == null || trimmed.isEmpty) return;
@@ -904,7 +959,7 @@ class _SearchField extends StatelessWidget {
               context,
             ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
             decoration: InputDecoration(
-              hintText: '검색',
+              hintText: st('검색', 'Search'),
               hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: const Color(0xFF727785),
                 fontWeight: FontWeight.w500,

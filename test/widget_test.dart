@@ -11,6 +11,6 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('검색'), findsOneWidget);
+    expect(find.textContaining(RegExp('검색|Search')), findsOneWidget);
   });
 }

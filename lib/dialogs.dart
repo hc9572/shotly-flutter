@@ -1,7 +1,7 @@
 part of 'main.dart';
 
 class _ShotlyActionItem<T> {
-  const _ShotlyActionItem({
+  _ShotlyActionItem({
     required this.value,
     required this.icon,
     required this.title,
@@ -226,7 +226,7 @@ class _ShotlyTextDialogState extends State<_ShotlyTextDialog> {
                     foregroundColor: const Color(0xFF727785),
                   ),
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('취소'),
+                  child: Text(st('취소', 'Cancel')),
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
@@ -313,7 +313,7 @@ Future<void> _showShotlyInfoDialog({
                   ),
                 ),
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('확인'),
+                child: Text(st('확인', 'OK')),
               ),
             ),
           ],
@@ -373,7 +373,7 @@ Future<bool?> _showShotlyConfirmDialog({
                     foregroundColor: const Color(0xFF727785),
                   ),
                   onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('취소'),
+                  child: Text(st('취소', 'Cancel')),
                 ),
                 const SizedBox(width: 8),
                 FilledButton(

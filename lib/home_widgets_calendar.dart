@@ -7,6 +7,8 @@ class _ShotlyTopBarDelegate extends SliverPersistentHeaderDelegate {
     required this.selectedDate,
     required this.onPickDate,
     required this.onClearDate,
+    required this.favoriteCount,
+    required this.onFavorites,
     required this.onAdd,
     required this.onSettings,
   });
@@ -16,6 +18,8 @@ class _ShotlyTopBarDelegate extends SliverPersistentHeaderDelegate {
   final DateTime? selectedDate;
   final VoidCallback onPickDate;
   final VoidCallback onClearDate;
+  final int favoriteCount;
+  final VoidCallback onFavorites;
   final VoidCallback onAdd;
   final VoidCallback onSettings;
 
@@ -53,6 +57,11 @@ class _ShotlyTopBarDelegate extends SliverPersistentHeaderDelegate {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                _TopIconButton(
+                  icon: Icons.star_border_rounded,
+                  onTap: onFavorites,
+                ),
+                const SizedBox(width: 2),
                 _TopIconButton(icon: Icons.add_rounded, onTap: onAdd),
                 const SizedBox(width: 2),
                 _TopIconButton(
@@ -74,6 +83,8 @@ class _ShotlyTopBarDelegate extends SliverPersistentHeaderDelegate {
       selectedDate != oldDelegate.selectedDate ||
       onPickDate != oldDelegate.onPickDate ||
       onClearDate != oldDelegate.onClearDate ||
+      favoriteCount != oldDelegate.favoriteCount ||
+      onFavorites != oldDelegate.onFavorites ||
       onAdd != oldDelegate.onAdd ||
       onSettings != oldDelegate.onSettings;
 }
@@ -128,7 +139,10 @@ class _SummarySortRow extends StatelessWidget {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                '$screenshotCount개 스크린샷 · $stackCount개 앱',
+                st(
+                  '$screenshotCount개 스크린샷 · $stackCount개 앱',
+                  '$screenshotCount screenshots · $stackCount apps',
+                ),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: const Color(0xFF727785),
                   fontWeight: FontWeight.w500,
@@ -163,7 +177,7 @@ class _SummarySortRow extends StatelessWidget {
                           width: 6,
                           height: 6,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0058BE),
+                            color: const Color(0xFF111111),
                             borderRadius: BorderRadius.circular(99),
                           ),
                         ),
@@ -188,10 +202,10 @@ class _SortDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = [
-      (StackSortMode.latest, '최신순'),
-      (StackSortMode.name, '이름 순'),
-      (StackSortMode.mostImages, '이미지 많은 순'),
-      (StackSortMode.fewestImages, '이미지 적은 순'),
+      (StackSortMode.latest, st('최신순', 'Latest')),
+      (StackSortMode.name, st('이름 순', 'Name')),
+      (StackSortMode.mostImages, st('이미지 많은 순', 'Most images')),
+      (StackSortMode.fewestImages, st('이미지 적은 순', 'Fewest images')),
     ];
     return Material(
       color: Colors.transparent,
@@ -236,7 +250,7 @@ class _SortDropdown extends StatelessWidget {
                     if (isSelected)
                       const Icon(
                         Icons.check_rounded,
-                        color: Color(0xFF0058BE),
+                        color: Color(0xFF111111),
                         size: 18,
                       ),
                   ],
@@ -420,7 +434,7 @@ class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
                         style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFF0058BE),
+                          foregroundColor: const Color(0xFF111111),
                           textStyle: Theme.of(context).textTheme.labelLarge
                               ?.copyWith(fontWeight: FontWeight.w600),
                           padding: const EdgeInsets.symmetric(
@@ -431,14 +445,14 @@ class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        child: const Text('취소'),
+                        child: Text(st('취소', 'Cancel')),
                       ),
                       const SizedBox(width: 8),
                       FilledButton(
                         onPressed: () =>
                             Navigator.of(context).pop(_selectedDate),
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF0058BE),
+                          backgroundColor: const Color(0xFF111111),
                           foregroundColor: Colors.white,
                           textStyle: Theme.of(context).textTheme.labelLarge
                               ?.copyWith(fontWeight: FontWeight.w600),
@@ -450,7 +464,7 @@ class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        child: const Text('적용'),
+                        child: Text(st('적용', 'Apply')),
                       ),
                     ],
                   ),
@@ -489,7 +503,7 @@ class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF0058BE) : Colors.transparent,
+            color: isSelected ? const Color(0xFF111111) : Colors.transparent,
             borderRadius: BorderRadius.circular(999),
           ),
           child: Stack(
@@ -511,7 +525,7 @@ class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
                     decoration: BoxDecoration(
                       color: isSelected
                           ? Colors.white
-                          : const Color(0xFF0058BE),
+                          : const Color(0xFF111111),
                       borderRadius: BorderRadius.circular(99),
                     ),
                   ),
@@ -724,10 +738,10 @@ class _MonthTile extends StatelessWidget {
         duration: const Duration(milliseconds: 140),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF0058BE) : const Color(0xFFF3F3F3),
+          color: selected ? const Color(0xFF111111) : const Color(0xFFF3F3F3),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: selected ? const Color(0xFF0058BE) : const Color(0xFFE5E7EB),
+            color: selected ? const Color(0xFF111111) : const Color(0xFFE5E7EB),
           ),
         ),
         child: Text(

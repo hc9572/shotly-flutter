@@ -1,15 +1,21 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'local_image.dart';
 import 'local_store.dart';
 import 'mock_data.dart';
+import 'shotly_analytics.dart';
 import 'visual_features.dart';
 
 part 'models_native.dart';
@@ -22,12 +28,41 @@ part 'stack_folders.dart';
 part 'stack_sections.dart';
 part 'stack_selection_widgets.dart';
 part 'image_viewer.dart';
+part 'favorites.dart';
 part 'dialogs.dart';
 part 'shotly_helpers.dart';
 part 'settings.dart';
 part 'onboarding.dart';
+part 'phone_transfer.dart';
+
+bool get _shotlyUsesKorean =>
+    PlatformDispatcher.instance.locale.languageCode.toLowerCase() == 'ko';
+
+String st(String ko, String en) => _shotlyUsesKorean ? ko : en;
+
+String stCount(
+  int count,
+  String koSuffix,
+  String enSingular,
+  String enPlural,
+) => _shotlyUsesKorean
+    ? '$count$koSuffix'
+    : '$count ${count == 1 ? enSingular : enPlural}';
+
+String stDate(DateTime date) {
+  if (_shotlyUsesKorean) {
+    final weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+    return '${date.year}년 ${date.month}월 ${date.day}일 (${weekdays[date.weekday - 1]}) ${date.hour.toString().padLeft(2, '0')}시 ${date.minute.toString().padLeft(2, '0')}분';
+  }
+  final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  final hour = date.hour.toString().padLeft(2, '0');
+  final minute = date.minute.toString().padLeft(2, '0');
+  return '${weekdays[date.weekday - 1]}, ${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} $hour:$minute';
+}
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  _registerShotlyLicenses();
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
   };
@@ -41,6 +76,17 @@ void main() {
     return const _ShotlyRuntimeErrorView();
   };
   runApp(const ShotlyApp());
+}
+
+void _registerShotlyLicenses() {
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks(const [
+      'Inter',
+    ], await rootBundle.loadString('assets/licenses/inter_ofl.txt'));
+    yield LicenseEntryWithLineBreaks(const [
+      'Pretendard',
+    ], await rootBundle.loadString('assets/licenses/pretendard_ofl.txt'));
+  });
 }
 
 class _ShotlyRuntimeErrorView extends StatelessWidget {
@@ -70,7 +116,7 @@ class _ShotlyRuntimeErrorView extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                '화면을 불러오지 못했어요',
+                st('화면을 불러오지 못했어요', 'Couldn’t load this screen'),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: const Color(0xFF1A1C1C),
@@ -79,7 +125,10 @@ class _ShotlyRuntimeErrorView extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                '뒤로 갔다가 다시 열어봐요. 오류 내용은 개발 로그에 남겨둘게요.',
+                st(
+                  '뒤로 갔다가 다시 열어봐요. 오류 내용은 개발 로그에 남겨둘게요.',
+                  'Go back and open it again. The error was saved to developer logs.',
+                ),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: const Color(0xFF727785),
@@ -101,13 +150,15 @@ class ShotlyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Shotly',
       debugShowCheckedModeBanner: false,
+      supportedLocales: const [Locale('en'), Locale('ko')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       theme: ThemeData(
         useMaterial3: true,
         scaffoldBackgroundColor: const Color(0xFFF8F9FA),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0058BE),
+          seedColor: const Color(0xFF111111),
           brightness: Brightness.light,
-          primary: const Color(0xFF0058BE),
+          primary: const Color(0xFF111111),
           surface: const Color(0xFFF8F9FA),
           surfaceContainerHighest: const Color(0xFFE2E2E2),
           outline: const Color(0xFF727785),
@@ -208,6 +259,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   final Map<String, VisualFeature> _visualFeatures = {};
   final Set<String> _hiddenStackKeys = {};
   final Set<String> _excludedImageIds = {};
+  final Set<String> _favoriteImageIds = {};
   final List<String> _pinnedStackKeys = [];
   bool _isLoading = true;
   bool _hasPermission = false;
@@ -221,6 +273,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    unawaited(ShotlyAnalytics.log('app_open'));
     unawaited(_restoreLocalState());
     unawaited(_load(requestPermission: false));
   }
@@ -276,6 +329,9 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
       _excludedImageIds
         ..clear()
         ..addAll(state.excludedImageIds);
+      _favoriteImageIds
+        ..clear()
+        ..addAll(state.favoriteImageIds);
       _pinnedStackKeys
         ..clear()
         ..addAll(state.pinnedStackKeys);
@@ -292,6 +348,13 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
       _hasPermission = requestPermission
           ? await ShotlyNative.requestPhotoPermission()
           : await ShotlyNative.hasPhotoPermission();
+      unawaited(
+        ShotlyAnalytics.log(
+          _hasPermission
+              ? 'photo_permission_granted'
+              : 'photo_permission_denied',
+        ),
+      );
       if (_hasPermission) {
         final screenshots = await ShotlyNative.getScreenshots();
         screenshots.sort(
@@ -308,6 +371,121 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
       _error = '$e';
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _exportBackup() async {
+    try {
+      final state = await _localStore.load();
+      final backup = ShotlyBackupDocument.current(state);
+      final content = const JsonEncoder.withIndent(
+        '  ',
+      ).convert(backup.toJson());
+      final date = DateTime.now();
+      final filename =
+          'shotly-backup-${date.year}${date.month.toString().padLeft(2, '0')}${date.day.toString().padLeft(2, '0')}.json';
+      final saved = await ShotlyNative.saveBackupFile(filename, content);
+      if (!mounted) return;
+      if (saved) {
+        unawaited(ShotlyAnalytics.log('backup_exported'));
+        _showSnack(st('백업 파일을 저장했어요.', 'Backup file saved.'));
+      }
+    } on PlatformException catch (e) {
+      if (mounted) _showSnack(e.message ?? e.code);
+    } catch (e) {
+      if (mounted) {
+        _showSnack(st('백업 파일을 저장하지 못했어요.', 'Couldn’t save backup file.'));
+      }
+    }
+  }
+
+  Future<String> _currentBackupContent() async {
+    final state = await _localStore.load();
+    final backup = ShotlyBackupDocument.current(state);
+    return const JsonEncoder.withIndent('  ').convert(backup.toJson());
+  }
+
+  Future<void> _startPhoneTransfer() async {
+    try {
+      final content = await _currentBackupContent();
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => PhoneTransferSendScreen(backupContent: content),
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        _showSnack(st('폰 이전을 시작하지 못했어요.', 'Couldn’t start phone transfer.'));
+      }
+    }
+  }
+
+  Future<void> _receivePhoneTransfer() async {
+    final confirmed = await _showShotlyConfirmDialog(
+      context: context,
+      title: st('QR로 가져오기', 'Scan QR to import'),
+      body: st(
+        '이전 폰의 정리 데이터로 현재 Shotly 정리 데이터를 교체할까요? 원본 이미지는 건드리지 않아요.',
+        'Replace current Shotly organization data with data from your old phone? Original images will not be changed.',
+      ),
+      primaryLabel: st('스캔하기', 'Scan'),
+    );
+    if (confirmed != true || !mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PhoneTransferReceiveScreen(
+          onBackupContentReceived: _importBackupContent,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _importBackupContent(String content) async {
+    final decoded = jsonDecode(content);
+    if (decoded is! Map) {
+      throw const FormatException('Invalid Shotly backup file');
+    }
+    final backup = ShotlyBackupDocument.fromJson(
+      decoded.cast<String, Object?>(),
+    );
+    await _localStore.replaceAll(backup.state);
+    await _restoreLocalState();
+    await _load(requestPermission: false);
+    unawaited(ShotlyAnalytics.log('backup_imported'));
+    if (mounted) {
+      _showSnack(st('정리 데이터를 가져왔어요.', 'Organization data imported.'));
+    }
+  }
+
+  Future<void> _importBackup() async {
+    final confirmed = await _showShotlyConfirmDialog(
+      context: context,
+      title: st('백업 불러오기', 'Import backup'),
+      body: st(
+        '백업 파일의 정리 데이터로 현재 Shotly 정리 데이터를 교체할까요? 원본 이미지는 건드리지 않아요.',
+        'Replace current Shotly organization data with the selected backup? Original images will not be changed.',
+      ),
+      primaryLabel: st('불러오기', 'Import'),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final content = await ShotlyNative.openBackupFile();
+      if (content == null || content.trim().isEmpty) return;
+      await _importBackupContent(content);
+    } on PlatformException catch (e) {
+      if (mounted) _showSnack(e.message ?? e.code);
+    } on FormatException catch (_) {
+      if (mounted) {
+        _showSnack(
+          st('Shotly 백업 파일이 아니에요.', 'This is not a Shotly backup file.'),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnack(st('백업을 불러오지 못했어요.', 'Couldn’t import backup.'));
+      }
     }
   }
 
@@ -480,9 +658,9 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   Future<void> _showCreateStackDialog() async {
     final name = await _showShotlyTextDialog(
       context: context,
-      title: '앱 추가',
-      hintText: '앱 이름',
-      primaryLabel: '추가',
+      title: st('앱 추가', 'Add app'),
+      hintText: st('앱 이름', 'App name'),
+      primaryLabel: st('추가', 'Add'),
       validator: (value) {
         final trimmed = value.trim();
         if (trimmed.isEmpty) return null;
@@ -495,7 +673,9 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
                   stack.name.toLowerCase() == trimmed.toLowerCase() ||
                   stack.key.toLowerCase() == trimmed.toLowerCase(),
             );
-        return exists ? '이미 같은 이름의 앱이 있어요.' : null;
+        return exists
+            ? st('이미 같은 이름의 앱이 있어요.', 'An app with this name already exists.')
+            : null;
       },
     );
     final trimmed = name?.trim();
@@ -514,7 +694,14 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
         (item) =>
             item.id == image.id || item.thumbnailPath == image.thumbnailPath,
       )) {
-        if (mounted) _showSnack('이미 추가된 이미지예요. 중복 추가하지 않았어.');
+        if (mounted) {
+          _showSnack(
+            st(
+              '이미 추가된 이미지예요. 중복 추가하지 않았어.',
+              'This image was already added. Duplicates are skipped.',
+            ),
+          );
+        }
         return;
       }
       setState(() {
@@ -600,11 +787,36 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
     await _localStore.excludeImage(imageId);
   }
 
+  Future<void> _toggleFavoriteImage(String imageId) async {
+    final shouldFavorite = !_favoriteImageIds.contains(imageId);
+    setState(() {
+      if (shouldFavorite) {
+        _favoriteImageIds.add(imageId);
+      } else {
+        _favoriteImageIds.remove(imageId);
+      }
+    });
+    if (shouldFavorite) {
+      await _localStore.favoriteImage(imageId);
+    } else {
+      await _localStore.unfavoriteImage(imageId);
+    }
+  }
+
   Future<bool> _deleteOriginalImage(String imageId) async {
     try {
+      unawaited(ShotlyAnalytics.log('delete_original_requested'));
       final deleted = await ShotlyNative.deleteOriginalImage(imageId);
       if (!deleted) {
-        if (mounted) _showSnack('원본 파일을 삭제하지 못했어요. 시스템 권한을 확인해줘.');
+        unawaited(ShotlyAnalytics.log('delete_original_failed'));
+        if (mounted) {
+          _showSnack(
+            st(
+              '원본 파일을 삭제하지 못했어요. 시스템 권한을 확인해줘.',
+              'Couldn’t delete the original file. Check system permissions.',
+            ),
+          );
+        }
         return false;
       }
       setState(() {
@@ -612,14 +824,19 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
             .where((item) => item.id != imageId)
             .toList();
         _excludedImageIds.remove(imageId);
+        _favoriteImageIds.remove(imageId);
         _imageAssignments.remove(imageId);
         _setAssignments.remove(imageId);
         _visualFeatures.remove(imageId);
       });
       await _localStore.excludeImage(imageId);
-      if (mounted) _showSnack('원본 파일을 삭제했어요.');
+      unawaited(ShotlyAnalytics.log('delete_original_succeeded'));
+      if (mounted) {
+        _showSnack(st('원본 파일을 삭제했어요.', 'Deleted the original file.'));
+      }
       return true;
     } on PlatformException catch (e) {
+      unawaited(ShotlyAnalytics.log('delete_original_failed'));
       if (mounted) _showSnack(e.message ?? e.code);
       return false;
     }
@@ -628,9 +845,18 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   Future<bool> _deleteOriginalImages(List<String> imageIds) async {
     if (imageIds.isEmpty) return false;
     try {
+      unawaited(ShotlyAnalytics.log('delete_original_requested'));
       final deleted = await ShotlyNative.deleteOriginalImages(imageIds);
       if (!deleted) {
-        if (mounted) _showSnack('선택한 원본 파일을 삭제하지 못했어요. 시스템 권한을 확인해줘.');
+        unawaited(ShotlyAnalytics.log('delete_original_failed'));
+        if (mounted) {
+          _showSnack(
+            st(
+              '선택한 원본 파일을 삭제하지 못했어요. 시스템 권한을 확인해줘.',
+              'Couldn’t delete the selected originals. Check system permissions.',
+            ),
+          );
+        }
         return false;
       }
       setState(() {
@@ -641,6 +867,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
         _excludedImageIds.removeAll(ids);
         for (final id in ids) {
           _imageAssignments.remove(id);
+          _favoriteImageIds.remove(id);
           _setAssignments.remove(id);
           _visualFeatures.remove(id);
         }
@@ -648,9 +875,18 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
       for (final id in imageIds) {
         await _localStore.excludeImage(id);
       }
-      if (mounted) _showSnack('${imageIds.length}개 원본 파일을 삭제했어요.');
+      unawaited(ShotlyAnalytics.log('delete_original_succeeded'));
+      if (mounted) {
+        _showSnack(
+          st(
+            '${imageIds.length}개 원본 파일을 삭제했어요.',
+            'Deleted ${imageIds.length} original files.',
+          ),
+        );
+      }
       return true;
     } on PlatformException catch (e) {
+      unawaited(ShotlyAnalytics.log('delete_original_failed'));
       if (mounted) _showSnack(e.message ?? e.code);
       return false;
     }
@@ -695,12 +931,14 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
           folderNames: _folderNames,
           folderColors: _folderColors,
           setAssignments: _setAssignments,
+          favoriteImageIds: _favoriteImageIds,
           stackMatchesQuery: _stackMatchesQuery,
           onRenameStack: _renameStack,
           onHideStack: _hideStack,
           onExcludeImage: _excludeImage,
           onDeleteOriginalImage: _deleteOriginalImage,
           onDeleteOriginalImages: _deleteOriginalImages,
+          onToggleFavoriteImage: _toggleFavoriteImage,
           onMoveImage: _moveImage,
           onAddImageToStack: _pickAndAddImageToStack,
           onSaveSetMemo: _saveSetMemo,
@@ -714,6 +952,27 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
       setState(() => _query = query);
       _searchController.text = query;
     }
+  }
+
+  Future<void> _openFavoritesPage() async {
+    final items = _screenshots
+        .where((item) => !_excludedImageIds.contains(item.id))
+        .toList();
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FavoritesScreen(
+          items: items,
+          allStackKeys: _searchSourceStacks.map((item) => item.key).toList(),
+          stackNames: _stackNames,
+          favoriteImageIds: _favoriteImageIds,
+          onExcludeImage: _excludeImage,
+          onDeleteOriginalImage: _deleteOriginalImage,
+          onToggleFavoriteImage: _toggleFavoriteImage,
+          onMoveImage: _moveImage,
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
   }
 
   Future<void> _restoreImage(String imageId) async {
@@ -838,12 +1097,12 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
               const SizedBox(height: 16),
               _AddMenuTile(
                 icon: Icons.layers_rounded,
-                title: '앱 추가',
+                title: st('앱 추가', 'Add app'),
                 onTap: () => Navigator.of(context).pop('stack'),
               ),
               _AddMenuTile(
                 icon: Icons.photo_library_rounded,
-                title: '이미지 추가',
+                title: st('이미지 추가', 'Add image'),
                 onTap: () => Navigator.of(context).pop('image'),
               ),
             ],
@@ -867,7 +1126,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
           children: [
             RefreshIndicator(
               onRefresh: _load,
-              color: const Color(0xFF0058BE),
+              color: const Color(0xFF111111),
               child: CustomScrollView(
                 slivers: [
                   SliverPersistentHeader(
@@ -878,6 +1137,8 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
                       selectedDate: _selectedDate,
                       onPickDate: _pickDateFilter,
                       onClearDate: () => setState(() => _selectedDate = null),
+                      favoriteCount: _favoriteImageIds.length,
+                      onFavorites: _openFavoritesPage,
                       onAdd: _showAddMenu,
                       onSettings: () => Navigator.of(context).push(
                         MaterialPageRoute(
@@ -890,6 +1151,10 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
                             onRestoreImage: _restoreImage,
                             onDeleteOriginalImage: _deleteOriginalImage,
                             onDeleteOriginalImages: _deleteOriginalImages,
+                            onExportBackup: _exportBackup,
+                            onImportBackup: _importBackup,
+                            onStartPhoneTransfer: _startPhoneTransfer,
+                            onReceivePhoneTransfer: _receivePhoneTransfer,
                           ),
                         ),
                       ),
@@ -937,6 +1202,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
                                     folderNames: _folderNames,
                                     folderColors: _folderColors,
                                     setAssignments: _setAssignments,
+                                    favoriteImageIds: _favoriteImageIds,
                                     visualFeatures: _visualFeatures,
                                     onRenameStack: _renameStack,
                                     onHideStack: _hideStack,
@@ -948,6 +1214,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
                                     onDeleteOriginalImage: _deleteOriginalImage,
                                     onDeleteOriginalImages:
                                         _deleteOriginalImages,
+                                    onToggleFavoriteImage: _toggleFavoriteImage,
                                     onMoveImage: _moveImage,
                                     onAddImageToStack: _pickAndAddImageToStack,
                                     onSaveSetMemo: _saveSetMemo,

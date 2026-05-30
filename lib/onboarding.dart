@@ -12,16 +12,16 @@ class _ShotlyLegalLinks {
 class _ShotlyLegal {
   static const _ko = _ShotlyLegalLinks(
     privacyUrl:
-        'https://docs.google.com/document/d/1V7KZt8XD5zpU89Qs4RMDJIZEOOYwxYwu5SgWlkrVyuk/edit',
+        'https://www.notion.so/Shotly-36d96944ffd380a1b3fdd5d8b3c2f70b?source=copy_link',
     termsUrl:
-        'https://docs.google.com/document/d/1tzo-QtdHNrrHXC1G729uHmeADBUdBeT8-0lp46DWZvI/edit',
+        'https://www.notion.so/Shotly-36d96944ffd380dfaf6dd75a0f049c34?source=copy_link',
   );
 
   static const _global = _ShotlyLegalLinks(
     privacyUrl:
-        'https://docs.google.com/document/d/1OT7FPe43xrBQ_fPk2wRUQcOiV7-W8lPsYVQeXaX1Ox0/edit',
+        'https://www.notion.so/Shotly-Privacy-Policy-36d96944ffd38014b405c203fd00dc10?source=copy_link',
     termsUrl:
-        'https://docs.google.com/document/d/1d9YgF6utOh82OYBkUV1rEZr8UGPD3mY0AaK01j_NXsM/edit',
+        'https://www.notion.so/Shotly-Terms-of-Use-36d96944ffd38014bde1e55d2de6fe59?source=copy_link',
   );
 
   static bool get isKoreanRegion {
@@ -88,8 +88,6 @@ class _ShotlyOnboardingScreen extends StatelessWidget {
 
   final Future<void> Function() onStart;
 
-  bool get _isKo => _ShotlyLegal.isKoreanRegion;
-
   @override
   Widget build(BuildContext context) {
     final links = _ShotlyLegal.links;
@@ -114,9 +112,10 @@ class _ShotlyOnboardingScreen extends StatelessWidget {
               ),
               const SizedBox(height: 28),
               Text(
-                _isKo
-                    ? '스크린샷 정리를\n가볍게 시작해요'
-                    : 'Organize screenshots\nwithout the clutter',
+                st(
+                  '스크린샷 정리를\n가볍게 시작해요',
+                  'Organize screenshots\nwithout the clutter',
+                ),
                 style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                   color: const Color(0xFF1A1C1C),
                   fontWeight: FontWeight.w800,
@@ -125,9 +124,10 @@ class _ShotlyOnboardingScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                _isKo
-                    ? 'Shotly는 사진 원본을 서버로 업로드하지 않고, 기기 안에서 스크린샷을 분석하고 정리해요.'
-                    : 'Shotly analyzes and organizes screenshots locally on your device. Your original screenshots are not uploaded to Shotly servers.',
+                st(
+                  'Shotly는 사진 원본을 서버로 업로드하지 않고, 기기 안에서 스크린샷을 분석하고 정리해요.',
+                  'Shotly analyzes and organizes screenshots locally on your device. Your original screenshots are not uploaded to Shotly servers.',
+                ),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: const Color(0xFF727785),
                   height: 1.45,
@@ -136,24 +136,27 @@ class _ShotlyOnboardingScreen extends StatelessWidget {
               const SizedBox(height: 28),
               _OnboardingPoint(
                 icon: Icons.lock_outline_rounded,
-                title: _isKo ? '로컬 기반 처리' : 'Local-first processing',
-                body: _isKo
-                    ? '스크린샷과 정리 정보는 기기 안에서 처리돼요.'
-                    : 'Screenshots and organization data stay on your device.',
+                title: st('로컬 기반 처리', 'Local-first processing'),
+                body: st(
+                  '스크린샷과 정리 정보는 기기 안에서 처리돼요.',
+                  'Screenshots and organization data stay on your device.',
+                ),
               ),
               const SizedBox(height: 14),
               _OnboardingPoint(
                 icon: Icons.cleaning_services_outlined,
-                title: _isKo ? '비슷한 화면 찾기' : 'Find similar screens',
-                body: _isKo
-                    ? '삭제 또는 이동해서 정리해보세요.'
-                    : 'Review, delete, or move similar screens to organize them.',
+                title: st('비슷한 화면 찾기', 'Find similar screens'),
+                body: st(
+                  '삭제 또는 이동해서 정리해보세요.',
+                  'Review, delete, or move similar screens to organize them.',
+                ),
               ),
               const Spacer(),
               Text(
-                _isKo
-                    ? '시작하면 Shotly의 이용약관에 동의하고 개인정보처리방침을 확인한 것으로 간주돼요.'
-                    : 'By starting, you agree to Shotly’s Terms of Use and acknowledge the Privacy Policy.',
+                st(
+                  '시작하면 Shotly의 이용약관에 동의하고 개인정보처리방침을 확인한 것으로 간주돼요.',
+                  'By starting, you agree to Shotly’s Terms of Use and acknowledge the Privacy Policy.',
+                ),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: const Color(0xFF727785),
                   height: 1.4,
@@ -165,11 +168,11 @@ class _ShotlyOnboardingScreen extends StatelessWidget {
                 runSpacing: 4,
                 children: [
                   _LegalTextButton(
-                    label: _isKo ? '이용약관' : 'Terms of Use',
+                    label: st('이용약관', 'Terms of Use'),
                     url: links.termsUrl,
                   ),
                   _LegalTextButton(
-                    label: _isKo ? '개인정보처리방침' : 'Privacy Policy',
+                    label: st('개인정보처리방침', 'Privacy Policy'),
                     url: links.privacyUrl,
                   ),
                 ],
@@ -187,7 +190,7 @@ class _ShotlyOnboardingScreen extends StatelessWidget {
                     ),
                   ),
                   onPressed: onStart,
-                  child: Text(_isKo ? '시작하기' : 'Start'),
+                  child: Text(st('시작하기', 'Start')),
                 ),
               ),
             ],
@@ -267,9 +270,9 @@ class _LegalTextButton extends StatelessWidget {
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: const Color(0xFF0058BE),
+            color: const Color(0xFF111111),
             decoration: TextDecoration.underline,
-            decorationColor: const Color(0xFF0058BE),
+            decorationColor: const Color(0xFF111111),
           ),
         ),
       ),
@@ -281,7 +284,14 @@ Future<void> _openShotlyLegalUrl(BuildContext context, String url) async {
   final opened = await ShotlyNative.openUrl(url);
   if (!opened && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('링크를 열 수 없어요. 잠시 후 다시 시도해 주세요.')),
+      SnackBar(
+        content: Text(
+          st(
+            '링크를 열 수 없어요. 잠시 후 다시 시도해 주세요.',
+            'Couldn’t open the link. Please try again later.',
+          ),
+        ),
+      ),
     );
   }
 }

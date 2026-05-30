@@ -10,12 +10,14 @@ class StackDetailScreen extends StatefulWidget {
     required this.folderNames,
     required this.folderColors,
     required this.setAssignments,
+    required this.favoriteImageIds,
     required this.visualFeatures,
     required this.onRenameStack,
     required this.onHideStack,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
     required this.onDeleteOriginalImages,
+    required this.onToggleFavoriteImage,
     required this.onMoveImage,
     this.onAddImageToStack,
     required this.onSaveSetMemo,
@@ -31,12 +33,14 @@ class StackDetailScreen extends StatefulWidget {
   final Map<String, String> folderNames;
   final Map<String, String> folderColors;
   final Map<String, String> setAssignments;
+  final Set<String> favoriteImageIds;
   final Map<String, VisualFeature> visualFeatures;
   final Future<void> Function(String stackKey, String name) onRenameStack;
   final Future<void> Function(String stackKey) onHideStack;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
   final Future<bool> Function(List<String> imageIds) onDeleteOriginalImages;
+  final Future<void> Function(String imageId) onToggleFavoriteImage;
   final Future<void> Function(String imageId, String stackKey) onMoveImage;
   final Future<ScreenshotItem?> Function(String stackKey)? onAddImageToStack;
   final Future<void> Function(String setKey, String memo) onSaveSetMemo;
@@ -206,7 +210,10 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                         const SizedBox(height: 6),
                         Text(
                           _isSelectionMode
-                              ? '${_selectedImageIds.length}개 선택'
+                              ? st(
+                                  '${_selectedImageIds.length}개 선택',
+                                  '${_selectedImageIds.length} selected',
+                                )
                               : _stackName,
                           style: Theme.of(context).textTheme.headlineMedium
                               ?.copyWith(
@@ -242,6 +249,8 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                             onChangeFolderColor: _changeFolderColor,
                             onExcludeImage: widget.onExcludeImage,
                             onDeleteOriginalImage: _deleteOriginalImage,
+                            favoriteImageIds: widget.favoriteImageIds,
+                            onToggleFavoriteImage: widget.onToggleFavoriteImage,
                             onMoveImage: widget.onMoveImage,
                             onSaveSetMemo: widget.onSaveSetMemo,
                             onAssignImageToSet: _assignImageToSetFromFolder,
@@ -262,8 +271,11 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                         const SizedBox(height: 32),
                     itemBuilder: (context, index) {
                       if (dateGroups.isEmpty) {
-                        return const _EmptyStackDetail(
-                          message: '아직 이미지가 없는 앱이에요',
+                        return _EmptyStackDetail(
+                          message: st(
+                            '아직 이미지가 없는 앱이에요',
+                            'This app has no images yet',
+                          ),
                         );
                       }
                       return _SetDateSection(
@@ -271,8 +283,10 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                         sets: dateGroups[index].sets,
                         allStackKeys: widget.allStackKeys,
                         stackNames: widget.stackNames,
+                        favoriteImageIds: widget.favoriteImageIds,
                         onExcludeImage: widget.onExcludeImage,
                         onDeleteOriginalImage: _deleteOriginalImage,
+                        onToggleFavoriteImage: widget.onToggleFavoriteImage,
                         onMoveImage: widget.onMoveImage,
                         selectedIds: _selectedImageIds,
                         selectionMode: _isSelectionMode,
@@ -354,8 +368,14 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
           .where((item) => !identical(item, candidate))
           .toList();
       _smartCleanMessage = _smartCleanCandidates.isEmpty
-          ? '남은 후보가 없어요. 필요하면 다시 분석해요'
-          : '${_smartCleanCandidates.length}개 후보가 남았어요';
+          ? st(
+              '남은 후보가 없어요. 필요하면 다시 분석해요',
+              'No candidates left. Analyze again if needed.',
+            )
+          : st(
+              '${_smartCleanCandidates.length}개 후보가 남았어요',
+              '${_smartCleanCandidates.length} candidates left',
+            );
       _smartCleanExpanded = _smartCleanCandidates.isNotEmpty;
     });
     _saveSmartCleanSessionCache();
@@ -369,7 +389,10 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     if (targetItems.length < 2) {
       setState(() {
         _smartCleanCandidates = const [];
-        _smartCleanMessage = '분석할 이미지가 부족해요';
+        _smartCleanMessage = st(
+          '분석할 이미지가 부족해요',
+          'Not enough images to analyze',
+        );
       });
       return;
     }
@@ -385,12 +408,16 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       _smartCleanExpanded = true;
       _smartCleanProgress = null;
       _smartCleanMessage = missingFeatureCount > 0
-          ? '이미지 분석 중...(0/$missingFeatureCount)'
-          : '이미지 분석 중...';
+          ? st(
+              '이미지 분석 중...(0/$missingFeatureCount)',
+              'Analyzing images...(0/$missingFeatureCount)',
+            )
+          : st('이미지 분석 중...', 'Analyzing images...');
       _smartCleanCandidates = const [];
     });
 
     await Future<void>.delayed(const Duration(milliseconds: 80));
+    unawaited(ShotlyAnalytics.log('screen_analysis_started'));
     debugPrint('SmartClean start: target=${targetItems.length}');
     final startedAt = DateTime.now();
     final inputs = [
@@ -414,6 +441,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
         'SmartClean done: candidates=${rawCandidates.length} features=${_smartFeatureCache.length} elapsed=${DateTime.now().difference(startedAt).inMilliseconds}ms',
       );
     } catch (error, stackTrace) {
+      unawaited(ShotlyAnalytics.log('screen_analysis_failed'));
       debugPrint('SmartClean failed: $error');
       debugPrintStack(stackTrace: stackTrace);
       if (!mounted) return;
@@ -422,7 +450,10 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
         _smartCleanProgress = 1;
         _smartCleanAnalyzed = true;
         _smartCleanCandidates = const [];
-        _smartCleanMessage = '분석 중 문제가 생겼어요';
+        _smartCleanMessage = st(
+          '분석 중 문제가 생겼어요',
+          'Something went wrong during analysis',
+        );
       });
       _saveSmartCleanSessionCache();
       return;
@@ -436,8 +467,8 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
             'existingFolder' => _SmartCleanCandidateType.existingFolder,
             _ => _SmartCleanCandidateType.flow,
           },
-          title: candidate.title,
-          subtitle: candidate.subtitle,
+          title: _smartCleanTitleFor(candidate),
+          subtitle: _smartCleanSubtitleFor(candidate),
           items: [
             for (final id in candidate.imageIds)
               if (itemById[id] != null) itemById[id]!,
@@ -448,6 +479,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
         ),
     ].where((candidate) => candidate.items.length >= 2).toList();
     if (!mounted) return;
+    unawaited(ShotlyAnalytics.log('screen_analysis_completed'));
     setState(() {
       _smartCleanRunning = false;
       _smartCleanProgress = 1;
@@ -455,10 +487,44 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       _smartCleanExpanded = candidates.isNotEmpty;
       _smartCleanCandidates = candidates;
       _smartCleanMessage = candidates.isEmpty
-          ? '정리할 후보가 없어요'
-          : '${candidates.length}개 후보를 찾았어요';
+          ? st('정리할 후보가 없어요', 'No cleanup candidates found')
+          : st(
+              '${candidates.length}개 후보를 찾았어요',
+              'Found ${candidates.length} candidates',
+            );
     });
     _saveSmartCleanSessionCache();
+  }
+
+  String _smartCleanTitleFor(VisualSmartCleanResult candidate) =>
+      switch (candidate.type) {
+        'existingFolder' => st(
+          '비슷한 화면 ${candidate.imageIds.length}장',
+          '${candidate.imageIds.length} similar screens',
+        ),
+        'duplicates' => st(
+          '비슷한 화면 ${candidate.imageIds.length}장',
+          '${candidate.imageIds.length} similar screens',
+        ),
+        _ => st(
+          '비슷한 화면 ${candidate.imageIds.length}장',
+          '${candidate.imageIds.length} similar screens',
+        ),
+      };
+
+  String _smartCleanSubtitleFor(VisualSmartCleanResult candidate) {
+    if (candidate.type == 'existingFolder') {
+      final folderName =
+          candidate.targetFolderName ?? st('기존 폴더', 'Existing folder');
+      return st(
+        '$folderName 폴더와 비슷한 화면이에요',
+        'Similar to the $folderName folder',
+      );
+    }
+    return st(
+      '삭제하거나 폴더로 묶을 수 있는 화면이에요',
+      'Screens you can delete or group into a folder',
+    );
   }
 
   List<ScreenshotItem> _smartCleanFeatureItems(
@@ -509,7 +575,10 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       if (!mounted) return;
       setState(() {
         _smartCleanProgress = processed / candidates.length;
-        _smartCleanMessage = '이미지 분석 중...($processed/${candidates.length})';
+        _smartCleanMessage = st(
+          '이미지 분석 중...($processed/${candidates.length})',
+          'Analyzing images...($processed/${candidates.length})',
+        );
       });
       await Future<void>.delayed(Duration.zero);
     }
@@ -530,9 +599,12 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     if (reviewResult.action == _SmartCleanReviewAction.delete) {
       final confirmed = await _showShotlyConfirmDialog(
         context: context,
-        title: '선택한 화면 삭제',
-        body: '선택한 ${ids.length}장을 기기 앨범 원본에서도 삭제할까요? 이 작업은 되돌릴 수 없어요.',
-        primaryLabel: '삭제',
+        title: st('선택한 화면 삭제', 'Delete selected screens'),
+        body: st(
+          '선택한 ${ids.length}장을 기기 앨범 원본에서도 삭제할까요? 이 작업은 되돌릴 수 없어요.',
+          'Delete ${ids.length} selected originals from your device gallery? This can’t be undone.',
+        ),
+        primaryLabel: st('삭제', 'Delete'),
         destructive: true,
       );
       if (confirmed == true &&
@@ -540,7 +612,10 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
           mounted) {
         setState(() {
           _deletedImageIds.addAll(ids);
-          _smartCleanMessage = '${ids.length}장을 삭제했어요';
+          _smartCleanMessage = st(
+            '${ids.length}장을 삭제했어요',
+            'Deleted ${ids.length} originals',
+          );
         });
         _removeSmartCleanCandidate(candidate);
       }
@@ -557,7 +632,9 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
 
   String _folderNameForAssignedItem(String imageId) {
     for (final key in _assignmentKeys(_detailSetAssignments[imageId])) {
-      if (_isFolderSetKey(key)) return _detailFolderNames[key] ?? '기존 폴더';
+      if (_isFolderSetKey(key)) {
+        return _detailFolderNames[key] ?? st('기존 폴더', 'Existing folder');
+      }
     }
     return '';
   }
@@ -567,12 +644,12 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     final folders = _currentFolderSets;
     final target = await _showShotlyActionSheet<String>(
       context,
-      title: '이동할 폴더',
+      title: st('이동할 폴더', 'Move to folder'),
       items: [
-        const _ShotlyActionItem(
+        _ShotlyActionItem(
           value: '__new_folder__',
           icon: Icons.create_new_folder_rounded,
-          title: '새 폴더 만들기',
+          title: st('새 폴더 만들기', 'Create new folder'),
         ),
         ...folders.map(
           (folder) => _ShotlyActionItem(
@@ -588,21 +665,28 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     if (target == '__new_folder__') {
       final name = await _showShotlyTextDialog(
         context: context,
-        title: '폴더 만들기',
-        hintText: '폴더 이름',
-        primaryLabel: '만들기',
+        title: st('폴더 만들기', 'Create folder'),
+        hintText: st('폴더 이름', 'Folder name'),
+        primaryLabel: st('만들기', 'Create'),
       );
       final trimmed = name?.trim();
       if (trimmed == null || trimmed.isEmpty) return false;
       await _createFolderFromIds(trimmed, ids);
-      message = '${ids.length}장을 새 폴더로 묶었어요';
+      message = st(
+        '${ids.length}장을 새 폴더로 묶었어요',
+        'Grouped ${ids.length} photos into a new folder',
+      );
     } else {
       await _addIdsToExistingFolder(target, ids);
       final folderName = folders
           .where((folder) => folder.key == target)
           .map(_folderName)
           .firstOrNull;
-      message = '${ids.length}장을 ${folderName ?? '기존 폴더'}에 묶었어요';
+      final targetFolderName = folderName ?? st('기존 폴더', 'Existing folder');
+      message = st(
+        '${ids.length}장을 $targetFolderName에 묶었어요',
+        'Grouped ${ids.length} photos into $targetFolderName',
+      );
     }
     if (mounted) {
       setState(() {
@@ -634,10 +718,12 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   Future<void> _hideSelected() async {
     final confirmed = await _showShotlyConfirmDialog(
       context: context,
-      title: '선택한 사진 숨기기',
-      body:
-          '선택한 ${_selectedImageIds.length}장을 Shotly 목록에서 숨길까요? 숨긴 항목은 설정에서 다시 확인할 수 있어요.',
-      primaryLabel: '숨기기',
+      title: st('선택한 사진 숨기기', 'Hide selected photos'),
+      body: st(
+        '선택한 ${_selectedImageIds.length}장을 Shotly 목록에서 숨길까요? 숨긴 항목은 설정에서 다시 확인할 수 있어요.',
+        'Hide ${_selectedImageIds.length} selected photos from Shotly? Hidden items can be restored in Settings.',
+      ),
+      primaryLabel: st('숨기기', 'Hide'),
     );
     if (confirmed != true) return;
     final selected = _selectedImageIds.toList();
@@ -670,12 +756,12 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   ) async {
     final target = await _showShotlyActionSheet<String>(
       context,
-      title: '이동할 폴더',
+      title: st('이동할 폴더', 'Move to folder'),
       items: [
-        const _ShotlyActionItem(
+        _ShotlyActionItem(
           value: '__new_folder__',
           icon: Icons.grid_view_rounded,
-          title: '새 폴더 만들기',
+          title: st('새 폴더 만들기', 'Create new folder'),
         ),
         ...folders.map(
           (folder) => _ShotlyActionItem(
@@ -692,9 +778,9 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       if (!context.mounted) return;
       final name = await _showShotlyTextDialog(
         context: context,
-        title: '폴더 만들기',
-        hintText: '폴더 이름',
-        primaryLabel: '만들기',
+        title: st('폴더 만들기', 'Create folder'),
+        hintText: st('폴더 이름', 'Folder name'),
+        primaryLabel: st('만들기', 'Create'),
       );
       final trimmed = name?.trim();
       if (trimmed == null || trimmed.isEmpty) return;
@@ -738,9 +824,9 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   Future<String?> _createFolder(BuildContext context) async {
     final name = await _showShotlyTextDialog(
       context: context,
-      title: '폴더 만들기',
-      hintText: '폴더 이름',
-      primaryLabel: '만들기',
+      title: st('폴더 만들기', 'Create folder'),
+      hintText: st('폴더 이름', 'Folder name'),
+      primaryLabel: st('만들기', 'Create'),
     );
     final trimmed = name?.trim();
     if (trimmed == null || trimmed.isEmpty) return null;
@@ -809,9 +895,12 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   ) async {
     final confirmed = await _showShotlyConfirmDialog(
       context: context,
-      title: '폴더 삭제',
-      body: '폴더만 삭제하고 사진은 미정리 화면으로 되돌릴까요?',
-      primaryLabel: '삭제',
+      title: st('폴더 삭제', 'Delete folder'),
+      body: st(
+        '폴더만 삭제하고 사진은 미정리 화면으로 되돌릴까요?',
+        'Delete only the folder and return photos to uncategorized screens?',
+      ),
+      primaryLabel: st('삭제', 'Delete'),
       destructive: true,
     );
     if (confirmed != true) return;
@@ -845,7 +934,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   Future<void> _moveSelectedToStack(BuildContext context) async {
     final target = await _showShotlyActionSheet<String>(
       context,
-      title: '이동할 앱',
+      title: st('이동할 앱', 'Move to app'),
       items: widget.allStackKeys
           .where((key) => key != widget.stack.key)
           .map(
@@ -874,10 +963,12 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   Future<void> _deleteSelected(BuildContext context) async {
     final confirmed = await _showShotlyConfirmDialog(
       context: context,
-      title: '원본 파일 삭제',
-      body:
-          '선택한 ${_selectedImageIds.length}장을 Shotly뿐 아니라 기기 앨범 원본에서도 삭제할까요? 이 작업은 되돌릴 수 없어요.',
-      primaryLabel: '삭제',
+      title: st('원본 파일 삭제', 'Delete original file'),
+      body: st(
+        '선택한 ${_selectedImageIds.length}장을 Shotly뿐 아니라 기기 앨범 원본에서도 삭제할까요? 이 작업은 되돌릴 수 없어요.',
+        'Delete ${_selectedImageIds.length} selected originals from both Shotly and your device gallery? This can’t be undone.',
+      ),
+      primaryLabel: st('삭제', 'Delete'),
       destructive: true,
     );
     if (confirmed != true) return;
@@ -894,10 +985,10 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   Future<void> _renameStack(BuildContext context) async {
     final name = await _showShotlyTextDialog(
       context: context,
-      title: '앱 이름 수정',
+      title: st('앱 이름 수정', 'Rename app'),
       initialValue: _stackName,
-      hintText: '앱 이름',
-      primaryLabel: '저장',
+      hintText: st('앱 이름', 'App name'),
+      primaryLabel: st('저장', 'Save'),
     );
     if (name == null) return;
     await widget.onRenameStack(widget.stack.key, name);
@@ -928,17 +1019,19 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
               const SizedBox(height: 16),
               _AddMenuTile(
                 icon: Icons.grid_view_rounded,
-                title: _selectedImageIds.isEmpty ? '폴더 추가' : '선택 이미지로 폴더 추가',
+                title: _selectedImageIds.isEmpty
+                    ? st('폴더 추가', 'Add folder')
+                    : st('선택 이미지로 폴더 추가', 'Create folder from selection'),
                 onTap: () => Navigator.of(context).pop('folder'),
               ),
               _AddMenuTile(
                 icon: Icons.edit_rounded,
-                title: '앱 이름 수정',
+                title: st('앱 이름 수정', 'Rename app'),
                 onTap: () => Navigator.of(context).pop('rename'),
               ),
               _AddMenuTile(
                 icon: Icons.visibility_off_rounded,
-                title: '앱 숨기기',
+                title: st('앱 숨기기', 'Hide app'),
                 onTap: () => Navigator.of(context).pop('hide'),
               ),
             ],

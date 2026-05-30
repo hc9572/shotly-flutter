@@ -80,7 +80,7 @@ class _SmartCleanPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '비슷한 화면 찾기',
+                      st('비슷한 화면 찾기', 'Find similar screens'),
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         color: const Color(0xFF1A1C1C),
                         fontWeight: FontWeight.w800,
@@ -88,7 +88,8 @@ class _SmartCleanPanel extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      message ?? '정리할 화면을 찾아보세요.',
+                      message ??
+                          st('정리할 화면을 찾아보세요.', 'Find screens to clean up.'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -112,25 +113,27 @@ class _SmartCleanPanel extends StatelessWidget {
               if (analyzed)
                 IconButton(
                   onPressed: running ? null : onAnalyze,
-                  tooltip: '다시 분석하기',
+                  tooltip: st('다시 분석하기', 'Analyze again'),
                   visualDensity: VisualDensity.compact,
                   icon: Icon(
                     Icons.refresh_rounded,
                     color: running
                         ? const Color(0xFFADB3BE)
-                        : const Color(0xFF2170E4),
+                        : const Color(0xFF111111),
                   ),
                 )
               else
                 TextButton(
                   onPressed: running ? null : onAnalyze,
                   style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF2170E4),
+                    foregroundColor: const Color(0xFF111111),
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     minimumSize: const Size(0, 36),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: Text(running ? '분석 중' : '분석하기'),
+                  child: Text(
+                    running ? st('분석 중', 'Analyzing') : st('분석하기', 'Analyze'),
+                  ),
                 ),
             ],
           ),
@@ -142,14 +145,14 @@ class _SmartCleanPanel extends StatelessWidget {
                 value: progress == null || progress! <= 0 ? null : progress,
                 minHeight: 5,
                 backgroundColor: const Color(0xFFEDEFF3),
-                color: const Color(0xFF2170E4),
+                color: const Color(0xFF111111),
               ),
             ),
           ],
           if (candidates.isNotEmpty && expanded) ...[
             const SizedBox(height: 14),
             Text(
-              '비슷한 화면',
+              st('비슷한 화면', 'Similar screens'),
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 color: const Color(0xFF1A1C1C),
                 fontWeight: FontWeight.w800,
@@ -243,7 +246,7 @@ class _SmartCleanCandidateTile extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    '그룹 ${index + 1}',
+                    st('그룹 ${index + 1}', 'Group ${index + 1}'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -253,7 +256,10 @@ class _SmartCleanCandidateTile extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${candidate.items.length}장',
+                  st(
+                    '${candidate.items.length}장',
+                    '${candidate.items.length} photos',
+                  ),
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: const Color(0xFF727785),
                     fontWeight: FontWeight.w700,
@@ -332,7 +338,7 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '비슷한 화면 확인',
+                          st('비슷한 화면 확인', 'Review similar screens'),
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 color: const Color(0xFF1A1C1C),
@@ -341,7 +347,10 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${_selectedIds.length}/${widget.candidate.items.length}장 선택됨',
+                          st(
+                            '${_selectedIds.length}/${widget.candidate.items.length}장 선택됨',
+                            '${_selectedIds.length}/${widget.candidate.items.length} selected',
+                          ),
                           style: Theme.of(context).textTheme.labelMedium
                               ?.copyWith(color: const Color(0xFF727785)),
                         ),
@@ -424,7 +433,10 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
                     ),
                   ),
                   child: Text(
-                    '삭제 ${_selectedIds.length}',
+                    st(
+                      '삭제 ${_selectedIds.length}',
+                      'Delete ${_selectedIds.length}',
+                    ),
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -444,7 +456,7 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
                         )
                       : null,
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF2170E4),
+                    backgroundColor: const Color(0xFF111111),
                     foregroundColor: Colors.white,
                     disabledBackgroundColor: const Color(0xFFE2E5EA),
                     shape: RoundedRectangleBorder(
@@ -452,7 +464,10 @@ class _SmartCleanReviewScreenState extends State<_SmartCleanReviewScreen> {
                     ),
                   ),
                   child: Text(
-                    '폴더로 묶기 ${_selectedIds.length}',
+                    st(
+                      '폴더로 묶기 ${_selectedIds.length}',
+                      'Group ${_selectedIds.length}',
+                    ),
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -503,7 +518,7 @@ class _SmartCleanReviewTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: selected
-                        ? const Color(0xFF2170E4)
+                        ? const Color(0xFF111111)
                         : const Color(0xFFEDEFF3),
                     width: selected ? 1.5 : 1,
                   ),
@@ -525,12 +540,12 @@ class _SmartCleanReviewTile extends StatelessWidget {
                   height: 20,
                   decoration: BoxDecoration(
                     color: selected
-                        ? const Color(0xFF2170E4)
+                        ? const Color(0xFF111111)
                         : Colors.white.withValues(alpha: 0.86),
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
                       color: selected
-                          ? const Color(0xFF2170E4)
+                          ? const Color(0xFF111111)
                           : const Color(0xFFD8DDE6),
                       width: 1,
                     ),
@@ -739,10 +754,10 @@ class _SmartCleanPreviewCheck extends StatelessWidget {
       width: 34,
       height: 34,
       decoration: BoxDecoration(
-        color: selected ? const Color(0xFF2170E4) : Colors.white,
+        color: selected ? const Color(0xFF111111) : Colors.white,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: selected ? const Color(0xFF2170E4) : const Color(0xFFD8DDE6),
+          color: selected ? const Color(0xFF111111) : const Color(0xFFD8DDE6),
           width: 1.4,
         ),
         boxShadow: [

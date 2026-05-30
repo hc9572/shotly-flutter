@@ -164,4 +164,18 @@ class ShotlyNative {
     });
     return result ?? false;
   }
+
+  static Future<bool> saveBackupFile(String filename, String content) async {
+    if (kIsWeb) return false;
+    final result = await _channel.invokeMethod<bool>('saveBackupFile', {
+      'filename': filename,
+      'content': content,
+    });
+    return result ?? false;
+  }
+
+  static Future<String?> openBackupFile() async {
+    if (kIsWeb) return null;
+    return _channel.invokeMethod<String>('openBackupFile');
+  }
 }

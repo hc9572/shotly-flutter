@@ -11,6 +11,10 @@ class SettingsScreen extends StatefulWidget {
     required this.onRestoreImage,
     required this.onDeleteOriginalImage,
     required this.onDeleteOriginalImages,
+    required this.onExportBackup,
+    required this.onImportBackup,
+    required this.onStartPhoneTransfer,
+    required this.onReceivePhoneTransfer,
   });
 
   final bool hasPermission;
@@ -21,6 +25,10 @@ class SettingsScreen extends StatefulWidget {
   final Future<void> Function(String imageId) onRestoreImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
   final Future<bool> Function(List<String> imageIds) onDeleteOriginalImages;
+  final Future<void> Function() onExportBackup;
+  final Future<void> Function() onImportBackup;
+  final Future<void> Function() onStartPhoneTransfer;
+  final Future<void> Function() onReceivePhoneTransfer;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -51,7 +59,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 12),
             _SettingsSection(
-              title: '권한',
+              title: st('권한', 'Permissions'),
               children: [
                 _PermissionStatusTile(
                   hasPermission: _hasPermission,
@@ -60,39 +68,64 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
             _SettingsSection(
-              title: '숨김 복구',
+              title: st('숨김 복구', 'Restore hidden items'),
               children: [
                 _RecoverySummaryTile(
                   icon: Icons.layers_clear_outlined,
-                  title: '숨긴 앱',
+                  title: st('숨긴 앱', 'Hidden apps'),
                   count: _hiddenStacks.length,
                   onTap: () => _showHiddenStacks(context),
                 ),
                 _RecoverySummaryTile(
                   icon: Icons.visibility_off_outlined,
-                  title: '숨긴 이미지',
+                  title: st('숨긴 이미지', 'Hidden images'),
                   count: _excludedImages.length,
                   onTap: () => _showExcludedImages(context),
                 ),
               ],
             ),
             _SettingsSection(
-              title: '정보',
+              title: st('데이터 이전', 'Data transfer'),
+              children: [
+                _SettingsTile(
+                  icon: Icons.sync_alt_rounded,
+                  title: st('백업 및 불러오기', 'Backup and import'),
+                  subtitle: st(
+                    '정리 데이터만 간편하게 옮겨요',
+                    'Move organization data easily',
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Color(0xFF727785),
+                  ),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => BackupAndImportScreen(
+                        onStartPhoneTransfer: widget.onStartPhoneTransfer,
+                        onReceivePhoneTransfer: widget.onReceivePhoneTransfer,
+                        onExportBackup: widget.onExportBackup,
+                        onImportBackup: widget.onImportBackup,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            _SettingsSection(
+              title: st('정보', 'Information'),
               children: [
                 _SettingsTile(
                   icon: Icons.info_outline_rounded,
-                  title: '앱 정보',
-                  subtitle: 'Shotly 1.0.0 · 로컬 기반 스크린샷 정리 앱',
+                  title: st('앱 정보', 'App info'),
+                  subtitle: 'Shotly 1.0.0',
                   onTap: () => _showInfoDialog(context),
                 ),
                 _SettingsTile(
                   icon: Icons.privacy_tip_outlined,
                   title: _ShotlyLegal.isKoreanRegion
-                      ? '개인정보처리방침'
+                      ? st('개인정보처리방침', 'Privacy Policy')
                       : 'Privacy Policy',
-                  subtitle: _ShotlyLegal.isKoreanRegion
-                      ? '사진 원본은 클라우드에 업로드하지 않아요'
-                      : 'Original screenshots are not uploaded to Shotly servers',
+                  subtitle: null,
                   onTap: () => _openShotlyLegalUrl(
                     context,
                     _ShotlyLegal.links.privacyUrl,
@@ -100,12 +133,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 _SettingsTile(
                   icon: Icons.description_outlined,
-                  title: _ShotlyLegal.isKoreanRegion ? '이용약관' : 'Terms of Use',
-                  subtitle: _ShotlyLegal.isKoreanRegion
-                      ? 'Shotly 이용 조건 확인'
-                      : 'Review Shotly’s terms',
+                  title: _ShotlyLegal.isKoreanRegion
+                      ? st('이용약관', 'Terms of Use')
+                      : 'Terms of Use',
+                  subtitle: null,
                   onTap: () =>
                       _openShotlyLegalUrl(context, _ShotlyLegal.links.termsUrl),
+                ),
+                _SettingsTile(
+                  icon: Icons.article_outlined,
+                  title: st('오픈소스 라이선스', 'Open source licenses'),
+                  subtitle: null,
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Color(0xFF727785),
+                  ),
+                  onTap: () => showLicensePage(
+                    context: context,
+                    applicationName: 'Shotly',
+                    applicationVersion: '1.0.0',
+                    applicationLegalese: '© 2026 Shotly',
+                  ),
                 ),
               ],
             ),
@@ -171,7 +219,166 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _showShotlyInfoDialog(
       context: context,
       title: 'Shotly',
-      body: 'Shotly 1.0.0\n기획자를 위한 로컬 기반 스크린샷 정리 앱',
+      body: st(
+        'Shotly 1.0.0\n기획자를 위한 로컬 기반 스크린샷 정리 앱',
+        'Shotly 1.0.0\nA local-first screenshot organizer for product planners',
+      ),
+    );
+  }
+}
+
+class BackupAndImportScreen extends StatelessWidget {
+  const BackupAndImportScreen({
+    super.key,
+    required this.onStartPhoneTransfer,
+    required this.onReceivePhoneTransfer,
+    required this.onExportBackup,
+    required this.onImportBackup,
+  });
+
+  final Future<void> Function() onStartPhoneTransfer;
+  final Future<void> Function() onReceivePhoneTransfer;
+  final Future<void> Function() onExportBackup;
+  final Future<void> Function() onImportBackup;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: Color(0xFF424754),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              st('백업 및 불러오기', 'Backup and import'),
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF22252D),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              st(
+                '원본 이미지는 옮기지 않고\nShotly 정리 데이터만 옮겨요.',
+                'Original images are not moved.\nOnly Shotly organization data is moved.',
+              ),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                height: 1.45,
+                color: const Color(0xFF727785),
+              ),
+            ),
+            const SizedBox(height: 24),
+            _SettingsSection(
+              title: st('QR코드 이전', 'QR transfer'),
+              children: [
+                _SettingsTile(
+                  icon: Icons.qr_code_2_rounded,
+                  title: st('QR코드로 옮기기', 'Transfer with QR code'),
+                  subtitle: st(
+                    '이전 폰에서 QR코드를 만들어요',
+                    'Create a QR code on your old phone',
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Color(0xFF727785),
+                  ),
+                  onTap: onStartPhoneTransfer,
+                ),
+                _SettingsTile(
+                  icon: Icons.qr_code_scanner_rounded,
+                  title: st('QR코드로 가져오기', 'Import with QR code'),
+                  subtitle: st(
+                    '새 폰에서 이전 폰의 QR코드를 스캔해요',
+                    'Scan the QR code from your old phone',
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Color(0xFF727785),
+                  ),
+                  onTap: onReceivePhoneTransfer,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              style: TextButton.styleFrom(
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                foregroundColor: const Color(0xFF727785),
+                textStyle: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              onPressed: () => _showFileBackupOptions(context),
+              child: Text(st('QR이 잘 되지 않는다면?', 'If QR does not work?')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showFileBackupOptions(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE4E7EC),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _SettingsTile(
+                icon: Icons.ios_share_rounded,
+                title: st('파일로 백업하기', 'Export backup file'),
+                subtitle: st(
+                  '정리 데이터를 파일로 저장해요',
+                  'Save organization data as a file',
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onExportBackup();
+                },
+              ),
+              _SettingsTile(
+                icon: Icons.restore_rounded,
+                title: st('파일에서 복원하기', 'Import backup file'),
+                subtitle: st(
+                  '백업 파일로 현재 정리 데이터를 교체해요',
+                  'Replace current organization data with a backup file',
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onImportBackup();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -201,10 +408,10 @@ class _HiddenStacksPageState extends State<HiddenStacksPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           children: [
-            _SettingsPageHeader(title: '숨긴 앱'),
+            _SettingsPageHeader(title: st('숨긴 앱', 'Hidden apps')),
             const SizedBox(height: 20),
             if (_stacks.isEmpty)
-              const _EmptyRecoveryMessage(message: '숨긴 앱이 없어요')
+              _EmptyRecoveryMessage(message: st('숨긴 앱이 없어요', 'No hidden apps'))
             else
               ..._stacks.map(
                 (stack) => ListTile(
@@ -223,14 +430,17 @@ class _HiddenStacksPageState extends State<HiddenStacksPage> {
                     ),
                   ),
                   subtitle: Text(
-                    '${stack.items.length}장 숨김',
+                    st(
+                      '${stack.items.length}장 숨김',
+                      '${stack.items.length} hidden',
+                    ),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: const Color(0xFF727785),
                     ),
                   ),
                   trailing: TextButton(
                     onPressed: () => _restore(stack.key),
-                    child: const Text('복구'),
+                    child: Text(st('복구', 'Restore')),
                   ),
                 ),
               ),
@@ -278,7 +488,7 @@ class _HiddenImagesPageState extends State<HiddenImagesPage> {
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           children: [
             _SettingsPageHeader(
-              title: '숨긴 이미지',
+              title: st('숨긴 이미지', 'Hidden images'),
               action: _images.isEmpty
                   ? null
                   : TextButton.icon(
@@ -288,15 +498,17 @@ class _HiddenImagesPageState extends State<HiddenImagesPage> {
                         size: 18,
                         color: Color(0xFFB42318),
                       ),
-                      label: const Text(
-                        '전체 삭제',
-                        style: TextStyle(color: Color(0xFFB42318)),
+                      label: Text(
+                        st('전체 삭제', 'Delete all'),
+                        style: const TextStyle(color: Color(0xFFB42318)),
                       ),
                     ),
             ),
             const SizedBox(height: 20),
             if (_images.isEmpty)
-              const _EmptyRecoveryMessage(message: '숨긴 이미지가 없어요')
+              _EmptyRecoveryMessage(
+                message: st('숨긴 이미지가 없어요', 'No hidden images'),
+              )
             else
               ..._images.map(
                 (item) => ListTile(
@@ -331,7 +543,7 @@ class _HiddenImagesPageState extends State<HiddenImagesPage> {
                     children: [
                       TextButton(
                         onPressed: () => _restore(item.id),
-                        child: const Text('복구'),
+                        child: Text(st('복구', 'Restore')),
                       ),
                       IconButton(
                         onPressed: () => _deleteOne(item.id),
@@ -360,9 +572,12 @@ class _HiddenImagesPageState extends State<HiddenImagesPage> {
   Future<void> _deleteOne(String imageId) async {
     final confirmed = await _showShotlyConfirmDialog(
       context: context,
-      title: '기기 앨범에서도 삭제',
-      body: '숨김 목록에서만 지우는 게 아니라, 이 이미지 원본을 기기 앨범에서도 삭제해요. 이 작업은 되돌릴 수 없어요.',
-      primaryLabel: '원본 삭제',
+      title: st('기기 앨범에서도 삭제', 'Delete from device gallery'),
+      body: st(
+        '숨김 목록에서만 지우는 게 아니라, 이 이미지 원본을 기기 앨범에서도 삭제해요. 이 작업은 되돌릴 수 없어요.',
+        'This deletes the original image from your device gallery, not just the hidden list. This can’t be undone.',
+      ),
+      primaryLabel: st('원본 삭제', 'Delete original'),
       destructive: true,
     );
     if (confirmed == true &&
@@ -375,19 +590,28 @@ class _HiddenImagesPageState extends State<HiddenImagesPage> {
   Future<void> _deleteAll() async {
     final confirmed = await _showShotlyConfirmDialog(
       context: context,
-      title: '숨긴 이미지 원본 전체 삭제',
-      body:
-          '숨긴 이미지 ${_images.length}장의 원본을 기기 앨범에서도 모두 삭제해요. Android 시스템 확인창이 한 번 더 뜰 수 있고, 삭제 후에는 되돌릴 수 없어요.',
-      primaryLabel: '원본 전체 삭제',
+      title: st('숨긴 이미지 원본 전체 삭제', 'Delete all hidden originals'),
+      body: st(
+        '숨긴 이미지 ${_images.length}장의 원본을 기기 앨범에서도 모두 삭제해요. Android 시스템 확인창이 한 번 더 뜰 수 있고, 삭제 후에는 되돌릴 수 없어요.',
+        'Delete originals for all ${_images.length} hidden images from your device gallery. Android may show one more confirmation dialog, and this can’t be undone.',
+      ),
+      primaryLabel: st('원본 전체 삭제', 'Delete all originals'),
       destructive: true,
     );
     if (confirmed != true) return;
     final deletedCount = await widget.onDeleteAllOriginalImages();
     if (mounted) {
       setState(() => _images.clear());
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('$deletedCount개 원본 파일을 삭제했어요.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            st(
+              '$deletedCount개 원본 파일을 삭제했어요.',
+              'Deleted $deletedCount original files.',
+            ),
+          ),
+        ),
+      );
     }
   }
 }
@@ -459,8 +683,10 @@ class _PermissionStatusTile extends StatelessWidget {
       icon: hasPermission
           ? Icons.check_circle_outline_rounded
           : Icons.error_outline_rounded,
-      title: '사진 접근 권한',
-      subtitle: hasPermission ? '허용됨' : '설정에서 다시 허용할 수 있어요',
+      title: st('사진 접근 권한', 'Photo access'),
+      subtitle: hasPermission
+          ? st('항상 허용', 'Always allowed')
+          : st('설정에서 다시 허용할 수 있어요', 'You can allow access again in Settings'),
       trailing: const Icon(
         Icons.chevron_right_rounded,
         color: Color(0xFF727785),
@@ -488,7 +714,9 @@ class _RecoverySummaryTile extends StatelessWidget {
     return _SettingsTile(
       icon: icon,
       title: title,
-      subtitle: count == 0 ? '복구할 항목 없음' : '$count개 항목 복구 가능',
+      subtitle: count == 0
+          ? st('복구할 항목 없음', 'No items to restore')
+          : st('$count개 항목 복구 가능', '$count items can be restored'),
       trailing: const Icon(
         Icons.chevron_right_rounded,
         color: Color(0xFF727785),
@@ -502,14 +730,14 @@ class _SettingsTile extends StatelessWidget {
   const _SettingsTile({
     required this.icon,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
     this.trailing,
     this.onTap,
   });
 
   final IconData icon;
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final Widget? trailing;
   final VoidCallback? onTap;
 
@@ -527,12 +755,14 @@ class _SettingsTile extends StatelessWidget {
           context,
         ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
       ),
-      subtitle: Text(
-        subtitle,
-        style: Theme.of(
-          context,
-        ).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785)),
-      ),
+      subtitle: subtitle == null
+          ? null
+          : Text(
+              subtitle!,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: const Color(0xFF727785)),
+            ),
       trailing: trailing,
     );
   }
@@ -567,10 +797,12 @@ class _PermissionState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _CenteredMessage(
-      title: '사진 접근 권한이 필요해요',
-      body:
-          '스크린샷을 앱별로 정리하려면 사진 접근 권한이 필요해요. 원본은 클라우드에 업로드하지 않고, 이 기기 안에서만 읽어요.',
-      buttonText: '권한 허용하기',
+      title: st('사진 접근 권한이 필요해요', 'Photo access is required'),
+      body: st(
+        '스크린샷을 앱별로 정리하려면 사진 접근 권한이 필요해요. 원본은 클라우드에 업로드하지 않고, 이 기기 안에서만 읽어요.',
+        'Photo access is required to organize screenshots by app. Originals are not uploaded to the cloud and are read only on this device.',
+      ),
+      buttonText: st('권한 허용하기', 'Allow access'),
       onPressed: onRequest,
     );
   }
@@ -585,9 +817,9 @@ class _ErrorState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _CenteredMessage(
-      title: '문제가 생겼어요',
+      title: st('문제가 생겼어요', 'Something went wrong'),
       body: message,
-      buttonText: '다시 시도',
+      buttonText: st('다시 시도', 'Try again'),
       onPressed: onRetry,
     );
   }
@@ -598,9 +830,12 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _CenteredMessage(
-      title: '스크린샷을 찾지 못했어요',
-      body: 'Screenshots 폴더 또는 Screenshot 파일명을 기준으로 먼저 찾아요.',
+    return _CenteredMessage(
+      title: st('스크린샷을 찾지 못했어요', 'No screenshots found'),
+      body: st(
+        'Screenshots 폴더 또는 Screenshot 파일명을 기준으로 먼저 찾아요.',
+        'Shotly first looks for the Screenshots folder or Screenshot file names.',
+      ),
     );
   }
 }
@@ -610,9 +845,12 @@ class _NoResultState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _CenteredMessage(
-      title: '검색 결과가 없어요',
-      body: '앱 이름이나 파일명을 다르게 입력해봐요.',
+    return _CenteredMessage(
+      title: st('검색 결과가 없어요', 'No search results'),
+      body: st(
+        '앱 이름이나 파일명을 다르게 입력해봐요.',
+        'Try a different app name or file name.',
+      ),
     );
   }
 }

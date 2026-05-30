@@ -9,6 +9,7 @@ class ShotlyLocalStore implements LocalStore {
   static const _stackNamesPrefsKey = 'shotly.stackNames';
   static const _hiddenStacksPrefsKey = 'shotly.hiddenStacks';
   static const _excludedImagesPrefsKey = 'shotly.excludedImages';
+  static const _favoriteImagesPrefsKey = 'shotly.favoriteImages';
   static const _imageAssignmentsPrefsKey = 'shotly.imageAssignments';
   static const _setMemosPrefsKey = 'shotly.setMemos';
   static const _folderNamesPrefsKey = 'shotly.folderNames';
@@ -36,9 +37,50 @@ class ShotlyLocalStore implements LocalStore {
           .toSet(),
       excludedImageIds:
           (prefs.getStringList(_excludedImagesPrefsKey) ?? const []).toSet(),
+      favoriteImageIds:
+          (prefs.getStringList(_favoriteImagesPrefsKey) ?? const []).toSet(),
       pinnedStackKeys: prefs.getStringList(_pinnedStacksPrefsKey) ?? const [],
       sortModeName: prefs.getString(_sortModePrefsKey),
     );
+  }
+
+  @override
+  Future<void> replaceAll(LocalShotlyState state) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_manualStacksPrefsKey, state.manualStackNames);
+    await prefs.setString(_stackNamesPrefsKey, jsonEncode(state.stackNames));
+    await prefs.setString(
+      _imageAssignmentsPrefsKey,
+      jsonEncode(state.imageAssignments),
+    );
+    await prefs.setString(_setMemosPrefsKey, jsonEncode(state.setMemos));
+    await prefs.setString(_folderNamesPrefsKey, jsonEncode(state.folderNames));
+    await prefs.setString(
+      _folderColorsPrefsKey,
+      jsonEncode(state.folderColors),
+    );
+    await prefs.setString(
+      _setAssignmentsPrefsKey,
+      jsonEncode(state.setAssignments),
+    );
+    await prefs.setStringList(
+      _hiddenStacksPrefsKey,
+      state.hiddenStackKeys.toList(),
+    );
+    await prefs.setStringList(
+      _excludedImagesPrefsKey,
+      state.excludedImageIds.toList(),
+    );
+    await prefs.setStringList(
+      _favoriteImagesPrefsKey,
+      state.favoriteImageIds.toList(),
+    );
+    await prefs.setStringList(_pinnedStacksPrefsKey, state.pinnedStackKeys);
+    if (state.sortModeName == null) {
+      await prefs.remove(_sortModePrefsKey);
+    } else {
+      await prefs.setString(_sortModePrefsKey, state.sortModeName!);
+    }
   }
 
   @override
@@ -69,6 +111,14 @@ class ShotlyLocalStore implements LocalStore {
   @override
   Future<void> restoreImage(String imageId) =>
       _removeFromList(_excludedImagesPrefsKey, imageId);
+
+  @override
+  Future<void> favoriteImage(String imageId) =>
+      _updateList(_favoriteImagesPrefsKey, imageId);
+
+  @override
+  Future<void> unfavoriteImage(String imageId) =>
+      _removeFromList(_favoriteImagesPrefsKey, imageId);
 
   @override
   Future<void> moveImage(String imageId, String stackKey) =>
