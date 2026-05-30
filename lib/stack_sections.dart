@@ -539,9 +539,10 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
         ),
       ),
     );
-    if (deletedId != null && mounted) {
-      setState(() => _locallyHiddenIds.add(deletedId));
-    }
+    if (!mounted) return;
+    setState(() {
+      if (deletedId != null) _locallyHiddenIds.add(deletedId);
+    });
   }
 
   Future<void> _shareSelected() async {
