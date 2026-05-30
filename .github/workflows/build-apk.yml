@@ -39,13 +39,13 @@ jobs:
       - name: Test
         run: flutter test
 
-      - name: Build debug APK
-        run: flutter build apk --debug
+      - name: Build prod debug APK
+        run: flutter build apk --flavor prod --debug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: shotly-debug-apk-${{ github.sha }}
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: shotly-prod-debug-apk-${{ github.sha }}
+          path: build/app/outputs/flutter-apk/app-prod-debug.apk
           if-no-files-found: error
           retention-days: 14
