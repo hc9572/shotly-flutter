@@ -436,20 +436,26 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
                     ],
                   ),
                 if (widget.memoText != null) ...[
-                  const SizedBox(height: 2),
                   Text(
                     widget.memoText!,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: const Color(0xFF424754),
+                      height: 1.25,
                     ),
                   ),
                 ],
               ],
             ),
           ),
-          SizedBox(height: widget.showHeaderCheckbox ? 11 : 8),
+          SizedBox(
+            height: widget.memoText != null
+                ? 14
+                : widget.showHeaderCheckbox
+                ? 11
+                : 8,
+          ),
         ],
         GridView.builder(
           padding: EdgeInsets.zero,

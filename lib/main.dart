@@ -1331,8 +1331,8 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
                                 padding: const EdgeInsets.only(bottom: 18),
                                 child: Text(
                                   st(
-                                    '앱 이름을 알 수 없는 스크린샷을 날짜별로 모았어요. 길게 눌러 앱으로 정리할 수 있어요.',
-                                    'Screenshots without app names are grouped by date. Long-press to organize them into apps.',
+                                    '같은 앱에서 찍은 사진들을 골라서 모아보세요. 길게 눌러 앱별로 정리할 수 있어요.',
+                                    'Select screenshots from the same app and organize them together.',
                                   ),
                                   style: Theme.of(context).textTheme.bodyMedium
                                       ?.copyWith(
