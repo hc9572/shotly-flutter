@@ -144,8 +144,8 @@ class _SearchPageState extends State<_SearchPage> {
                         ),
                         decoration: InputDecoration(
                           hintText: st(
-                            '앱 이름, 파일명, 경로 검색',
-                            'Search app name, file name, or path',
+                            '앱 이름, 폴더명 등으로 검색하기',
+                            'Search apps, folders...',
                           ),
                           hintStyle: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
@@ -341,10 +341,7 @@ class _SearchEmptyHint extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Text(
-        st(
-          '찾고 싶은 앱, 파일명, 경로를 검색해보세요.',
-          'Search by app name, file name, or path.',
-        ),
+        st('앱 이름, 폴더명 등으로 검색해보세요.', 'Search apps, folders, and more.'),
         style: Theme.of(
           context,
         ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF727785)),
