@@ -812,6 +812,38 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
     setState(() => _testerNoAppInfoMode = enabled);
   }
 
+  Future<void> _resetOrganizationData() async {
+    await _localStore.replaceAll(const LocalShotlyState());
+    if (!mounted) return;
+    setState(() {
+      _manualStackNames.clear();
+      _stackNames.clear();
+      _imageAssignments.clear();
+      _setMemos.clear();
+      _folderNames.clear();
+      _folderColors.clear();
+      _setAssignments.clear();
+      _hiddenStackKeys.clear();
+      _excludedImageIds.clear();
+      _favoriteImageIds.clear();
+      _homeSelectedImageIds.clear();
+      _isHomeSelectionMode = false;
+      _pinnedStackKeys.clear();
+      _selectedDate = null;
+      _query = '';
+      _searchController.clear();
+      _showSortMenu = false;
+      _sortMode = StackSortMode.latest;
+      _visualFeatures.clear();
+    });
+    _showSnack(
+      st(
+        '정리 데이터를 초기화했어요. 원본 사진은 그대로예요.',
+        'Organization data reset. Original photos were not changed.',
+      ),
+    );
+  }
+
   Future<void> _renameStack(String stackKey, String name) async {
     final trimmed = name.trim().isEmpty ? stackKey : name.trim();
     setState(() => _stackNames[stackKey] = trimmed);
@@ -1385,6 +1417,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
                             onReceivePhoneTransfer: _receivePhoneTransfer,
                             testerNoAppInfoMode: _testerNoAppInfoMode,
                             onSetTesterNoAppInfoMode: _setTesterNoAppInfoMode,
+                            onResetOrganizationData: _resetOrganizationData,
                           ),
                         ),
                       ),

@@ -17,6 +17,7 @@ class SettingsScreen extends StatefulWidget {
     required this.onReceivePhoneTransfer,
     required this.testerNoAppInfoMode,
     required this.onSetTesterNoAppInfoMode,
+    required this.onResetOrganizationData,
   });
 
   final bool hasPermission;
@@ -33,6 +34,7 @@ class SettingsScreen extends StatefulWidget {
   final Future<void> Function() onReceivePhoneTransfer;
   final bool testerNoAppInfoMode;
   final Future<void> Function(bool enabled) onSetTesterNoAppInfoMode;
+  final Future<void> Function() onResetOrganizationData;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -320,6 +322,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     await widget.onSetTesterNoAppInfoMode(value);
                     setSheetState(() => noAppInfoMode = value);
                   },
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFB42318),
+                      side: const BorderSide(color: Color(0xFFF1B6B0)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    icon: const Icon(Icons.restart_alt_rounded),
+                    label: Text(st('정리 데이터 초기화', 'Reset organization data')),
+                    onPressed: () async {
+                      final confirmed = await _showShotlyConfirmDialog(
+                        context: context,
+                        title: st('정리 데이터 초기화', 'Reset organization data'),
+                        body: st(
+                          '앱 생성, 분류, 폴더, 메모, 즐겨찾기, 숨김, 고정 정보가 모두 삭제돼요. 원본 사진은 삭제되지 않아요.',
+                          'This clears apps, sorting, folders, notes, favorites, hidden items, and pins. Original photos will not be deleted.',
+                        ),
+                        primaryLabel: st('초기화', 'Reset'),
+                        destructive: true,
+                      );
+                      if (confirmed != true) return;
+                      await widget.onResetOrganizationData();
+                      if (context.mounted) Navigator.of(context).pop();
+                    },
+                  ),
                 ),
               ],
             ),
