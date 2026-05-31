@@ -269,6 +269,7 @@ Future<void> _showShotlyInfoDialog({
   required BuildContext context,
   required String title,
   required String body,
+  VoidCallback? onContentTap,
 }) {
   return showDialog<void>(
     context: context,
@@ -293,13 +294,22 @@ Future<void> _showShotlyInfoDialog({
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 10),
-            Text(
-              body,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF424754)),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onContentTap,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: Theme.of(context).textTheme.headlineSmall),
+                  const SizedBox(height: 10),
+                  Text(
+                    body,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF424754),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
             Align(

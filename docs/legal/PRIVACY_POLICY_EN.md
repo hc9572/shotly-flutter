@@ -15,7 +15,7 @@ The following information is processed locally on your device to provide Shotlyâ
 - Thumbnail and preview cache files used to display images
 - Image file names, file paths, creation dates, added dates, modified dates, and similar file metadata
 - Visual feature data generated locally for similar image analysis
-- User-configured stack names, folder names, notes, folder colors, hidden/restored status, pinned status, and sort mode
+- User-configured app group names, folder names, notes, folder colors, hidden/restored status, pinned status, and sort mode
 - Search queries entered in the app
 
 ### 1.2 Logs that may be collected by servers or analytics tools
@@ -74,7 +74,7 @@ Shotly currently does not offer in-app purchases, subscriptions, or ads.
 
 Shotly may provide user-initiated backup and restore functionality.
 
-- Backup may include Shotly organization data such as stack names, folder names, notes, hidden status, pinned status, and sort mode.
+- Backup may include Shotly organization data such as app group names, folder names, notes, hidden status, pinned status, and sort mode.
 - Backup does not include original screenshot image files.
 - Backup files are exported by the user to a location or external app chosen by the user.
 

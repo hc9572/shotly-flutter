@@ -12,8 +12,8 @@ Shotly helps users find and organize screenshots stored on their device. The app
 
 - Viewing screenshots and image files
 - Grouping screenshots by app or service
-- Saving user-defined stack names, folder names, folder colors, and notes
-- Hiding images or stacks, restoring hidden items, pinning stacks, and changing sort modes
+- Saving user-defined app group names, folder names, folder colors, and notes
+- Hiding images or app groups, restoring hidden items, pinning app groups, and changing sort modes
 - Similar screen analysis, flow analysis, and duplicate candidate suggestions
 - User-requested actions such as in-app reclassification, sharing, or original image deletion
 - User-initiated backup and restore of organization data
@@ -34,7 +34,7 @@ You may use Shotly only with devices, screenshots, and images that you have the 
 
 Shotly may request photo or media access permissions to provide screenshot organization features. If you deny or limit the required permissions, some features may not work properly.
 
-Organization data such as stack names, folder names, notes, hidden status, pinned status, and sort mode is stored locally on your device. Shotly may also generate thumbnail or preview files in app cache for faster image display.
+Organization data such as app group names, folder names, notes, hidden status, pinned status, and sort mode is stored locally on your device. Shotly may also generate thumbnail or preview files in app cache for faster image display.
 
 Shotly does not delete original image files unless you explicitly choose an original deletion action.
 
@@ -42,7 +42,7 @@ Shotly does not delete original image files unless you explicitly choose an orig
 
 Similar screen analysis, flow analysis, duplicate candidate suggestions, and similar automated features are provided as assistive tools. Suggestions may be generated based on visual features, file information, and your existing organization state, and may be incomplete or inaccurate.
 
-You are responsible for reviewing and confirming any final action, including deletion, sharing, hiding, folder assignment, or stack reclassification.
+You are responsible for reviewing and confirming any final action, including deletion, sharing, hiding, folder assignment, or app reclassification.
 
 ## 7. In-App Movement, Hiding, and Original Deletion
 
@@ -54,7 +54,7 @@ If you choose to delete original files through Shotly, the selected images may b
 
 Shotly may provide user-initiated backup and restore functionality for organization data.
 
-Backup files may include Shotly organization data such as stack names, folder names, notes, hidden status, pinned status, and sort mode. Backup files do not include original screenshot image files.
+Backup files may include Shotly organization data such as app group names, folder names, notes, hidden status, pinned status, and sort mode. Backup files do not include original screenshot image files.
 
 You are responsible for storing backup files safely. If you save or share backup files through an external app or service, that external app or service’s terms and privacy policy apply.
 

@@ -44,14 +44,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final List<StackItem> _hiddenStacks = [...widget.hiddenStacks];
   late final List<ScreenshotItem> _excludedImages = [...widget.excludedImages];
   late final bool _hasPermission = widget.hasPermission;
-  Timer? _appInfoTapTimer;
-  var _appInfoTapCount = 0;
-
-  @override
-  void dispose() {
-    _appInfoTapTimer?.cancel();
-    super.dispose();
-  }
+  var _appInfoDialogTapCount = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -230,18 +223,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _handleAppInfoTap(BuildContext context) {
-    _appInfoTapTimer?.cancel();
-    _appInfoTapCount += 1;
-    if (_appInfoTapCount >= 5) {
-      _appInfoTapCount = 0;
-      unawaited(_unlockTesterMode(context));
-      return;
-    }
-    _appInfoTapTimer = Timer(const Duration(milliseconds: 700), () {
-      if (!mounted) return;
-      _appInfoTapCount = 0;
-      _showInfoDialog(context);
-    });
+    _showInfoDialog(context);
   }
 
   Future<void> _unlockTesterMode(BuildContext context) async {
@@ -362,6 +344,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showInfoDialog(BuildContext context) {
+    _appInfoDialogTapCount = 0;
     _showShotlyInfoDialog(
       context: context,
       title: 'Shotly',
@@ -369,6 +352,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'Shotly 1.0.0\n기획자를 위한 로컬 기반 스크린샷 정리 앱',
         'Shotly 1.0.0\nA local-first screenshot organizer for product planners',
       ),
+      onContentTap: () {
+        _appInfoDialogTapCount += 1;
+        if (_appInfoDialogTapCount < 10) return;
+        _appInfoDialogTapCount = 0;
+        Navigator.of(context).pop();
+        unawaited(_unlockTesterMode(context));
+      },
     );
   }
 }
