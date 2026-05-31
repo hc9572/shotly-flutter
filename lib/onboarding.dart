@@ -113,8 +113,8 @@ class _ShotlyOnboardingScreen extends StatelessWidget {
               const SizedBox(height: 28),
               Text(
                 st(
-                  '스크린샷 정리를\n가볍게 시작해요',
-                  'Organize screenshots\nwithout the clutter',
+                  '흩어진 스크린샷을\n간편하게 정리해요',
+                  'Quickly organize\nscattered screenshots',
                 ),
                 style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                   color: const Color(0xFF1A1C1C),
@@ -134,6 +134,15 @@ class _ShotlyOnboardingScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 28),
+              _OnboardingPoint(
+                icon: Icons.folder_copy_outlined,
+                title: st('앱/폴더 기반 정리', 'App & folder organization'),
+                body: st(
+                  '어디서 왜 찍었는지 정리해보세요.',
+                  'Keep track of where and why you captured each screen.',
+                ),
+              ),
+              const SizedBox(height: 14),
               _OnboardingPoint(
                 icon: Icons.lock_outline_rounded,
                 title: st('로컬 기반 처리', 'Local-first processing'),
