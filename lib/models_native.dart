@@ -102,7 +102,7 @@ class ShotlyNative {
   static Future<PhotoPermissionStatus> requestPhotoPermissionStatus() async {
     if (kIsWeb) return PhotoPermissionStatus.full;
     final result = await _channel.invokeMethod<String>(
-      'requestPhotoPermission',
+      'requestPhotoPermissionStatus',
     );
     return _photoPermissionStatusFromName(result);
   }

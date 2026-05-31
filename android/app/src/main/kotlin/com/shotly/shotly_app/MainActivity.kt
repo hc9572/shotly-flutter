@@ -33,6 +33,7 @@ class MainActivity : FlutterActivity() {
     private val saveBackupRequestCode = 9213
     private val openBackupRequestCode = 9214
     private var pendingPermissionResult: MethodChannel.Result? = null
+    private var pendingPermissionReturnsStatus = false
     private var pendingPickImageResult: MethodChannel.Result? = null
     private var pendingDeleteImageResult: MethodChannel.Result? = null
     private var pendingSaveBackupResult: MethodChannel.Result? = null
@@ -47,7 +48,8 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName).setMethodCallHandler { call, result ->
             when (call.method) {
-                "requestPhotoPermission" -> requestPhotoPermission(result)
+                "requestPhotoPermission" -> requestPhotoPermission(result, false)
+                "requestPhotoPermissionStatus" -> requestPhotoPermission(result, true)
                 "hasPhotoPermission" -> result.success(hasPhotoPermission())
                 "photoPermissionStatus" -> result.success(photoPermissionStatus())
                 "openPhotoSettings" -> openPhotoSettings(result)
@@ -81,10 +83,10 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun requestPhotoPermission(result: MethodChannel.Result) {
+    private fun requestPhotoPermission(result: MethodChannel.Result, returnsStatus: Boolean) {
         val currentStatus = photoPermissionStatus()
         if (currentStatus != "denied") {
-            result.success(currentStatus)
+            result.success(if (returnsStatus) currentStatus else true)
             return
         }
         if (pendingPermissionResult != null) {
@@ -92,6 +94,7 @@ class MainActivity : FlutterActivity() {
             return
         }
         pendingPermissionResult = result
+        pendingPermissionReturnsStatus = returnsStatus
         ActivityCompat.requestPermissions(this, photoPermissions(), permissionRequestCode)
     }
 
@@ -180,8 +183,10 @@ class MainActivity : FlutterActivity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == permissionRequestCode) {
-            pendingPermissionResult?.success(photoPermissionStatus())
+            val status = photoPermissionStatus()
+            pendingPermissionResult?.success(if (pendingPermissionReturnsStatus) status else status != "denied")
             pendingPermissionResult = null
+            pendingPermissionReturnsStatus = false
         }
     }
 
