@@ -163,26 +163,15 @@ class _UnsortedHeader extends StatelessWidget {
     final countLabel = stCount(count, '장', 'screenshot', 'screenshots');
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFEDEFF3)),
-        ),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
         child: Row(
           children: [
-            const Icon(
-              Icons.inbox_outlined,
-              size: 20,
-              color: Color(0xFF424754),
-            ),
-            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 st('미분류 스크린샷 $countLabel', 'Unsorted $countLabel'),
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: const Color(0xFF1A1C1C),
                   fontWeight: FontWeight.w700,
                 ),
@@ -192,6 +181,7 @@ class _UnsortedHeader extends StatelessWidget {
               expanded
                   ? Icons.keyboard_arrow_up_rounded
                   : Icons.keyboard_arrow_down_rounded,
+              size: 20,
               color: const Color(0xFF727785),
             ),
           ],
@@ -1430,7 +1420,10 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
     final stacks = _stacks;
     final unclassifiedDateGroups = _groupSetsByDate(_unclassifiedHomeSets);
     final hasUnsorted = unclassifiedDateGroups.isNotEmpty;
-    final unsortedExpanded = _unsortedExpandedOverride ?? stacks.isEmpty;
+    final showUnsortedHeader = hasUnsorted && stacks.isNotEmpty;
+    final unsortedExpanded = showUnsortedHeader
+        ? (_unsortedExpandedOverride ?? false)
+        : hasUnsorted;
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       body: SafeArea(
@@ -1541,21 +1534,22 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
                                 ),
                               ),
                               if (hasUnsorted) ...[
-                                _UnsortedHeader(
-                                  count: _unclassifiedHomeSets.fold<int>(
-                                    0,
-                                    (sum, set) => sum + set.items.length,
+                                if (showUnsortedHeader)
+                                  _UnsortedHeader(
+                                    count: _unclassifiedHomeSets.fold<int>(
+                                      0,
+                                      (sum, set) => sum + set.items.length,
+                                    ),
+                                    expanded: unsortedExpanded,
+                                    onTap: () => setState(
+                                      () => _unsortedExpandedOverride =
+                                          !unsortedExpanded,
+                                    ),
                                   ),
-                                  expanded: unsortedExpanded,
-                                  onTap: () => setState(
-                                    () => _unsortedExpandedOverride =
-                                        !unsortedExpanded,
-                                  ),
-                                ),
                                 if (unsortedExpanded) ...[
                                   Padding(
-                                    padding: const EdgeInsets.only(
-                                      top: 10,
+                                    padding: EdgeInsets.only(
+                                      top: showUnsortedHeader ? 10 : 0,
                                       bottom: 18,
                                     ),
                                     child: Text(
