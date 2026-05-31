@@ -147,6 +147,60 @@ class _ShotlyRuntimeErrorView extends StatelessWidget {
   }
 }
 
+class _UnsortedHeader extends StatelessWidget {
+  const _UnsortedHeader({
+    required this.count,
+    required this.expanded,
+    required this.onTap,
+  });
+
+  final int count;
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final countLabel = stCount(count, '장', 'screenshot', 'screenshots');
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFEDEFF3)),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.inbox_outlined,
+              size: 20,
+              color: Color(0xFF424754),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                st('미분류 스크린샷 $countLabel', 'Unsorted $countLabel'),
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: const Color(0xFF1A1C1C),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Icon(
+              expanded
+                  ? Icons.keyboard_arrow_up_rounded
+                  : Icons.keyboard_arrow_down_rounded,
+              color: const Color(0xFF727785),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class ShotlyApp extends StatelessWidget {
   const ShotlyApp({super.key});
 
@@ -275,6 +329,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   String? _error;
   bool _showSortMenu = false;
   bool _testerNoAppInfoMode = false;
+  bool? _unsortedExpandedOverride;
   StackSortMode _sortMode = StackSortMode.latest;
 
   static const _testerNoAppInfoModePrefsKey = 'shotly.tester.noAppInfoMode';
@@ -535,21 +590,11 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
 
   List<ScreenshotItem> get _filteredScreenshots => _calendarScreenshots;
 
-  List<ScreenshotItem> get _visibleScreenshots => _effectiveScreenshots
-      .where((item) => !_excludedImageIds.contains(item.id))
-      .toList();
-
-  bool get _shouldUseUnclassifiedHome {
-    if (_visibleScreenshots.isEmpty) return false;
-    if (_manualStackNames.isNotEmpty || _imageAssignments.isNotEmpty) {
-      return false;
-    }
-    return !_visibleScreenshots.any((item) => item.appName.trim().isNotEmpty);
-  }
-
   List<ScreenshotSet> get _unclassifiedHomeSets => _buildScreenshotSets(
     'Unknown',
-    _filteredScreenshots,
+    _filteredScreenshots
+        .where((item) => _stackKeyFor(item) == 'Unknown')
+        .toList(),
     _setMemos,
     _folderNames,
     _setAssignments,
@@ -568,6 +613,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
         continue;
       }
       final stackKey = _stackKeyFor(item);
+      if (stackKey == 'Unknown') continue;
       if (_hiddenStackKeys.contains(stackKey)) continue;
       grouped.putIfAbsent(stackKey, () => []).add(item);
     }
@@ -582,6 +628,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
         )
         .toList();
     for (final name in _manualStackNames) {
+      if (name == 'Unknown') continue;
       if (_selectedDate == null &&
           !grouped.containsKey(name) &&
           !_hiddenStackKeys.contains(name)) {
@@ -602,6 +649,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
     final grouped = <String, List<ScreenshotItem>>{};
     for (final item in _calendarScreenshots) {
       final stackKey = _stackKeyFor(item);
+      if (stackKey == 'Unknown') continue;
       if (_hiddenStackKeys.contains(stackKey)) continue;
       grouped.putIfAbsent(stackKey, () => []).add(item);
     }
@@ -617,6 +665,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
         .where((stack) => q.isEmpty || _stackMatchesQuery(stack, q))
         .toList();
     for (final name in _manualStackNames) {
+      if (name == 'Unknown') continue;
       final matchesQuery =
           q.isEmpty ||
           _textMatches(name, q) ||
@@ -670,6 +719,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
       (item) => !_excludedImageIds.contains(item.id),
     )) {
       final stackKey = _stackKeyFor(item);
+      if (stackKey == 'Unknown') continue;
       if (_hiddenStackKeys.contains(stackKey)) {
         grouped.putIfAbsent(stackKey, () => []).add(item);
       }
@@ -685,6 +735,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
         )
         .toList();
     for (final name in _manualStackNames) {
+      if (name == 'Unknown') continue;
       if (_hiddenStackKeys.contains(name) && !grouped.containsKey(name)) {
         stacks.add(
           StackItem(
@@ -833,6 +884,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
       _query = '';
       _searchController.clear();
       _showSortMenu = false;
+      _unsortedExpandedOverride = null;
       _sortMode = StackSortMode.latest;
       _visualFeatures.clear();
     });
@@ -906,8 +958,8 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
     if (mounted) {
       _showSnack(
         st(
-          '앱을 삭제하고 스크린샷을 Unknown으로 이동했어요.',
-          'Deleted the app and moved screenshots to Unknown.',
+          '앱 묶음을 해제하고 스크린샷을 미분류로 돌렸어요.',
+          'Ungrouped the app and moved screenshots to Unsorted.',
         ),
       );
     }
@@ -1139,6 +1191,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
       _setAssignments.remove(imageId);
     });
     if (!_manualStackNames.contains(stackKey) &&
+        stackKey != 'Unknown' &&
         !_stacks.any((stack) => stack.key == stackKey)) {
       _manualStackNames.add(stackKey);
     }
@@ -1374,11 +1427,10 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   Widget build(BuildContext context) {
     final filteredScreenshots = _filteredScreenshots
       ..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
-    final useUnclassifiedHome = _shouldUseUnclassifiedHome;
-    final stacks = useUnclassifiedHome ? const <StackItem>[] : _stacks;
-    final unclassifiedDateGroups = useUnclassifiedHome
-        ? _groupSetsByDate(_unclassifiedHomeSets)
-        : const <_SetDateGroup>[];
+    final stacks = _stacks;
+    final unclassifiedDateGroups = _groupSetsByDate(_unclassifiedHomeSets);
+    final hasUnsorted = unclassifiedDateGroups.isNotEmpty;
+    final unsortedExpanded = _unsortedExpandedOverride ?? stacks.isEmpty;
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       body: SafeArea(
@@ -1449,58 +1501,9 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
                             const SizedBox(height: 26),
                             if (_effectiveScreenshots.isEmpty &&
                                 stacks.isEmpty &&
-                                !useUnclassifiedHome)
+                                !hasUnsorted)
                               const _EmptyState()
-                            else if (useUnclassifiedHome) ...[
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 18),
-                                child: Text(
-                                  st(
-                                    '같은 앱에서 찍은 사진들을 골라서 모아보세요. 길게 눌러 앱별로 정리할 수 있어요.',
-                                    'Select screenshots from the same app and organize them together.',
-                                  ),
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        color: const Color(0xFF727785),
-                                        height: 1.35,
-                                      ),
-                                ),
-                              ),
-                              if (unclassifiedDateGroups.isEmpty)
-                                const _NoResultState()
-                              else
-                                ...unclassifiedDateGroups.map(
-                                  (dateGroup) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 22),
-                                    child: _SetDateSection(
-                                      dateLabel: dateGroup.dateLabel,
-                                      sets: dateGroup.sets,
-                                      allStackKeys: _availableStackTargets
-                                          .map((stack) => stack.key)
-                                          .toList(),
-                                      stackNames: _stackNames,
-                                      favoriteImageIds: _favoriteImageIds,
-                                      onExcludeImage: _excludeImage,
-                                      onDeleteOriginalImage:
-                                          _deleteOriginalImage,
-                                      onToggleFavoriteImage:
-                                          _toggleFavoriteImage,
-                                      onMoveImage: _moveImage,
-                                      selectedIds: _homeSelectedImageIds,
-                                      selectionMode: _isHomeSelectionMode,
-                                      onToggleSelection: _toggleHomeSelection,
-                                      onToggleDateSelection:
-                                          _toggleHomeDateSelection,
-                                      showLocalActionBar: false,
-                                      onSaveMemo: _saveSetMemo,
-                                      onAssignImageToSet: _assignImageToSet,
-                                      viewerItems: filteredScreenshots,
-                                    ),
-                                  ),
-                                ),
-                            ] else if (stacks.isEmpty)
-                              const _NoResultState()
-                            else
+                            else ...[
                               ...stacks.map(
                                 (stack) => Padding(
                                   padding: const EdgeInsets.only(bottom: 26),
@@ -1537,6 +1540,74 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
                                   ),
                                 ),
                               ),
+                              if (hasUnsorted) ...[
+                                _UnsortedHeader(
+                                  count: _unclassifiedHomeSets.fold<int>(
+                                    0,
+                                    (sum, set) => sum + set.items.length,
+                                  ),
+                                  expanded: unsortedExpanded,
+                                  onTap: () => setState(
+                                    () => _unsortedExpandedOverride =
+                                        !unsortedExpanded,
+                                  ),
+                                ),
+                                if (unsortedExpanded) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                      top: 10,
+                                      bottom: 18,
+                                    ),
+                                    child: Text(
+                                      st(
+                                        '같은 앱에서 찍은 사진들을 골라서 앱별로 정리해보세요.',
+                                        'Select screenshots from the same app and organize them together.',
+                                      ),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            color: const Color(0xFF727785),
+                                            height: 1.35,
+                                          ),
+                                    ),
+                                  ),
+                                  ...unclassifiedDateGroups.map(
+                                    (dateGroup) => Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 22,
+                                      ),
+                                      child: _SetDateSection(
+                                        dateLabel: dateGroup.dateLabel,
+                                        sets: dateGroup.sets,
+                                        allStackKeys: _availableStackTargets
+                                            .map((stack) => stack.key)
+                                            .toList(),
+                                        stackNames: _stackNames,
+                                        favoriteImageIds: _favoriteImageIds,
+                                        onExcludeImage: _excludeImage,
+                                        onDeleteOriginalImage:
+                                            _deleteOriginalImage,
+                                        onToggleFavoriteImage:
+                                            _toggleFavoriteImage,
+                                        onMoveImage: _moveImage,
+                                        selectedIds: _homeSelectedImageIds,
+                                        selectionMode: _isHomeSelectionMode,
+                                        onToggleSelection: _toggleHomeSelection,
+                                        onToggleDateSelection:
+                                            _toggleHomeDateSelection,
+                                        showLocalActionBar: false,
+                                        onSaveMemo: _saveSetMemo,
+                                        onAssignImageToSet: _assignImageToSet,
+                                        viewerItems: filteredScreenshots,
+                                      ),
+                                    ),
+                                  ),
+                                ] else
+                                  const SizedBox(height: 22),
+                              ] else if (stacks.isEmpty)
+                                const _NoResultState(),
+                            ],
                           ],
                         ],
                       ),
@@ -1561,7 +1632,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
                   onSelect: _saveSortMode,
                 ),
               ),
-            if (useUnclassifiedHome && _isHomeSelectionMode)
+            if (hasUnsorted && _isHomeSelectionMode)
               Positioned(
                 left: 20,
                 right: 20,

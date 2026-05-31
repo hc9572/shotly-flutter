@@ -188,7 +188,7 @@ class _StackCard extends StatelessWidget {
         _ShotlyActionItem(
           value: 'delete',
           icon: Icons.delete_outline_rounded,
-          title: st('앱 삭제', 'Delete app'),
+          title: st('앱 묶음 해제', 'Ungroup app'),
         ),
       ],
     );
@@ -207,12 +207,12 @@ class _StackCard extends StatelessWidget {
     if (action == 'delete' && context.mounted) {
       final confirmed = await _showShotlyConfirmDialog(
         context: context,
-        title: st('앱 삭제', 'Delete app'),
+        title: st('앱 묶음 해제', 'Ungroup app'),
         body: st(
-          '앱을 삭제하면 포함된 스크린샷은 모두 Unknown 앱으로 이동해요.',
-          'Deleting this app moves all included screenshots to Unknown.',
+          '앱 묶음을 해제하면 포함된 스크린샷은 미분류로 돌아가요. 원본 사진은 삭제되지 않아요.',
+          'Ungrouping this app moves its screenshots back to Unsorted. Original photos will not be deleted.',
         ),
-        primaryLabel: st('삭제', 'Delete'),
+        primaryLabel: st('해제', 'Ungroup'),
         destructive: true,
       );
       if (confirmed == true) await onDeleteStack(stack);

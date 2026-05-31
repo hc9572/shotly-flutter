@@ -1078,21 +1078,55 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     final target = await _showShotlyActionSheet<String>(
       context,
       title: st('이동할 앱', 'Move to app'),
-      items: widget.allStackKeys
-          .where((key) => key != widget.stack.key)
-          .map(
-            (key) => _ShotlyActionItem(
-              value: key,
-              icon: Icons.layers_rounded,
-              title: widget.stackNames[key] ?? key,
+      items: [
+        _ShotlyActionItem(
+          value: _createMoveTargetKey,
+          icon: Icons.add_rounded,
+          title: st('새 앱 만들기', 'Create new app'),
+        ),
+        ...widget.allStackKeys
+            .where((key) => key != widget.stack.key)
+            .map(
+              (key) => _ShotlyActionItem(
+                value: key,
+                icon: Icons.layers_rounded,
+                title: widget.stackNames[key] ?? key,
+              ),
             ),
-          )
-          .toList(),
+      ],
     );
     if (target == null) return;
+    if (target == _createMoveTargetKey && !context.mounted) return;
+    final targetStack = target == _createMoveTargetKey
+        ? await _showShotlyTextDialog(
+            context: context,
+            title: st('새 앱 만들기', 'Create new app'),
+            hintText: st('앱 이름', 'App name'),
+            primaryLabel: st('만들기', 'Create'),
+            validator: (value) {
+              final trimmed = value.trim();
+              if (trimmed.isEmpty) return null;
+              final exists =
+                  widget.allStackKeys.any(
+                    (key) => key.toLowerCase() == trimmed.toLowerCase(),
+                  ) ||
+                  widget.stackNames.values.any(
+                    (name) => name.toLowerCase() == trimmed.toLowerCase(),
+                  );
+              return exists
+                  ? st(
+                      '이미 같은 이름의 앱이 있어요.',
+                      'An app with this name already exists.',
+                    )
+                  : null;
+            },
+          )
+        : target;
+    final trimmedTarget = targetStack?.trim();
+    if (trimmedTarget == null || trimmedTarget.isEmpty) return;
     final selected = _selectedImageIds.toList();
     for (final id in selected) {
-      await widget.onMoveImage(id, target);
+      await widget.onMoveImage(id, trimmedTarget);
     }
     if (mounted) {
       setState(() {
@@ -1179,7 +1213,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
               ),
               _AddMenuTile(
                 icon: Icons.delete_outline_rounded,
-                title: st('앱 삭제', 'Delete app'),
+                title: st('앱 묶음 해제', 'Ungroup app'),
                 onTap: () => Navigator.of(context).pop('delete'),
               ),
             ],
@@ -1208,12 +1242,12 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     if (action == 'delete') {
       final confirmed = await _showShotlyConfirmDialog(
         context: context,
-        title: st('앱 삭제', 'Delete app'),
+        title: st('앱 묶음 해제', 'Ungroup app'),
         body: st(
-          '앱을 삭제하면 포함된 스크린샷은 모두 Unknown 앱으로 이동해요.',
-          'Deleting this app moves all included screenshots to Unknown.',
+          '앱 묶음을 해제하면 포함된 스크린샷은 미분류로 돌아가요. 원본 사진은 삭제되지 않아요.',
+          'Ungrouping this app moves its screenshots back to Unsorted. Original photos will not be deleted.',
         ),
-        primaryLabel: st('삭제', 'Delete'),
+        primaryLabel: st('해제', 'Ungroup'),
         destructive: true,
       );
       if (confirmed == true) {

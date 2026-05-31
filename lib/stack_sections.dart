@@ -1,5 +1,7 @@
 part of 'main.dart';
 
+const _createMoveTargetKey = '__shotly_create_move_target__';
+
 class _SetDateSection extends StatelessWidget {
   const _SetDateSection({
     required this.dateLabel,
@@ -581,20 +583,53 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
     final target = await _showShotlyActionSheet<String>(
       context,
       title: st('이동할 앱', 'Move to app'),
-      items: widget.allStackKeys
-          .map(
-            (key) => _ShotlyActionItem(
-              value: key,
-              icon: Icons.layers_rounded,
-              title: widget.stackNames[key] ?? key,
-            ),
-          )
-          .toList(),
+      items: [
+        _ShotlyActionItem(
+          value: _createMoveTargetKey,
+          icon: Icons.add_rounded,
+          title: st('새 앱 만들기', 'Create new app'),
+        ),
+        ...widget.allStackKeys.map(
+          (key) => _ShotlyActionItem(
+            value: key,
+            icon: Icons.layers_rounded,
+            title: widget.stackNames[key] ?? key,
+          ),
+        ),
+      ],
     );
     if (target == null) return;
+    if (target == _createMoveTargetKey && !context.mounted) return;
+    final targetStack = target == _createMoveTargetKey
+        ? await _showShotlyTextDialog(
+            context: context,
+            title: st('새 앱 만들기', 'Create new app'),
+            hintText: st('앱 이름', 'App name'),
+            primaryLabel: st('만들기', 'Create'),
+            validator: (value) {
+              final trimmed = value.trim();
+              if (trimmed.isEmpty) return null;
+              final exists =
+                  widget.allStackKeys.any(
+                    (key) => key.toLowerCase() == trimmed.toLowerCase(),
+                  ) ||
+                  widget.stackNames.values.any(
+                    (name) => name.toLowerCase() == trimmed.toLowerCase(),
+                  );
+              return exists
+                  ? st(
+                      '이미 같은 이름의 앱이 있어요.',
+                      'An app with this name already exists.',
+                    )
+                  : null;
+            },
+          )
+        : target;
+    final trimmedTarget = targetStack?.trim();
+    if (trimmedTarget == null || trimmedTarget.isEmpty) return;
     final selected = _effectiveSelectedIds.toList();
     for (final id in selected) {
-      await widget.onMoveImage(id, target);
+      await widget.onMoveImage(id, trimmedTarget);
     }
     setState(() {
       _locallyHiddenIds.addAll(selected);
