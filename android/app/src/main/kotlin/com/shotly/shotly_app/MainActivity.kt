@@ -49,6 +49,7 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "requestPhotoPermission" -> requestPhotoPermission(result)
                 "hasPhotoPermission" -> result.success(hasPhotoPermission())
+                "photoPermissionStatus" -> result.success(photoPermissionStatus())
                 "openPhotoSettings" -> openPhotoSettings(result)
                 "openUrl" -> openUrl(call.argument<String>("url"), result)
                 "logAnalyticsEvent" -> logAnalyticsEvent(
@@ -81,8 +82,9 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun requestPhotoPermission(result: MethodChannel.Result) {
-        if (hasPhotoPermission()) {
-            result.success(true)
+        val currentStatus = photoPermissionStatus()
+        if (currentStatus != "denied") {
+            result.success(currentStatus)
             return
         }
         if (pendingPermissionResult != null) {
@@ -146,9 +148,21 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun hasPhotoPermission(): Boolean {
-        return photoPermissions().any { permission ->
-            ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+    private fun hasPhotoPermission(): Boolean = photoPermissionStatus() != "denied"
+
+    private fun photoPermissionStatus(): String {
+        return when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> when {
+                ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED -> "full"
+                ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == PackageManager.PERMISSION_GRANTED -> "limited"
+                else -> "denied"
+            }
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED) "full" else "denied"
+            }
+            else -> {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) "full" else "denied"
+            }
         }
     }
 
@@ -166,8 +180,7 @@ class MainActivity : FlutterActivity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == permissionRequestCode) {
-            val granted = grantResults.any { it == PackageManager.PERMISSION_GRANTED }
-            pendingPermissionResult?.success(granted)
+            pendingPermissionResult?.success(photoPermissionStatus())
             pendingPermissionResult = null
         }
     }

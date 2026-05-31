@@ -319,7 +319,10 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   bool _isHomeSelectionMode = false;
   final List<String> _pinnedStackKeys = [];
   bool _isLoading = true;
-  bool _hasPermission = false;
+  PhotoPermissionStatus _photoPermissionStatus = PhotoPermissionStatus.denied;
+
+  bool get _hasPermission =>
+      _photoPermissionStatus != PhotoPermissionStatus.denied;
   DateTime? _selectedDate;
   String _query = '';
   String? _error;
@@ -354,8 +357,8 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   }
 
   Future<void> _refreshPermissionAfterResume() async {
-    final hasPermission = await ShotlyNative.hasPhotoPermission();
-    if (!mounted || hasPermission == _hasPermission) return;
+    final permissionStatus = await ShotlyNative.photoPermissionStatus();
+    if (!mounted || permissionStatus == _photoPermissionStatus) return;
     await _load(requestPermission: false);
   }
 
@@ -412,9 +415,9 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
       _error = null;
     });
     try {
-      _hasPermission = requestPermission
-          ? await ShotlyNative.requestPhotoPermission()
-          : await ShotlyNative.hasPhotoPermission();
+      _photoPermissionStatus = requestPermission
+          ? await ShotlyNative.requestPhotoPermissionStatus()
+          : await ShotlyNative.photoPermissionStatus();
       unawaited(
         ShotlyAnalytics.log(
           _hasPermission
@@ -1454,7 +1457,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
                       onSettings: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => SettingsScreen(
-                            hasPermission: _hasPermission,
+                            photoPermissionStatus: _photoPermissionStatus,
                             hiddenStacks: _hiddenStacks,
                             excludedImages: _excludedImages,
                             onOpenPhotoSettings: _openPhotoSettings,

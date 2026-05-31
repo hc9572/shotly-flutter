@@ -3,7 +3,7 @@ part of 'main.dart';
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     super.key,
-    required this.hasPermission,
+    required this.photoPermissionStatus,
     required this.hiddenStacks,
     required this.excludedImages,
     required this.onOpenPhotoSettings,
@@ -20,7 +20,7 @@ class SettingsScreen extends StatefulWidget {
     required this.onResetOrganizationData,
   });
 
-  final bool hasPermission;
+  final PhotoPermissionStatus photoPermissionStatus;
   final List<StackItem> hiddenStacks;
   final List<ScreenshotItem> excludedImages;
   final Future<void> Function() onOpenPhotoSettings;
@@ -40,11 +40,38 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen>
+    with WidgetsBindingObserver {
   late final List<StackItem> _hiddenStacks = [...widget.hiddenStacks];
   late final List<ScreenshotItem> _excludedImages = [...widget.excludedImages];
-  late final bool _hasPermission = widget.hasPermission;
+  late PhotoPermissionStatus _photoPermissionStatus =
+      widget.photoPermissionStatus;
   var _appInfoDialogTapCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshPhotoPermissionStatus());
+    }
+  }
+
+  Future<void> _refreshPhotoPermissionStatus() async {
+    final status = await ShotlyNative.photoPermissionStatus();
+    if (!mounted || status == _photoPermissionStatus) return;
+    setState(() => _photoPermissionStatus = status);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +96,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: st('권한', 'Permissions'),
               children: [
                 _PermissionStatusTile(
-                  hasPermission: _hasPermission,
+                  permissionStatus: _photoPermissionStatus,
                   onOpenSettings: widget.onOpenPhotoSettings,
                 ),
               ],
@@ -806,23 +833,33 @@ class _SettingsSection extends StatelessWidget {
 
 class _PermissionStatusTile extends StatelessWidget {
   const _PermissionStatusTile({
-    required this.hasPermission,
+    required this.permissionStatus,
     required this.onOpenSettings,
   });
 
-  final bool hasPermission;
+  final PhotoPermissionStatus permissionStatus;
   final Future<void> Function() onOpenSettings;
 
   @override
   Widget build(BuildContext context) {
+    final hasPermission = permissionStatus != PhotoPermissionStatus.denied;
+    final subtitle = switch (permissionStatus) {
+      PhotoPermissionStatus.full => st('전체 접근 허용', 'Full access allowed'),
+      PhotoPermissionStatus.limited => st(
+        '제한된 접근 허용',
+        'Limited access allowed',
+      ),
+      PhotoPermissionStatus.denied => st(
+        '설정에서 다시 허용할 수 있어요',
+        'You can allow access again in Settings',
+      ),
+    };
     return _SettingsTile(
       icon: hasPermission
           ? Icons.check_circle_outline_rounded
           : Icons.error_outline_rounded,
       title: st('사진 접근 권한', 'Photo access'),
-      subtitle: hasPermission
-          ? st('항상 허용', 'Always allowed')
-          : st('설정에서 다시 허용할 수 있어요', 'You can allow access again in Settings'),
+      subtitle: subtitle,
       trailing: const Icon(
         Icons.chevron_right_rounded,
         color: Color(0xFF727785),

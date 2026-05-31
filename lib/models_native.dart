@@ -50,6 +50,16 @@ class ScreenshotItem {
   }
 }
 
+enum PhotoPermissionStatus { full, limited, denied }
+
+PhotoPermissionStatus _photoPermissionStatusFromName(String? name) {
+  return switch (name) {
+    'full' => PhotoPermissionStatus.full,
+    'limited' => PhotoPermissionStatus.limited,
+    _ => PhotoPermissionStatus.denied,
+  };
+}
+
 enum StackSortMode { latest, name, mostImages, fewestImages }
 
 StackSortMode? _sortModeFromName(String? name) {
@@ -89,16 +99,27 @@ class ScreenshotSet {
 class ShotlyNative {
   static const _channel = MethodChannel('shotly/native');
 
+  static Future<PhotoPermissionStatus> requestPhotoPermissionStatus() async {
+    if (kIsWeb) return PhotoPermissionStatus.full;
+    final result = await _channel.invokeMethod<String>(
+      'requestPhotoPermission',
+    );
+    return _photoPermissionStatusFromName(result);
+  }
+
+  static Future<PhotoPermissionStatus> photoPermissionStatus() async {
+    if (kIsWeb) return PhotoPermissionStatus.full;
+    final result = await _channel.invokeMethod<String>('photoPermissionStatus');
+    return _photoPermissionStatusFromName(result);
+  }
+
   static Future<bool> requestPhotoPermission() async {
-    if (kIsWeb) return true;
-    final result = await _channel.invokeMethod<bool>('requestPhotoPermission');
-    return result ?? false;
+    return (await requestPhotoPermissionStatus()) !=
+        PhotoPermissionStatus.denied;
   }
 
   static Future<bool> hasPhotoPermission() async {
-    if (kIsWeb) return true;
-    final result = await _channel.invokeMethod<bool>('hasPhotoPermission');
-    return result ?? false;
+    return (await photoPermissionStatus()) != PhotoPermissionStatus.denied;
   }
 
   static Future<bool> openPhotoSettings() async {
