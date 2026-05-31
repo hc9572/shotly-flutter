@@ -541,7 +541,6 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
 
   bool get _shouldUseUnclassifiedHome {
     if (_visibleScreenshots.isEmpty) return false;
-    if (_testerNoAppInfoMode) return true;
     if (_manualStackNames.isNotEmpty || _imageAssignments.isNotEmpty) {
       return false;
     }
