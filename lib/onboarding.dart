@@ -24,10 +24,7 @@ class _ShotlyLegal {
         'https://www.notion.so/Shotly-Terms-of-Use-36d96944ffd38014bde1e55d2de6fe59?source=copy_link',
   );
 
-  static bool get isKoreanRegion {
-    final region = PlatformDispatcher.instance.locale.countryCode;
-    return region?.toUpperCase() == 'KR';
-  }
+  static bool get isKoreanRegion => _shotlyUsesKorean;
 
   static _ShotlyLegalLinks get links => isKoreanRegion ? _ko : _global;
 }

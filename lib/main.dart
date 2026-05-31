@@ -200,6 +200,12 @@ class ShotlyApp extends StatelessWidget {
       title: 'Shotly',
       debugShowCheckedModeBanner: false,
       supportedLocales: const [Locale('en'), Locale('ko')],
+      localeResolutionCallback: (locale, supportedLocales) {
+        if (locale?.languageCode.toLowerCase() == 'ko') {
+          return const Locale('ko');
+        }
+        return const Locale('en');
+      },
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       theme: ThemeData(
         useMaterial3: true,
