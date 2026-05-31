@@ -352,14 +352,13 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      unawaited(_refreshPermissionAfterResume());
+      unawaited(_refreshAfterResume());
     }
   }
 
-  Future<void> _refreshPermissionAfterResume() async {
-    final permissionStatus = await ShotlyNative.photoPermissionStatus();
-    if (!mounted || permissionStatus == _photoPermissionStatus) return;
-    await _load(requestPermission: false);
+  Future<void> _refreshAfterResume() async {
+    if (_isLoading) return;
+    await _load(requestPermission: false, showLoading: false);
   }
 
   Future<void> _restoreLocalState() async {
@@ -409,11 +408,18 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
     );
   }
 
-  Future<void> _load({bool requestPermission = true}) async {
-    setState(() {
-      _isLoading = true;
+  Future<void> _load({
+    bool requestPermission = true,
+    bool showLoading = true,
+  }) async {
+    if (showLoading) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    } else {
       _error = null;
-    });
+    }
     try {
       _photoPermissionStatus = requestPermission
           ? await ShotlyNative.requestPhotoPermissionStatus()
