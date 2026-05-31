@@ -323,7 +323,8 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
 
   bool get _hasPermission =>
       _photoPermissionStatus != PhotoPermissionStatus.denied;
-  DateTime? _selectedDate;
+  DateTimeRange? _selectedDateRange;
+  bool _reloadAfterCurrentLoad = false;
   String _query = '';
   String? _error;
   bool _showSortMenu = false;
@@ -357,7 +358,10 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   }
 
   Future<void> _refreshAfterResume() async {
-    if (_isLoading) return;
+    if (_isLoading) {
+      _reloadAfterCurrentLoad = true;
+      return;
+    }
     await _load(requestPermission: false, showLoading: false);
   }
 
@@ -446,7 +450,12 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
     } catch (e) {
       _error = '$e';
     } finally {
+      final shouldReload = _reloadAfterCurrentLoad;
+      _reloadAfterCurrentLoad = false;
       if (mounted) setState(() => _isLoading = false);
+      if (shouldReload && mounted) {
+        unawaited(_load(requestPermission: false, showLoading: false));
+      }
     }
   }
 
@@ -584,8 +593,9 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
     Iterable<ScreenshotItem> items = _effectiveScreenshots.where(
       (item) => !_excludedImageIds.contains(item.id),
     );
-    if (_selectedDate != null) {
-      items = items.where((item) => _isSameDay(item.date, _selectedDate!));
+    final selectedRange = _selectedDateRange;
+    if (selectedRange != null) {
+      items = items.where((item) => _isDateInRange(item.date, selectedRange));
     }
     if (_query.trim().isNotEmpty) {
       items = items.where((item) => item.matches(_query.trim()));
@@ -614,7 +624,8 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
     for (final item in _effectiveScreenshots.where(
       (item) => !_excludedImageIds.contains(item.id),
     )) {
-      if (_selectedDate != null && !_isSameDay(item.date, _selectedDate!)) {
+      final selectedRange = _selectedDateRange;
+      if (selectedRange != null && !_isDateInRange(item.date, selectedRange)) {
         continue;
       }
       final stackKey = _stackKeyFor(item);
@@ -634,7 +645,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
         .toList();
     for (final name in _manualStackNames) {
       if (name == 'Unknown') continue;
-      if (_selectedDate == null &&
+      if (_selectedDateRange == null &&
           !grouped.containsKey(name) &&
           !_hiddenStackKeys.contains(name)) {
         stacks.add(
@@ -675,7 +686,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
           q.isEmpty ||
           _textMatches(name, q) ||
           _textMatches(_stackNames[name] ?? '', q);
-      if (_selectedDate == null &&
+      if (_selectedDateRange == null &&
           matchesQuery &&
           !grouped.containsKey(name) &&
           !_hiddenStackKeys.contains(name)) {
@@ -885,7 +896,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
       _homeSelectedImageIds.clear();
       _isHomeSelectionMode = false;
       _pinnedStackKeys.clear();
-      _selectedDate = null;
+      _selectedDateRange = null;
       _query = '';
       _searchController.clear();
       _showSortMenu = false;
@@ -1110,13 +1121,17 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
         : activeScreenshots
               .map((item) => item.date)
               .reduce((a, b) => a.isBefore(b) ? a : b);
-    final picked = await showDialog<DateTime>(
+    final today = _dateOnly(DateTime.now());
+    final currentRange = _selectedDateRange;
+    final initialRange =
+        currentRange ?? DateTimeRange(start: today, end: today);
+    final picked = await showDialog<DateTimeRange>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.10),
       builder: (context) => _ShotlyCalendarDialog(
-        initialDate: _selectedDate ?? DateTime.now(),
+        initialRange: initialRange,
         firstDate: DateTime(earliest.year, earliest.month, 1),
-        lastDate: DateTime.now().add(const Duration(days: 1)),
+        lastDate: today,
         screenshotDates: activeScreenshots
             .map(
               (item) =>
@@ -1125,7 +1140,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
             .toSet(),
       ),
     );
-    if (picked != null && mounted) setState(() => _selectedDate = picked);
+    if (picked != null && mounted) setState(() => _selectedDateRange = picked);
   }
 
   Future<void> _openSearchPage() async {
@@ -1454,9 +1469,10 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
                     delegate: _ShotlyTopBarDelegate(
                       searchController: _searchController,
                       onSearchTap: _openSearchPage,
-                      selectedDate: _selectedDate,
+                      selectedDateRange: _selectedDateRange,
                       onPickDate: _pickDateFilter,
-                      onClearDate: () => setState(() => _selectedDate = null),
+                      onClearDate: () =>
+                          setState(() => _selectedDateRange = null),
                       favoriteCount: _favoriteImageIds.length,
                       onFavorites: _openFavoritesPage,
                       onAdd: _showAddMenu,

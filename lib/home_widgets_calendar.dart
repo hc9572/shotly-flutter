@@ -4,7 +4,7 @@ class _ShotlyTopBarDelegate extends SliverPersistentHeaderDelegate {
   const _ShotlyTopBarDelegate({
     required this.searchController,
     required this.onSearchTap,
-    required this.selectedDate,
+    required this.selectedDateRange,
     required this.onPickDate,
     required this.onClearDate,
     required this.favoriteCount,
@@ -15,7 +15,7 @@ class _ShotlyTopBarDelegate extends SliverPersistentHeaderDelegate {
 
   final TextEditingController searchController;
   final VoidCallback onSearchTap;
-  final DateTime? selectedDate;
+  final DateTimeRange? selectedDateRange;
   final VoidCallback onPickDate;
   final VoidCallback onClearDate;
   final int favoriteCount;
@@ -24,7 +24,7 @@ class _ShotlyTopBarDelegate extends SliverPersistentHeaderDelegate {
   final VoidCallback onSettings;
 
   @override
-  double get minExtent => selectedDate == null ? 70 : 104;
+  double get minExtent => selectedDateRange == null ? 70 : 104;
 
   @override
   double get maxExtent => minExtent;
@@ -46,7 +46,7 @@ class _ShotlyTopBarDelegate extends SliverPersistentHeaderDelegate {
             child: _SearchField(
               controller: searchController,
               onTap: onSearchTap,
-              selectedDate: selectedDate,
+              selectedDateRange: selectedDateRange,
               onPickDate: onPickDate,
               onClearDate: onClearDate,
             ),
@@ -80,7 +80,7 @@ class _ShotlyTopBarDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant _ShotlyTopBarDelegate oldDelegate) =>
       searchController != oldDelegate.searchController ||
       onSearchTap != oldDelegate.onSearchTap ||
-      selectedDate != oldDelegate.selectedDate ||
+      selectedDateRange != oldDelegate.selectedDateRange ||
       onPickDate != oldDelegate.onPickDate ||
       onClearDate != oldDelegate.onClearDate ||
       favoriteCount != oldDelegate.favoriteCount ||
@@ -266,13 +266,13 @@ class _SortDropdown extends StatelessWidget {
 
 class _ShotlyCalendarDialog extends StatefulWidget {
   const _ShotlyCalendarDialog({
-    required this.initialDate,
+    required this.initialRange,
     required this.firstDate,
     required this.lastDate,
     required this.screenshotDates,
   });
 
-  final DateTime initialDate;
+  final DateTimeRange initialRange;
   final DateTime firstDate;
   final DateTime lastDate;
   final Set<DateTime> screenshotDates;
@@ -282,7 +282,8 @@ class _ShotlyCalendarDialog extends StatefulWidget {
 }
 
 class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
-  late DateTime _selectedDate;
+  late DateTime _rangeStart;
+  DateTime? _rangeEnd;
   late DateTime _visibleMonth;
 
   static const _monthNames = [
@@ -303,8 +304,14 @@ class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
   @override
   void initState() {
     super.initState();
-    _selectedDate = _dateOnly(widget.initialDate);
-    _visibleMonth = DateTime(_selectedDate.year, _selectedDate.month);
+    _rangeStart = _dateOnly(widget.initialRange.start);
+    _rangeEnd = _dateOnly(widget.initialRange.end);
+    if (_rangeEnd!.isBefore(_rangeStart)) {
+      final tmp = _rangeStart;
+      _rangeStart = _rangeEnd!;
+      _rangeEnd = tmp;
+    }
+    _visibleMonth = DateTime(_rangeStart.year, _rangeStart.month);
   }
 
   @override
@@ -449,8 +456,12 @@ class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
                       ),
                       const SizedBox(width: 8),
                       FilledButton(
-                        onPressed: () =>
-                            Navigator.of(context).pop(_selectedDate),
+                        onPressed: () => Navigator.of(context).pop(
+                          DateTimeRange(
+                            start: _rangeStart,
+                            end: _rangeEnd ?? _rangeStart,
+                          ),
+                        ),
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xFF111111),
                           foregroundColor: Colors.white,
@@ -480,8 +491,17 @@ class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
   Widget _buildDateCell(BuildContext context, DateTime? date) {
     if (date == null) return const SizedBox.shrink();
     final isCurrentMonth = date.month == _visibleMonth.month;
-    final isSelected = _isSameDate(date, _selectedDate);
-    final hasScreenshots = widget.screenshotDates.contains(_dateOnly(date));
+    final day = _dateOnly(date);
+    final rangeEnd = _rangeEnd;
+    final isStart = _isSameDate(day, _rangeStart);
+    final isEnd = rangeEnd != null && _isSameDate(day, rangeEnd);
+    final isSelected = isStart || isEnd;
+    final isInRange =
+        rangeEnd != null &&
+        !day.isBefore(_rangeStart) &&
+        !day.isAfter(rangeEnd) &&
+        !isSelected;
+    final hasScreenshots = widget.screenshotDates.contains(day);
     final enabled =
         isCurrentMonth &&
         !_dateOnly(date).isBefore(_dateOnly(widget.firstDate)) &&
@@ -494,16 +514,18 @@ class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
 
     return Center(
       child: InkWell(
-        onTap: enabled
-            ? () => setState(() => _selectedDate = _dateOnly(date))
-            : null,
+        onTap: enabled ? () => _selectDate(day) : null,
         borderRadius: BorderRadius.circular(999),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF111111) : Colors.transparent,
+            color: isSelected
+                ? const Color(0xFF111111)
+                : isInRange
+                ? const Color(0xFFE5E7EB)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(999),
           ),
           child: Stack(
@@ -575,18 +597,22 @@ class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
     );
     if (picked == null) return;
     setState(() {
-      final month = picked.month;
-      final maxDay = DateTime(picked.year, month + 1, 0).day;
-      final day = _selectedDate.day.clamp(1, maxDay).toInt();
-      var selected = DateTime(picked.year, month, day);
-      if (selected.isBefore(_dateOnly(widget.firstDate))) {
-        selected = _dateOnly(widget.firstDate);
+      _visibleMonth = DateTime(picked.year, picked.month);
+    });
+  }
+
+  void _selectDate(DateTime date) {
+    setState(() {
+      if (_rangeEnd != null || date.isBefore(_rangeStart)) {
+        _rangeStart = date;
+        _rangeEnd = null;
+        return;
       }
-      if (selected.isAfter(_dateOnly(widget.lastDate))) {
-        selected = _dateOnly(widget.lastDate);
+      if (_isSameDate(date, _rangeStart)) {
+        _rangeEnd = date;
+        return;
       }
-      _visibleMonth = DateTime(selected.year, selected.month);
-      _selectedDate = selected;
+      _rangeEnd = date;
     });
   }
 

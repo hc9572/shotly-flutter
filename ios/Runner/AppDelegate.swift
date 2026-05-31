@@ -27,6 +27,12 @@ import UIKit
       switch call.method {
       case "requestPhotoPermission":
         self.requestPhotoPermission(result: result)
+      case "requestPhotoPermissionStatus":
+        self.requestPhotoPermissionStatus(result: result)
+      case "hasPhotoPermission":
+        result(self.photoPermissionStatus() != "denied")
+      case "photoPermissionStatus":
+        result(self.photoPermissionStatus())
       case "openPhotoSettings":
         self.openPhotoSettings(result: result)
       case "getScreenshots":
@@ -62,18 +68,39 @@ import UIKit
   }
 
   private func requestPhotoPermission(result: @escaping FlutterResult) {
+    requestPhotoPermissionStatus(result: { status in
+      result((status as? String) != "denied")
+    })
+  }
+
+  private func requestPhotoPermissionStatus(result: @escaping FlutterResult) {
     let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
     switch status {
-    case .authorized, .limited:
-      result(true)
+    case .authorized, .limited, .denied, .restricted:
+      result(photoPermissionStatus(from: status))
     case .notDetermined:
       PHPhotoLibrary.requestAuthorization(for: .readWrite) { newStatus in
         DispatchQueue.main.async {
-          result(newStatus == .authorized || newStatus == .limited)
+          result(self.photoPermissionStatus(from: newStatus))
         }
       }
+    @unknown default:
+      result("denied")
+    }
+  }
+
+  private func photoPermissionStatus() -> String {
+    photoPermissionStatus(from: PHPhotoLibrary.authorizationStatus(for: .readWrite))
+  }
+
+  private func photoPermissionStatus(from status: PHAuthorizationStatus) -> String {
+    switch status {
+    case .authorized:
+      return "full"
+    case .limited:
+      return "limited"
     default:
-      result(false)
+      return "denied"
     }
   }
 

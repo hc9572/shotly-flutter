@@ -931,23 +931,21 @@ class _SearchField extends StatelessWidget {
   const _SearchField({
     required this.controller,
     required this.onTap,
-    required this.selectedDate,
+    required this.selectedDateRange,
     required this.onPickDate,
     required this.onClearDate,
   });
 
   final TextEditingController controller;
   final VoidCallback onTap;
-  final DateTime? selectedDate;
+  final DateTimeRange? selectedDateRange;
   final VoidCallback onPickDate;
   final VoidCallback onClearDate;
 
   @override
   Widget build(BuildContext context) {
-    final date = selectedDate;
-    final dateText = date == null
-        ? null
-        : '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+    final range = selectedDateRange;
+    final dateText = range == null ? null : _formatDateRange(range);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -984,7 +982,7 @@ class _SearchField extends StatelessWidget {
                 child: Icon(
                   Icons.calendar_today_rounded,
                   size: 20,
-                  color: date == null
+                  color: range == null
                       ? const Color(0xFF727785)
                       : const Color(0xFF111111),
                 ),
@@ -1036,5 +1034,12 @@ class _SearchField extends StatelessWidget {
         ],
       ],
     );
+  }
+
+  String _formatDateRange(DateTimeRange range) {
+    String format(DateTime date) =>
+        '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+    if (_isSameDay(range.start, range.end)) return format(range.start);
+    return '${format(range.start)}–${format(range.end)}';
   }
 }

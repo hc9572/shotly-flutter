@@ -159,8 +159,16 @@ String _folderName(ScreenshotSet folder) =>
     ? folder.folderName!.trim()
     : st('새 폴더', 'New folder');
 
+DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
+
 bool _isSameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
+
+bool _isDateInRange(DateTime date, DateTimeRange range) {
+  final day = _dateOnly(date);
+  return !day.isBefore(_dateOnly(range.start)) &&
+      !day.isAfter(_dateOnly(range.end));
+}
 
 String _formatSetTitle(DateTime date) => stDate(date);
 
