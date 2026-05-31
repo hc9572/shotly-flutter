@@ -124,7 +124,7 @@ class _StackCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${stack.items.length} images',
+                        stCount(stack.items.length, '장', 'image', 'images'),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: const Color(0xFF424754),
                           fontSize: 12,

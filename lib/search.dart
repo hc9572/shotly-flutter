@@ -501,8 +501,14 @@ class _SearchResultCard extends StatelessWidget {
       _SearchResultKind.image => stack.name,
     };
     final subtitle = switch (result.kind) {
-      _SearchResultKind.stack => '${stack.items.length} images',
-      _SearchResultKind.set => '${stack.name} · ${set!.items.length} images',
+      _SearchResultKind.stack => stCount(
+        stack.items.length,
+        '장',
+        'image',
+        'images',
+      ),
+      _SearchResultKind.set =>
+        '${stack.name} · ${stCount(set!.items.length, '장', 'image', 'images')}',
       _SearchResultKind.image => stack.name,
     };
     final thumbs = switch (result.kind) {
