@@ -13,6 +13,7 @@ class _StackCard extends StatelessWidget {
     required this.visualFeatures,
     required this.onRenameStack,
     required this.onHideStack,
+    required this.onDeleteStack,
     required this.onTogglePinStack,
     required this.pinned,
     required this.onExcludeImage,
@@ -38,6 +39,7 @@ class _StackCard extends StatelessWidget {
   final Map<String, VisualFeature> visualFeatures;
   final Future<void> Function(String stackKey, String name) onRenameStack;
   final Future<void> Function(String stackKey) onHideStack;
+  final Future<void> Function(StackItem stack) onDeleteStack;
   final Future<void> Function(String stackKey) onTogglePinStack;
   final bool pinned;
   final Future<void> Function(String imageId) onExcludeImage;
@@ -70,6 +72,7 @@ class _StackCard extends StatelessWidget {
             visualFeatures: visualFeatures,
             onRenameStack: onRenameStack,
             onHideStack: onHideStack,
+            onDeleteStack: onDeleteStack,
             onExcludeImage: onExcludeImage,
             onDeleteOriginalImage: onDeleteOriginalImage,
             onDeleteOriginalImages: onDeleteOriginalImages,
@@ -182,6 +185,11 @@ class _StackCard extends StatelessWidget {
           icon: Icons.visibility_off_rounded,
           title: st('앱 숨기기', 'Hide app'),
         ),
+        _ShotlyActionItem(
+          value: 'delete',
+          icon: Icons.delete_outline_rounded,
+          title: st('앱 삭제', 'Delete app'),
+        ),
       ],
     );
     if (action == 'pin') await onTogglePinStack(stack.key);
@@ -196,5 +204,18 @@ class _StackCard extends StatelessWidget {
       if (name != null) await onRenameStack(stack.key, name);
     }
     if (action == 'hide') await onHideStack(stack.key);
+    if (action == 'delete' && context.mounted) {
+      final confirmed = await _showShotlyConfirmDialog(
+        context: context,
+        title: st('앱 삭제', 'Delete app'),
+        body: st(
+          '앱을 삭제하면 포함된 스크린샷은 모두 Unknown 앱으로 이동해요.',
+          'Deleting this app moves all included screenshots to Unknown.',
+        ),
+        primaryLabel: st('삭제', 'Delete'),
+        destructive: true,
+      );
+      if (confirmed == true) await onDeleteStack(stack);
+    }
   }
 }

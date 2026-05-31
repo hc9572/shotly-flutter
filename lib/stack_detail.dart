@@ -14,6 +14,7 @@ class StackDetailScreen extends StatefulWidget {
     required this.visualFeatures,
     required this.onRenameStack,
     required this.onHideStack,
+    required this.onDeleteStack,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
     required this.onDeleteOriginalImages,
@@ -37,6 +38,7 @@ class StackDetailScreen extends StatefulWidget {
   final Map<String, VisualFeature> visualFeatures;
   final Future<void> Function(String stackKey, String name) onRenameStack;
   final Future<void> Function(String stackKey) onHideStack;
+  final Future<void> Function(StackItem stack) onDeleteStack;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
   final Future<bool> Function(List<String> imageIds) onDeleteOriginalImages;
@@ -1175,6 +1177,11 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                 title: st('앱 숨기기', 'Hide app'),
                 onTap: () => Navigator.of(context).pop('hide'),
               ),
+              _AddMenuTile(
+                icon: Icons.delete_outline_rounded,
+                title: st('앱 삭제', 'Delete app'),
+                onTap: () => Navigator.of(context).pop('delete'),
+              ),
             ],
           ),
         ),
@@ -1189,10 +1196,30 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       }
       return;
     }
-    if (action == 'rename') await _renameStack(context);
+    if (action == 'rename') {
+      await _renameStack(context);
+      return;
+    }
     if (action == 'hide') {
       await widget.onHideStack(widget.stack.key);
       if (context.mounted) Navigator.of(context).pop();
+      return;
+    }
+    if (action == 'delete') {
+      final confirmed = await _showShotlyConfirmDialog(
+        context: context,
+        title: st('앱 삭제', 'Delete app'),
+        body: st(
+          '앱을 삭제하면 포함된 스크린샷은 모두 Unknown 앱으로 이동해요.',
+          'Deleting this app moves all included screenshots to Unknown.',
+        ),
+        primaryLabel: st('삭제', 'Delete'),
+        destructive: true,
+      );
+      if (confirmed == true) {
+        await widget.onDeleteStack(widget.stack);
+        if (context.mounted) Navigator.of(context).pop();
+      }
     }
   }
 

@@ -823,6 +823,64 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
     await _localStore.hideStack(stackKey);
   }
 
+  Future<void> _deleteStack(StackItem stack) async {
+    final stackKey = stack.key;
+    final imageIds = stack.items.map((item) => item.id).toSet();
+    final folderKeys = _folderNames.keys
+        .where((key) => _folderBelongsToStack(key, stackKey))
+        .toSet();
+    final setMemoKeys = _setMemos.keys
+        .where(
+          (key) =>
+              key.startsWith('$stackKey|') ||
+              _folderBelongsToStack(key, stackKey),
+        )
+        .toSet();
+
+    setState(() {
+      _manualStackNames.remove(stackKey);
+      _stackNames.remove(stackKey);
+      _hiddenStackKeys.remove(stackKey);
+      _pinnedStackKeys.remove(stackKey);
+      for (final id in imageIds) {
+        _imageAssignments[id] = 'Unknown';
+        _setAssignments.remove(id);
+      }
+      for (final key in folderKeys) {
+        _folderNames.remove(key);
+        _folderColors.remove(key);
+      }
+      for (final key in setMemoKeys) {
+        _setMemos.remove(key);
+      }
+    });
+
+    await _localStore.replaceAll(
+      LocalShotlyState(
+        manualStackNames: _manualStackNames,
+        stackNames: _stackNames,
+        hiddenStackKeys: _hiddenStackKeys,
+        excludedImageIds: _excludedImageIds,
+        favoriteImageIds: _favoriteImageIds,
+        imageAssignments: _imageAssignments,
+        setMemos: _setMemos,
+        folderNames: _folderNames,
+        folderColors: _folderColors,
+        setAssignments: _setAssignments,
+        pinnedStackKeys: _pinnedStackKeys,
+        sortModeName: _sortMode.name,
+      ),
+    );
+    if (mounted) {
+      _showSnack(
+        st(
+          '앱을 삭제하고 스크린샷을 Unknown으로 이동했어요.',
+          'Deleted the app and moved screenshots to Unknown.',
+        ),
+      );
+    }
+  }
+
   Future<void> _togglePinStack(String stackKey) async {
     final shouldPin = !_pinnedStackKeys.contains(stackKey);
     setState(() {
@@ -997,6 +1055,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
           stackMatchesQuery: _stackMatchesQuery,
           onRenameStack: _renameStack,
           onHideStack: _hideStack,
+          onDeleteStack: _deleteStack,
           onExcludeImage: _excludeImage,
           onDeleteOriginalImage: _deleteOriginalImage,
           onDeleteOriginalImages: _deleteOriginalImages,
@@ -1426,6 +1485,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
                                     visualFeatures: _visualFeatures,
                                     onRenameStack: _renameStack,
                                     onHideStack: _hideStack,
+                                    onDeleteStack: _deleteStack,
                                     onTogglePinStack: _togglePinStack,
                                     pinned: _pinnedStackKeys.contains(
                                       stack.key,

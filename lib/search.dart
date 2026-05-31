@@ -36,6 +36,7 @@ class _SearchPage extends StatefulWidget {
     required this.stackMatchesQuery,
     required this.onRenameStack,
     required this.onHideStack,
+    required this.onDeleteStack,
     required this.onExcludeImage,
     required this.onDeleteOriginalImage,
     required this.onDeleteOriginalImages,
@@ -60,6 +61,7 @@ class _SearchPage extends StatefulWidget {
   final bool Function(StackItem stack, String query) stackMatchesQuery;
   final Future<void> Function(String stackKey, String name) onRenameStack;
   final Future<void> Function(String stackKey) onHideStack;
+  final Future<void> Function(StackItem stack) onDeleteStack;
   final Future<void> Function(String imageId) onExcludeImage;
   final Future<bool> Function(String imageId) onDeleteOriginalImage;
   final Future<bool> Function(List<String> imageIds) onDeleteOriginalImages;
@@ -278,6 +280,7 @@ class _SearchPageState extends State<_SearchPage> {
                 visualFeatures: const {},
                 onRenameStack: widget.onRenameStack,
                 onHideStack: widget.onHideStack,
+                onDeleteStack: widget.onDeleteStack,
                 onExcludeImage: widget.onExcludeImage,
                 onDeleteOriginalImage: widget.onDeleteOriginalImage,
                 onDeleteOriginalImages: widget.onDeleteOriginalImages,
