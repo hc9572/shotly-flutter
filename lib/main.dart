@@ -274,7 +274,10 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   String _query = '';
   String? _error;
   bool _showSortMenu = false;
+  bool _testerNoAppInfoMode = false;
   StackSortMode _sortMode = StackSortMode.latest;
+
+  static const _testerNoAppInfoModePrefsKey = 'shotly.tester.noAppInfoMode';
 
   @override
   void initState() {
@@ -344,6 +347,12 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
         ..addAll(state.pinnedStackKeys);
       _sortMode = _sortModeFromName(state.sortModeName) ?? _sortMode;
     });
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(
+      () => _testerNoAppInfoMode =
+          prefs.getBool(_testerNoAppInfoModePrefsKey) ?? false,
+    );
   }
 
   Future<void> _load({bool requestPermission = true}) async {
@@ -496,8 +505,23 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
     }
   }
 
+  List<ScreenshotItem> get _effectiveScreenshots => _testerNoAppInfoMode
+      ? _screenshots
+            .map(
+              (item) => ScreenshotItem(
+                id: item.id,
+                displayName: item.displayName,
+                relativePath: item.relativePath,
+                dateTakenMillis: item.dateTakenMillis,
+                appName: '',
+                thumbnailPath: item.thumbnailPath,
+              ),
+            )
+            .toList()
+      : _screenshots;
+
   List<ScreenshotItem> get _calendarScreenshots {
-    Iterable<ScreenshotItem> items = _screenshots.where(
+    Iterable<ScreenshotItem> items = _effectiveScreenshots.where(
       (item) => !_excludedImageIds.contains(item.id),
     );
     if (_selectedDate != null) {
@@ -511,12 +535,13 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
 
   List<ScreenshotItem> get _filteredScreenshots => _calendarScreenshots;
 
-  List<ScreenshotItem> get _visibleScreenshots => _screenshots
+  List<ScreenshotItem> get _visibleScreenshots => _effectiveScreenshots
       .where((item) => !_excludedImageIds.contains(item.id))
       .toList();
 
   bool get _shouldUseUnclassifiedHome {
     if (_visibleScreenshots.isEmpty) return false;
+    if (_testerNoAppInfoMode) return true;
     if (_manualStackNames.isNotEmpty || _imageAssignments.isNotEmpty) {
       return false;
     }
@@ -537,7 +562,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
 
   List<StackItem> get _searchSourceStacks {
     final grouped = <String, List<ScreenshotItem>>{};
-    for (final item in _screenshots.where(
+    for (final item in _effectiveScreenshots.where(
       (item) => !_excludedImageIds.contains(item.id),
     )) {
       if (_selectedDate != null && !_isSameDay(item.date, _selectedDate!)) {
@@ -642,7 +667,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
 
   List<StackItem> get _hiddenStacks {
     final grouped = <String, List<ScreenshotItem>>{};
-    for (final item in _screenshots.where(
+    for (final item in _effectiveScreenshots.where(
       (item) => !_excludedImageIds.contains(item.id),
     )) {
       final stackKey = _stackKeyFor(item);
@@ -676,7 +701,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   }
 
   List<ScreenshotItem> get _excludedImages {
-    return _screenshots
+    return _effectiveScreenshots
         .where((item) => _excludedImageIds.contains(item.id))
         .toList()
       ..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
@@ -779,6 +804,13 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
     } on PlatformException catch (e) {
       if (mounted) _showSnack(e.message ?? e.code);
     }
+  }
+
+  Future<void> _setTesterNoAppInfoMode(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_testerNoAppInfoModePrefsKey, enabled);
+    if (!mounted) return;
+    setState(() => _testerNoAppInfoMode = enabled);
   }
 
   Future<void> _renameStack(String stackKey, String name) async {
@@ -924,7 +956,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   }
 
   Future<void> _pickDateFilter() async {
-    final activeScreenshots = _screenshots
+    final activeScreenshots = _effectiveScreenshots
         .where((item) => !_excludedImageIds.contains(item.id))
         .toList();
     final earliest = activeScreenshots.isEmpty
@@ -986,7 +1018,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   }
 
   Future<void> _openFavoritesPage() async {
-    final items = _screenshots
+    final items = _effectiveScreenshots
         .where((item) => !_excludedImageIds.contains(item.id))
         .toList();
     await Navigator.of(context).push(
@@ -1293,6 +1325,8 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
                             onImportBackup: _importBackup,
                             onStartPhoneTransfer: _startPhoneTransfer,
                             onReceivePhoneTransfer: _receivePhoneTransfer,
+                            testerNoAppInfoMode: _testerNoAppInfoMode,
+                            onSetTesterNoAppInfoMode: _setTesterNoAppInfoMode,
                           ),
                         ),
                       ),
@@ -1322,7 +1356,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
                               onSelectSort: _saveSortMode,
                             ),
                             const SizedBox(height: 26),
-                            if (_screenshots.isEmpty &&
+                            if (_effectiveScreenshots.isEmpty &&
                                 stacks.isEmpty &&
                                 !useUnclassifiedHome)
                               const _EmptyState()

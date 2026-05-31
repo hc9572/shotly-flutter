@@ -15,6 +15,8 @@ class SettingsScreen extends StatefulWidget {
     required this.onImportBackup,
     required this.onStartPhoneTransfer,
     required this.onReceivePhoneTransfer,
+    required this.testerNoAppInfoMode,
+    required this.onSetTesterNoAppInfoMode,
   });
 
   final bool hasPermission;
@@ -29,6 +31,8 @@ class SettingsScreen extends StatefulWidget {
   final Future<void> Function() onImportBackup;
   final Future<void> Function() onStartPhoneTransfer;
   final Future<void> Function() onReceivePhoneTransfer;
+  final bool testerNoAppInfoMode;
+  final Future<void> Function(bool enabled) onSetTesterNoAppInfoMode;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -38,6 +42,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final List<StackItem> _hiddenStacks = [...widget.hiddenStacks];
   late final List<ScreenshotItem> _excludedImages = [...widget.excludedImages];
   late final bool _hasPermission = widget.hasPermission;
+  Timer? _appInfoTapTimer;
+  var _appInfoTapCount = 0;
+
+  @override
+  void dispose() {
+    _appInfoTapTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -118,7 +130,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: Icons.info_outline_rounded,
                   title: st('앱 정보', 'App info'),
                   subtitle: 'Shotly 1.0.0',
-                  onTap: () => _showInfoDialog(context),
+                  onTap: () => _handleAppInfoTap(context),
                 ),
                 _SettingsTile(
                   icon: Icons.privacy_tip_outlined,
@@ -210,6 +222,108 @@ class _SettingsScreenState extends State<SettingsScreen> {
             if (deleted && mounted) setState(() => _excludedImages.clear());
             return deleted ? ids.length : 0;
           },
+        ),
+      ),
+    );
+  }
+
+  void _handleAppInfoTap(BuildContext context) {
+    _appInfoTapTimer?.cancel();
+    _appInfoTapCount += 1;
+    if (_appInfoTapCount >= 5) {
+      _appInfoTapCount = 0;
+      unawaited(_unlockTesterMode(context));
+      return;
+    }
+    _appInfoTapTimer = Timer(const Duration(milliseconds: 700), () {
+      if (!mounted) return;
+      _appInfoTapCount = 0;
+      _showInfoDialog(context);
+    });
+  }
+
+  Future<void> _unlockTesterMode(BuildContext context) async {
+    final password = await _showShotlyTextDialog(
+      context: context,
+      title: st('테스터 모드', 'Tester mode'),
+      hintText: st('테스트 비밀번호', 'Test password'),
+      primaryLabel: st('확인', 'OK'),
+      validator: (value) => value.trim() == 'hannachung'
+          ? null
+          : st('비밀번호가 맞지 않아요.', 'Incorrect password.'),
+    );
+    if (password?.trim() != 'hannachung' || !context.mounted) return;
+    await _showTesterModeSheet(context);
+  }
+
+  Future<void> _showTesterModeSheet(BuildContext context) {
+    var noAppInfoMode = widget.testerNoAppInfoMode;
+    return showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  st('테스터 모드', 'Tester mode'),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: const Color(0xFF1A1C1C),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  st(
+                    '앱 정보가 없는 기기(iOS/non-Galaxy) 플로우를 테스트해요.',
+                    'Test the no-app-info device flow (iOS/non-Galaxy).',
+                  ),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: const Color(0xFF727785),
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    st('iOS/non-Galaxy mode', 'iOS/non-Galaxy mode'),
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  subtitle: Text(
+                    st(
+                      '켜면 스크린샷 앱 정보가 없는 것처럼 표시돼요. 앱을 다시 열어 확인해보세요.',
+                      'When on, screenshots behave as if app info is unavailable. Reopen the app to verify.',
+                    ),
+                  ),
+                  value: noAppInfoMode,
+                  onChanged: (value) async {
+                    await widget.onSetTesterNoAppInfoMode(value);
+                    setSheetState(() => noAppInfoMode = value);
+                  },
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
