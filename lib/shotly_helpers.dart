@@ -78,42 +78,21 @@ List<ScreenshotSet> _buildScreenshotSets(
     manualGroups.putIfAbsent(entry.key, () => <ScreenshotItem>[]);
   }
 
-  final keyedSets = <MapEntry<String?, List<ScreenshotItem>>>[];
-  var current = <ScreenshotItem>[];
-  var firstTime = 0;
-  const oneHourMillis = 60 * 60 * 1000;
-
+  final dateGroups = <String, List<ScreenshotItem>>{};
   for (final item in autoItems) {
-    if (current.isEmpty) {
-      current = [item];
-      firstTime = item.dateTakenMillis;
-      continue;
-    }
-    final withinOneHour =
-        firstTime > 0 &&
-        item.dateTakenMillis > 0 &&
-        (firstTime - item.dateTakenMillis).abs() <= oneHourMillis;
-    final sameDay = _isSameDay(
-      DateTime.fromMillisecondsSinceEpoch(firstTime),
-      item.date,
-    );
-    if (withinOneHour && sameDay) {
-      current.add(item);
-    } else {
-      keyedSets.add(MapEntry(null, current));
-      current = [item];
-      firstTime = item.dateTakenMillis;
-    }
+    final key = _buildDateSetKey(stackKey, item.date);
+    dateGroups.putIfAbsent(key, () => <ScreenshotItem>[]).add(item);
   }
-  if (current.isNotEmpty) keyedSets.add(MapEntry(null, current));
-  keyedSets.addAll(
-    manualGroups.entries.map((entry) => MapEntry(entry.key, entry.value)),
-  );
+
+  final keyedSets = <MapEntry<String, List<ScreenshotItem>>>[
+    ...dateGroups.entries,
+    ...manualGroups.entries,
+  ];
 
   final sets = keyedSets.map((entry) {
     final setItems = [...entry.value]
       ..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
-    final key = entry.key ?? _buildSetKey(stackKey, setItems);
+    final key = entry.key;
     final isFolder = _isFolderSetKey(key);
     final migratedFolderName = isFolder ? setMemos[key]?.trim() : null;
     final folderName = isFolder
@@ -128,9 +107,9 @@ List<ScreenshotSet> _buildScreenshotSets(
       title:
           folderName ??
           (setItems.isEmpty ? 'Set' : _formatSetTitle(setItems.first.date)),
-      timeRange: setItems.isEmpty ? '' : _formatTimeRange(setItems),
+      timeRange: '',
       items: setItems,
-      memo: isFolder ? '' : setMemos[key] ?? '',
+      memo: isFolder ? '' : setMemos[key] ?? _legacyMemoFor(setItems, setMemos),
       folderName: folderName,
     );
   }).toList();
@@ -141,9 +120,30 @@ List<ScreenshotSet> _buildScreenshotSets(
 int _setSortTime(ScreenshotSet set) =>
     set.items.isEmpty ? 0 : set.items.first.dateTakenMillis;
 
+String _buildDateSetKey(String stackKey, DateTime date) =>
+    '$stackKey|date|${_formatSetDate(date)}';
+
 String _buildSetKey(String stackKey, List<ScreenshotItem> items) {
   final first = items.firstOrNull;
   return '$stackKey|${first?.dateTakenMillis ?? 0}|${first?.id ?? ''}';
+}
+
+String _legacyMemoFor(
+  List<ScreenshotItem> items,
+  Map<String, String> setMemos,
+) {
+  for (final item in items) {
+    final legacyKey = _buildSetKey('', [item]);
+    final matchingMemo = setMemos.entries
+        .where(
+          (entry) =>
+              entry.key.endsWith(legacyKey) && entry.value.trim().isNotEmpty,
+        )
+        .map((entry) => entry.value.trim())
+        .firstOrNull;
+    if (matchingMemo != null) return matchingMemo;
+  }
+  return '';
 }
 
 String _buildFolderKey(String stackKey) =>
@@ -166,20 +166,6 @@ String _formatSetTitle(DateTime date) => stDate(date);
 
 String _formatSetDate(DateTime date) {
   return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
-}
-
-String _formatTimeRange(List<ScreenshotItem> items) {
-  final times = items
-      .where((item) => item.dateTakenMillis > 0)
-      .map((item) => item.date)
-      .toList();
-  if (times.isEmpty) return st('촬영 시간 정보 없음', 'No capture time info');
-  times.sort();
-  String format(DateTime date) =>
-      '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-  final start = times.first;
-  final end = start.add(const Duration(hours: 1));
-  return '${format(start)}-${format(end)}';
 }
 
 class _Thumb extends StatelessWidget {

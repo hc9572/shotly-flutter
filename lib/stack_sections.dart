@@ -71,6 +71,7 @@ class _SetDateSection extends StatelessWidget {
               onSaveMemo: onSaveMemo,
               onAssignImageToSet: onAssignImageToSet,
               showTitle: false,
+              suppressHeader: entry.$1 != 0,
               headerLabel: entry.$1 == 0 ? dateLabel : '',
               onHeaderTap: entry.$1 == 0
                   ? () => onToggleDateSelection(dateImageIds)
