@@ -21,7 +21,7 @@ android {
 
     defaultConfig {
         applicationId = "com.shotly.shotly_app"
-        minSdk = 26
+        minSdk = 31
         targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
