@@ -481,7 +481,30 @@ class MainActivity : FlutterActivity() {
 
     private fun isScreenshot(displayName: String, relativePath: String): Boolean {
         val haystack = "$displayName $relativePath".lowercase()
-        return haystack.contains("screenshot") || haystack.contains("screenshots") || haystack.contains("스크린샷")
+        return listOf(
+            "screenshot",
+            "screenshots",
+            "screen shot",
+            "screen_shot",
+            "screen-shot",
+            "스크린샷",
+            "screenrecord",
+            "screen record",
+            "screen_record",
+            "screen-record",
+            "screen recording",
+            "screen_recording",
+            "screen-recording",
+            "screen recordings",
+            "screen_recordings",
+            "screen-recordings",
+            "screen recorder",
+            "screen_recorder",
+            "화면녹화",
+            "화면 녹화",
+            "화면_녹화",
+            "화면-녹화"
+        ).any { haystack.contains(it) }
     }
 
     private fun inferAppName(displayName: String, relativePath: String): String {
