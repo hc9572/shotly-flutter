@@ -385,18 +385,14 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Future<void> _sendFeedbackEmail(BuildContext context) async {
-    final uri = Uri(
-      scheme: 'mailto',
-      path: 'nadool.life@gmail.com',
-      queryParameters: {
-        'subject': st('[Shotly] 의견 보내기', '[Shotly] Feedback'),
-        'body': st(
-          '안녕하세요, Shotly를 사용하다가 의견을 남깁니다.\n\n- 불편했던 점:\n- 좋았던 점:\n- 있으면 좋을 기능:\n\n',
-          'Hi Shotly team, I’d like to share feedback.\n\n- What felt inconvenient:\n- What worked well:\n- Feature ideas:\n\n',
-        ),
-      },
+    final subject = st('[Shotly] 의견 보내기', '[Shotly] Feedback');
+    final body = st(
+      '안녕하세요, Shotly를 사용하다가 의견을 남깁니다.\n\n- 불편했던 점:\n- 좋았던 점:\n- 있으면 좋을 기능:\n\n',
+      'Hi Shotly team, I’d like to share feedback.\n\n- What felt inconvenient:\n- What worked well:\n- Feature ideas:\n\n',
     );
-    final opened = await ShotlyNative.openUrl(uri.toString());
+    final mailtoUrl =
+        'mailto:nadool.life@gmail.com?subject=${Uri.encodeComponent(subject)}&body=${Uri.encodeComponent(body)}';
+    final opened = await ShotlyNative.openUrl(mailtoUrl);
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
