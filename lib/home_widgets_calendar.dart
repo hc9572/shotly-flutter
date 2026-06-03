@@ -308,7 +308,9 @@ class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
     super.initState();
     final initialRange = widget.initialRange;
     _rangeStart = initialRange == null ? null : _dateOnly(initialRange.start);
-    _rangeEnd = initialRange == null || _isSameDate(initialRange.start, initialRange.end)
+    _rangeEnd =
+        initialRange == null ||
+            _isSameDate(initialRange.start, initialRange.end)
         ? null
         : _dateOnly(initialRange.end);
     final initialMonth = _dateOnly(widget.initialMonth);
@@ -503,12 +505,9 @@ class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
     final isStart = rangeStart != null && _isSameDate(day, rangeStart);
     final isEnd = rangeEnd != null && _isSameDate(day, rangeEnd);
     final isSelected = isStart || isEnd;
-    final isInRange =
-        rangeStart != null &&
-        rangeEnd != null &&
-        !day.isBefore(rangeStart) &&
-        !day.isAfter(rangeEnd) &&
-        !isSelected;
+    final hasActiveRange = rangeStart != null && rangeEnd != null;
+    final isInActiveRange =
+        hasActiveRange && !day.isBefore(rangeStart) && !day.isAfter(rangeEnd);
     final hasScreenshots = widget.screenshotDates.contains(day);
     final enabled =
         isCurrentMonth &&
@@ -519,50 +518,74 @@ class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
         : isSelected
         ? Colors.white
         : const Color(0xFF1A1C1C);
+    final weekDayIndex = day.weekday % 7;
+    final continuesLeft =
+        isInActiveRange &&
+        weekDayIndex != 0 &&
+        !_isSameDate(day, rangeStart) &&
+        !_dateOnly(day.subtract(const Duration(days: 1))).isBefore(rangeStart);
+    final continuesRight =
+        isInActiveRange &&
+        weekDayIndex != 6 &&
+        !_isSameDate(day, rangeEnd) &&
+        !_dateOnly(day.add(const Duration(days: 1))).isAfter(rangeEnd);
 
-    return Center(
-      child: InkWell(
-        onTap: enabled ? () => _selectDate(day) : null,
-        borderRadius: BorderRadius.circular(999),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: isSelected
-                ? const Color(0xFF111111)
-                : isInRange
-                ? const Color(0xFFE5E7EB)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Text(
-                '${date.day}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: textColor,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
-              if (hasScreenshots)
-                Positioned(
-                  bottom: 6,
-                  child: Container(
-                    width: 4,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? Colors.white
-                          : const Color(0xFF111111),
-                      borderRadius: BorderRadius.circular(99),
-                    ),
+    return InkWell(
+      onTap: enabled ? () => _selectDate(day) : null,
+      borderRadius: BorderRadius.circular(999),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          if (isInActiveRange)
+            Positioned(
+              left: continuesLeft ? 0 : 20,
+              right: continuesRight ? 0 : 20,
+              height: 40,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 140),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF3F5),
+                  borderRadius: BorderRadius.horizontal(
+                    left: continuesLeft
+                        ? Radius.zero
+                        : const Radius.circular(20),
+                    right: continuesRight
+                        ? Radius.zero
+                        : const Radius.circular(20),
                   ),
                 ),
-            ],
+              ),
+            ),
+          if (isSelected)
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 140),
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: Color(0xFF050711),
+                shape: BoxShape.circle,
+              ),
+            ),
+          Text(
+            '${date.day}',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: textColor,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            ),
           ),
-        ),
+          if (hasScreenshots)
+            Positioned(
+              bottom: 8,
+              child: Container(
+                width: 4,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isSelected ? Colors.white : const Color(0xFF111111),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
