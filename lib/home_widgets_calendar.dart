@@ -267,12 +267,14 @@ class _SortDropdown extends StatelessWidget {
 class _ShotlyCalendarDialog extends StatefulWidget {
   const _ShotlyCalendarDialog({
     required this.initialRange,
+    required this.initialMonth,
     required this.firstDate,
     required this.lastDate,
     required this.screenshotDates,
   });
 
   final DateTimeRange initialRange;
+  final DateTime initialMonth;
   final DateTime firstDate;
   final DateTime lastDate;
   final Set<DateTime> screenshotDates;
@@ -282,7 +284,7 @@ class _ShotlyCalendarDialog extends StatefulWidget {
 }
 
 class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
-  late DateTime _rangeStart;
+  DateTime? _rangeStart;
   DateTime? _rangeEnd;
   late DateTime _visibleMonth;
 
@@ -304,14 +306,13 @@ class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
   @override
   void initState() {
     super.initState();
-    _rangeStart = _dateOnly(widget.initialRange.start);
-    _rangeEnd = _dateOnly(widget.initialRange.end);
-    if (_rangeEnd!.isBefore(_rangeStart)) {
-      final tmp = _rangeStart;
-      _rangeStart = _rangeEnd!;
-      _rangeEnd = tmp;
-    }
-    _visibleMonth = DateTime(_rangeStart.year, _rangeStart.month);
+    final initialRange = widget.initialRange;
+    _rangeStart = _dateOnly(initialRange.start);
+    _rangeEnd = _isSameDate(initialRange.start, initialRange.end)
+        ? null
+        : _dateOnly(initialRange.end);
+    final initialMonth = _dateOnly(widget.initialMonth);
+    _visibleMonth = DateTime(initialMonth.year, initialMonth.month);
   }
 
   @override
@@ -456,12 +457,17 @@ class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
                       ),
                       const SizedBox(width: 8),
                       FilledButton(
-                        onPressed: () => Navigator.of(context).pop(
-                          DateTimeRange(
-                            start: _rangeStart,
-                            end: _rangeEnd ?? _rangeStart,
-                          ),
-                        ),
+                        onPressed: _rangeStart == null
+                            ? null
+                            : () {
+                                final start = _rangeStart!;
+                                Navigator.of(context).pop(
+                                  DateTimeRange(
+                                    start: start,
+                                    end: _rangeEnd ?? start,
+                                  ),
+                                );
+                              },
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xFF111111),
                           foregroundColor: Colors.white,
@@ -492,13 +498,15 @@ class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
     if (date == null) return const SizedBox.shrink();
     final isCurrentMonth = date.month == _visibleMonth.month;
     final day = _dateOnly(date);
+    final rangeStart = _rangeStart;
     final rangeEnd = _rangeEnd;
-    final isStart = _isSameDate(day, _rangeStart);
+    final isStart = rangeStart != null && _isSameDate(day, rangeStart);
     final isEnd = rangeEnd != null && _isSameDate(day, rangeEnd);
     final isSelected = isStart || isEnd;
     final isInRange =
+        rangeStart != null &&
         rangeEnd != null &&
-        !day.isBefore(_rangeStart) &&
+        !day.isBefore(rangeStart) &&
         !day.isAfter(rangeEnd) &&
         !isSelected;
     final hasScreenshots = widget.screenshotDates.contains(day);
@@ -603,16 +611,39 @@ class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
 
   void _selectDate(DateTime date) {
     setState(() {
-      if (_rangeEnd != null || date.isBefore(_rangeStart)) {
+      final rangeStart = _rangeStart;
+      final rangeEnd = _rangeEnd;
+
+      if (rangeStart == null) {
         _rangeStart = date;
         _rangeEnd = null;
         return;
       }
-      if (_isSameDate(date, _rangeStart)) {
+
+      if (rangeEnd != null) {
+        final isInsideSelectedRange =
+            !date.isBefore(rangeStart) && !date.isAfter(rangeEnd);
+        if (isInsideSelectedRange) {
+          _rangeStart = null;
+          _rangeEnd = null;
+          return;
+        }
+        _rangeStart = date;
+        _rangeEnd = null;
+        return;
+      }
+
+      if (_isSameDate(date, rangeStart)) {
+        _rangeStart = null;
+        _rangeEnd = null;
+        return;
+      }
+      if (date.isAfter(rangeStart)) {
         _rangeEnd = date;
         return;
       }
-      _rangeEnd = date;
+      _rangeStart = date;
+      _rangeEnd = null;
     });
   }
 
