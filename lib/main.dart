@@ -1123,13 +1123,12 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
               .reduce((a, b) => a.isBefore(b) ? a : b);
     final today = _dateOnly(DateTime.now());
     final currentRange = _selectedDateRange;
-    final initialRange = currentRange ?? DateTimeRange(start: today, end: today);
     final picked = await showDialog<DateTimeRange>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.10),
       builder: (context) => _ShotlyCalendarDialog(
-        initialRange: initialRange,
-        initialMonth: initialRange.start,
+        initialRange: currentRange,
+        initialMonth: currentRange?.start ?? today,
         firstDate: DateTime(earliest.year, earliest.month, 1),
         lastDate: today,
         screenshotDates: activeScreenshots

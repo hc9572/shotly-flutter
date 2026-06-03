@@ -273,7 +273,7 @@ class _ShotlyCalendarDialog extends StatefulWidget {
     required this.screenshotDates,
   });
 
-  final DateTimeRange initialRange;
+  final DateTimeRange? initialRange;
   final DateTime initialMonth;
   final DateTime firstDate;
   final DateTime lastDate;
@@ -307,8 +307,8 @@ class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
   void initState() {
     super.initState();
     final initialRange = widget.initialRange;
-    _rangeStart = _dateOnly(initialRange.start);
-    _rangeEnd = _isSameDate(initialRange.start, initialRange.end)
+    _rangeStart = initialRange == null ? null : _dateOnly(initialRange.start);
+    _rangeEnd = initialRange == null || _isSameDate(initialRange.start, initialRange.end)
         ? null
         : _dateOnly(initialRange.end);
     final initialMonth = _dateOnly(widget.initialMonth);
@@ -614,36 +614,15 @@ class _ShotlyCalendarDialogState extends State<_ShotlyCalendarDialog> {
       final rangeStart = _rangeStart;
       final rangeEnd = _rangeEnd;
 
-      if (rangeStart == null) {
+      if (rangeStart == null || rangeEnd != null || date.isBefore(rangeStart)) {
         _rangeStart = date;
         _rangeEnd = null;
         return;
       }
 
-      if (rangeEnd != null) {
-        final isInsideSelectedRange =
-            !date.isBefore(rangeStart) && !date.isAfter(rangeEnd);
-        if (isInsideSelectedRange) {
-          _rangeStart = null;
-          _rangeEnd = null;
-          return;
-        }
-        _rangeStart = date;
-        _rangeEnd = null;
-        return;
-      }
-
-      if (_isSameDate(date, rangeStart)) {
-        _rangeStart = null;
-        _rangeEnd = null;
-        return;
-      }
       if (date.isAfter(rangeStart)) {
         _rangeEnd = date;
-        return;
       }
-      _rangeStart = date;
-      _rangeEnd = null;
     });
   }
 
