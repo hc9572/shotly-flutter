@@ -51,6 +51,11 @@ import UIKit
       case "shareImages":
         let imageIds = (call.arguments as? [String: Any])?["imageIds"] as? [String]
         self.shareImages(imageIds: imageIds, result: result)
+      case "openUrl":
+        let url = (call.arguments as? [String: Any])?["url"] as? String
+        self.openUrl(url: url, result: result)
+      case "logAnalyticsEvent":
+        result(false)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -59,6 +64,16 @@ import UIKit
 
   private func openPhotoSettings(result: @escaping FlutterResult) {
     guard let url = URL(string: UIApplication.openSettingsURLString), UIApplication.shared.canOpenURL(url) else {
+      result(false)
+      return
+    }
+    UIApplication.shared.open(url, options: [:]) { opened in
+      result(opened)
+    }
+  }
+
+  private func openUrl(url: String?, result: @escaping FlutterResult) {
+    guard let urlString = url, let url = URL(string: urlString) else {
       result(false)
       return
     }
