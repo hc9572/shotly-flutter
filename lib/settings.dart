@@ -146,6 +146,20 @@ class _SettingsScreenState extends State<SettingsScreen>
               ],
             ),
             _SettingsSection(
+              title: st('도움말', 'Help'),
+              children: [
+                _SettingsTile(
+                  icon: Icons.mail_outline_rounded,
+                  title: st('의견 보내기', 'Send feedback'),
+                  subtitle: st(
+                    '불편한 점이나 아이디어를 메일로 보내요',
+                    'Share bugs, ideas, or feedback by email',
+                  ),
+                  onTap: () => _sendFeedbackEmail(context),
+                ),
+              ],
+            ),
+            _SettingsSection(
               title: st('정보', 'Information'),
               children: [
                 _SettingsTile(
@@ -368,6 +382,33 @@ class _SettingsScreenState extends State<SettingsScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _sendFeedbackEmail(BuildContext context) async {
+    final uri = Uri(
+      scheme: 'mailto',
+      path: 'nadool.life@gmail.com',
+      queryParameters: {
+        'subject': st('[Shotly] 의견 보내기', '[Shotly] Feedback'),
+        'body': st(
+          '안녕하세요, Shotly를 사용하다가 의견을 남깁니다.\n\n- 불편했던 점:\n- 좋았던 점:\n- 있으면 좋을 기능:\n\n',
+          'Hi Shotly team, I’d like to share feedback.\n\n- What felt inconvenient:\n- What worked well:\n- Feature ideas:\n\n',
+        ),
+      },
+    );
+    final opened = await ShotlyNative.openUrl(uri.toString());
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            st(
+              '메일 앱을 열 수 없어요. nadool.life@gmail.com 으로 보내주세요.',
+              'Couldn’t open your email app. Please email nadool.life@gmail.com.',
+            ),
+          ),
+        ),
+      );
+    }
   }
 
   void _showInfoDialog(BuildContext context) {
