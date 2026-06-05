@@ -60,6 +60,27 @@ class LocalShotlyState {
   }
 }
 
+enum OcrIndexStatus { pending, done, failed }
+
+class OcrIndexEntry {
+  const OcrIndexEntry({
+    required this.imageId,
+    required this.status,
+    required this.text,
+    required this.updatedAtMillis,
+    this.errorMessage,
+  });
+
+  final String imageId;
+  final OcrIndexStatus status;
+  final String text;
+  final int updatedAtMillis;
+  final String? errorMessage;
+
+  bool matches(String query) =>
+      text.toLowerCase().contains(query.toLowerCase());
+}
+
 class ShotlyBackupDocument {
   const ShotlyBackupDocument({
     required this.version,
@@ -136,4 +157,7 @@ abstract class LocalStore {
   Future<void> pinStack(String stackKey);
   Future<void> unpinStack(String stackKey);
   Future<void> saveSortMode(String sortModeName);
+  Future<Map<String, OcrIndexEntry>> loadOcrIndex();
+  Future<void> saveOcrText(String imageId, String text);
+  Future<void> saveOcrFailure(String imageId, String errorMessage);
 }

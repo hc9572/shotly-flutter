@@ -33,6 +33,7 @@ class _SearchPage extends StatefulWidget {
     required this.folderColors,
     required this.setAssignments,
     required this.favoriteImageIds,
+    required this.ocrIndex,
     required this.stackMatchesQuery,
     required this.onRenameStack,
     required this.onHideStack,
@@ -58,6 +59,7 @@ class _SearchPage extends StatefulWidget {
   final Map<String, String> folderColors;
   final Map<String, String> setAssignments;
   final Set<String> favoriteImageIds;
+  final Map<String, OcrIndexEntry> ocrIndex;
   final bool Function(StackItem stack, String query) stackMatchesQuery;
   final Future<void> Function(String stackKey, String name) onRenameStack;
   final Future<void> Function(String stackKey) onHideStack;
@@ -251,7 +253,8 @@ class _SearchPageState extends State<_SearchPage> {
         }
       }
       for (final image in stack.items) {
-        if (image.matches(query) && imageIds.add(image.id)) {
+        final ocrMatches = widget.ocrIndex[image.id]?.matches(query) ?? false;
+        if ((image.matches(query) || ocrMatches) && imageIds.add(image.id)) {
           results.add(_SearchResult.image(stack, image));
         }
       }

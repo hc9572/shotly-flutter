@@ -64,16 +64,20 @@ String stDate(DateTime date) {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  final firebaseReady = await _initializeFirebaseIfAvailable();
   _registerShotlyLicenses();
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
-    FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+    if (firebaseReady) {
+      FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+    }
   };
   PlatformDispatcher.instance.onError = (error, stack) {
     debugPrint('Shotly runtime error: $error');
     debugPrintStack(stackTrace: stack);
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    if (firebaseReady) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    }
     return true;
   };
   ErrorWidget.builder = (details) {
@@ -81,6 +85,17 @@ Future<void> main() async {
     return const _ShotlyRuntimeErrorView();
   };
   runApp(const ShotlyApp());
+}
+
+Future<bool> _initializeFirebaseIfAvailable() async {
+  try {
+    await Firebase.initializeApp();
+    return true;
+  } catch (error, stack) {
+    debugPrint('Firebase initialization skipped: $error');
+    debugPrintStack(stackTrace: stack);
+    return false;
+  }
 }
 
 void _registerShotlyLicenses() {
@@ -312,6 +327,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   final Map<String, String> _folderColors = {};
   final Map<String, String> _setAssignments = {};
   final Map<String, VisualFeature> _visualFeatures = {};
+  final Map<String, OcrIndexEntry> _ocrIndex = {};
   final Set<String> _hiddenStackKeys = {};
   final Set<String> _excludedImageIds = {};
   final Set<String> _favoriteImageIds = {};
@@ -329,10 +345,17 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   String? _error;
   bool _showSortMenu = false;
   bool _testerNoAppInfoMode = false;
+  bool _ocrSearchEnabled = false;
+  bool _ocrIndexing = false;
+  int _ocrCompletedThisRun = 0;
+  int _ocrQueuedThisRun = 0;
+  int _ocrRunId = 0;
   bool? _unsortedExpandedOverride;
   StackSortMode _sortMode = StackSortMode.latest;
 
   static const _testerNoAppInfoModePrefsKey = 'shotly.tester.noAppInfoMode';
+  static const _ocrSearchEnabledPrefsKey = 'shotly.ocrSearch.enabled';
+  static const _ocrBatchLimit = 20;
 
   @override
   void initState() {
@@ -404,12 +427,20 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
         ..addAll(state.pinnedStackKeys);
       _sortMode = _sortModeFromName(state.sortModeName) ?? _sortMode;
     });
+    final ocrIndex = await _localStore.loadOcrIndex();
+    if (!mounted) return;
+    setState(() {
+      _ocrIndex
+        ..clear()
+        ..addAll(ocrIndex);
+    });
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
-    setState(
-      () => _testerNoAppInfoMode =
-          prefs.getBool(_testerNoAppInfoModePrefsKey) ?? false,
-    );
+    setState(() {
+      _testerNoAppInfoMode =
+          prefs.getBool(_testerNoAppInfoModePrefsKey) ?? false;
+      _ocrSearchEnabled = prefs.getBool(_ocrSearchEnabledPrefsKey) ?? false;
+    });
   }
 
   Future<void> _load({
@@ -442,6 +473,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
         );
         _screenshots = screenshots;
         _visualFeatures.clear();
+        _startOcrIndexingIfNeeded(screenshots);
       } else {
         _screenshots = const [];
       }
@@ -1157,6 +1189,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
           folderColors: _folderColors,
           setAssignments: _setAssignments,
           favoriteImageIds: _favoriteImageIds,
+          ocrIndex: _ocrIndex,
           stackMatchesQuery: _stackMatchesQuery,
           onRenameStack: _renameStack,
           onHideStack: _hideStack,
@@ -1255,6 +1288,81 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
     await _localStore.saveSortMode(mode.name);
   }
 
+  Future<void> _setOcrSearchEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_ocrSearchEnabledPrefsKey, enabled);
+    if (!mounted) return;
+    setState(() => _ocrSearchEnabled = enabled);
+    if (enabled) {
+      _startOcrIndexingIfNeeded(_screenshots, force: true);
+    } else {
+      _ocrRunId++;
+      if (mounted) setState(() => _ocrIndexing = false);
+    }
+  }
+
+  void _startOcrIndexingIfNeeded(
+    List<ScreenshotItem> screenshots, {
+    bool force = false,
+  }) {
+    if (!_ocrSearchEnabled || screenshots.isEmpty) return;
+    if (_ocrIndexing && !force) return;
+    final pending = screenshots
+        .where((item) => !_ocrIndex.containsKey(item.id))
+        .take(_ocrBatchLimit)
+        .toList();
+    if (pending.isEmpty) return;
+    final runId = ++_ocrRunId;
+    setState(() {
+      _ocrIndexing = true;
+      _ocrCompletedThisRun = 0;
+      _ocrQueuedThisRun = pending.length;
+    });
+    unawaited(_runOcrQueue(pending, runId));
+  }
+
+  Future<void> _runOcrQueue(List<ScreenshotItem> items, int runId) async {
+    await Future<void>.delayed(const Duration(seconds: 2));
+    for (final item in items) {
+      if (!mounted || runId != _ocrRunId || !_ocrSearchEnabled) break;
+      try {
+        final text = await ShotlyNative.recognizeScreenshotText(item.id);
+        if (!mounted || runId != _ocrRunId) break;
+        await _localStore.saveOcrText(item.id, text);
+        final entry = OcrIndexEntry(
+          imageId: item.id,
+          status: OcrIndexStatus.done,
+          text: text,
+          updatedAtMillis: DateTime.now().millisecondsSinceEpoch,
+        );
+        if (!mounted) break;
+        setState(() {
+          _ocrIndex[item.id] = entry;
+          _ocrCompletedThisRun++;
+        });
+      } catch (error) {
+        if (!mounted || runId != _ocrRunId) break;
+        final message = '$error';
+        await _localStore.saveOcrFailure(item.id, message);
+        final entry = OcrIndexEntry(
+          imageId: item.id,
+          status: OcrIndexStatus.failed,
+          text: '',
+          updatedAtMillis: DateTime.now().millisecondsSinceEpoch,
+          errorMessage: message,
+        );
+        if (!mounted) break;
+        setState(() {
+          _ocrIndex[item.id] = entry;
+          _ocrCompletedThisRun++;
+        });
+      }
+    }
+    if (mounted && runId == _ocrRunId) {
+      setState(() => _ocrIndexing = false);
+    }
+  }
+
   Future<void> _assignImageToSet(String imageId, String setKey) async {
     final current = _setAssignments[imageId];
     final next = setKey.startsWith(_removeAssignmentPrefix)
@@ -1279,7 +1387,12 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
     if (_textMatches(stack.name, query) || _textMatches(stack.key, query)) {
       return true;
     }
-    if (stack.items.any((item) => item.matches(query))) return true;
+    if (stack.items.any(
+      (item) =>
+          item.matches(query) || (_ocrIndex[item.id]?.matches(query) ?? false),
+    )) {
+      return true;
+    }
     final sets = _buildScreenshotSets(
       stack.key,
       stack.items,
@@ -1494,6 +1607,17 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
                             onReceivePhoneTransfer: _receivePhoneTransfer,
                             testerNoAppInfoMode: _testerNoAppInfoMode,
                             onSetTesterNoAppInfoMode: _setTesterNoAppInfoMode,
+                            ocrSearchEnabled: _ocrSearchEnabled,
+                            ocrIndexing: _ocrIndexing,
+                            ocrCompletedThisRun: _ocrCompletedThisRun,
+                            ocrQueuedThisRun: _ocrQueuedThisRun,
+                            ocrIndexedCount: _ocrIndex.values
+                                .where(
+                                  (entry) =>
+                                      entry.status == OcrIndexStatus.done,
+                                )
+                                .length,
+                            onSetOcrSearchEnabled: _setOcrSearchEnabled,
                             onResetOrganizationData: _resetOrganizationData,
                           ),
                         ),

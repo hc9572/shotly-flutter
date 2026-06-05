@@ -378,6 +378,55 @@ class ShotlyLocalStore implements LocalStore {
     );
   }
 
+  @override
+  Future<Map<String, OcrIndexEntry>> loadOcrIndex() async {
+    await _db.ensureOpen();
+    final rows = await _db
+        .customSelect(
+          'SELECT image_id, status, text, updated_at, error_message FROM screenshot_ocr',
+        )
+        .get();
+    return {
+      for (final row in rows)
+        row.read<String>('image_id'): OcrIndexEntry(
+          imageId: row.read<String>('image_id'),
+          status: _ocrStatusFromName(row.read<String>('status')),
+          text: row.read<String>('text'),
+          updatedAtMillis: row.read<int>('updated_at'),
+          errorMessage: row.readNullable<String>('error_message'),
+        ),
+    };
+  }
+
+  @override
+  Future<void> saveOcrText(String imageId, String text) async {
+    await _db.ensureOpen();
+    await _db.customStatement(
+      'INSERT OR REPLACE INTO screenshot_ocr(image_id, status, text, updated_at, error_message) VALUES (?, ?, ?, ?, NULL)',
+      [
+        imageId,
+        OcrIndexStatus.done.name,
+        text,
+        DateTime.now().millisecondsSinceEpoch,
+      ],
+    );
+  }
+
+  @override
+  Future<void> saveOcrFailure(String imageId, String errorMessage) async {
+    await _db.ensureOpen();
+    await _db.customStatement(
+      'INSERT OR REPLACE INTO screenshot_ocr(image_id, status, text, updated_at, error_message) VALUES (?, ?, ?, ?, ?)',
+      [
+        imageId,
+        OcrIndexStatus.failed.name,
+        '',
+        DateTime.now().millisecondsSinceEpoch,
+        errorMessage.takeForShotly(240),
+      ],
+    );
+  }
+
   Future<void> _migrateSharedPreferencesIfNeeded() async {
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool(_migrationPrefsKey) ?? false) return;
@@ -577,8 +626,29 @@ class ShotlyDatabase extends GeneratedDatabase {
         updated_at INTEGER NOT NULL
       )
     ''');
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS screenshot_ocr (
+        image_id TEXT PRIMARY KEY NOT NULL,
+        status TEXT NOT NULL,
+        text TEXT NOT NULL DEFAULT '',
+        updated_at INTEGER NOT NULL,
+        error_message TEXT
+      )
+    ''');
     _opened = true;
   }
+}
+
+OcrIndexStatus _ocrStatusFromName(String name) {
+  for (final status in OcrIndexStatus.values) {
+    if (status.name == name) return status;
+  }
+  return OcrIndexStatus.pending;
+}
+
+extension _ShotlyStringLimit on String {
+  String takeForShotly(int maxLength) =>
+      length <= maxLength ? this : substring(0, maxLength);
 }
 
 LazyDatabase _openConnection() {
