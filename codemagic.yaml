@@ -1,6 +1,6 @@
 workflows:
-  android-internal:
-    name: Android internal test
+  shotly-android-internal:
+    name: Shotly Android Internal Test
     max_build_duration: 120
     instance_type: mac_mini_m2
     environment:
