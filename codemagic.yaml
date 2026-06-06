@@ -69,4 +69,4 @@ workflows:
     publishing:
       google_play:
         credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
-        track: alpha
+        track: Shotly - 비공개 테스트 v1.0
