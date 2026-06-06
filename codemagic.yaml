@@ -34,3 +34,39 @@ workflows:
       google_play:
         credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
         track: internal
+
+  shotly-android-closed:
+    name: Shotly Android Closed Test
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      groups:
+        - shotly_android_signing
+        - google_play_credentials
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Restore Android signing files
+        script: |
+          echo "$CM_KEYSTORE" | base64 --decode > android/app/upload-keystore.jks
+          cat > android/key.properties << EOF
+          storePassword=$CM_KEYSTORE_PASSWORD
+          keyPassword=$CM_KEY_PASSWORD
+          keyAlias=$CM_KEY_ALIAS
+          storeFile=upload-keystore.jks
+          EOF
+      - name: Analyze
+        script: flutter analyze
+      - name: Test
+        script: flutter test
+      - name: Build Android App Bundle
+        script: flutter build appbundle --release --flavor prod
+    artifacts:
+      - build/app/outputs/bundle/prodRelease/app-prod-release.aab
+      - build/app/outputs/flutter-apk/app-prod-release.apk
+      - build/app/outputs/logs/*.txt
+    publishing:
+      google_play:
+        credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
+        track: alpha

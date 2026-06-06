@@ -1,2 +1,4 @@
-Search now returns to Home and clears the query when going back from results.
-Fixed search results staying visible after pressing the keyboard search button.
+Added image text search so screenshots can be found by text inside the image.
+Image text recognition progress can now be checked and paused from Home.
+Search results now jump to the relevant image when opening an app.
+Fixed search navigation and other usability bugs.
