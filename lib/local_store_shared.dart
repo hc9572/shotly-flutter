@@ -17,6 +17,7 @@ class ShotlyLocalStore implements LocalStore {
   static const _setAssignmentsPrefsKey = 'shotly.setAssignments';
   static const _pinnedStacksPrefsKey = 'shotly.pinnedStacks';
   static const _sortModePrefsKey = 'shotly.sortMode';
+  static const _ocrIndexPrefsKey = 'shotly.ocrIndex';
 
   @override
   Future<LocalShotlyState> load() async {
@@ -159,6 +160,72 @@ class ShotlyLocalStore implements LocalStore {
     await prefs.setString(_sortModePrefsKey, sortModeName);
   }
 
+  @override
+  Future<Map<String, OcrIndexEntry>> loadOcrIndex() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_ocrIndexPrefsKey);
+    if (raw == null || raw.isEmpty) return const {};
+    final decoded = jsonDecode(raw) as Map<String, dynamic>;
+    return decoded.map((imageId, value) {
+      final map = value is Map ? value.cast<String, dynamic>() : const {};
+      return MapEntry(
+        imageId,
+        OcrIndexEntry(
+          imageId: imageId,
+          status: _ocrStatusFromName('${map['status'] ?? 'pending'}'),
+          text: '${map['text'] ?? ''}',
+          updatedAtMillis: (map['updatedAtMillis'] as num?)?.toInt() ?? 0,
+          errorMessage: map['errorMessage']?.toString(),
+        ),
+      );
+    });
+  }
+
+  @override
+  Future<void> saveOcrText(String imageId, String text) async {
+    await _updateOcrIndex(
+      imageId,
+      OcrIndexEntry(
+        imageId: imageId,
+        status: OcrIndexStatus.done,
+        text: text,
+        updatedAtMillis: DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
+  }
+
+  @override
+  Future<void> saveOcrFailure(String imageId, String errorMessage) async {
+    await _updateOcrIndex(
+      imageId,
+      OcrIndexEntry(
+        imageId: imageId,
+        status: OcrIndexStatus.failed,
+        text: '',
+        updatedAtMillis: DateTime.now().millisecondsSinceEpoch,
+        errorMessage: errorMessage,
+      ),
+    );
+  }
+
+  Future<void> _updateOcrIndex(String imageId, OcrIndexEntry entry) async {
+    final prefs = await SharedPreferences.getInstance();
+    final entries = await loadOcrIndex();
+    final next = {...entries, imageId: entry};
+    await prefs.setString(
+      _ocrIndexPrefsKey,
+      jsonEncode({
+        for (final item in next.values)
+          item.imageId: {
+            'status': item.status.name,
+            'text': item.text,
+            'updatedAtMillis': item.updatedAtMillis,
+            if (item.errorMessage != null) 'errorMessage': item.errorMessage,
+          },
+      }),
+    );
+  }
+
   Future<void> _updateList(String key, String value) async {
     final prefs = await SharedPreferences.getInstance();
     final values = prefs.getStringList(key) ?? [];
@@ -192,4 +259,11 @@ class ShotlyLocalStore implements LocalStore {
     final decoded = jsonDecode(raw) as Map<String, dynamic>;
     return decoded.map((key, value) => MapEntry(key, '$value'));
   }
+}
+
+OcrIndexStatus _ocrStatusFromName(String name) {
+  for (final status in OcrIndexStatus.values) {
+    if (status.name == name) return status;
+  }
+  return OcrIndexStatus.pending;
 }

@@ -18,6 +18,10 @@ import android.util.Size
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -62,6 +66,7 @@ class MainActivity : FlutterActivity() {
                 "getScreenshots" -> runOnIo(result) { loadScreenshots() }
                 "pickImage" -> pickImage(result)
                 "getImagePreview" -> runOnIo(result) { getImagePreviewPath(call.argument<String>("imageId")) }
+                "recognizeScreenshotText" -> recognizeScreenshotText(call.argument<String>("imageId"), result)
                 "deleteOriginalImage" -> deleteOriginalImage(call.argument<String>("imageId"), result)
                 "deleteOriginalImages" -> deleteOriginalImages(call.argument<List<String>>("imageIds"), result)
                 "shareImages" -> shareImages(call.argument<List<String>>("imageIds"), result)
@@ -263,6 +268,62 @@ class MainActivity : FlutterActivity() {
         val uri = imageUriForId(imageId)
         if (uri == null) return ""
         return createOriginalCacheFileFromUri("original-${imageId.orEmpty()}", uri)
+    }
+
+    private fun recognizeScreenshotText(imageId: String?, result: MethodChannel.Result) {
+        val uri = imageUriForId(imageId)
+        if (uri == null) {
+            result.error("invalid_image_id", "OCR 대상 이미지를 찾을 수 없어요.", null)
+            return
+        }
+        try {
+            val image = InputImage.fromFilePath(this, uri)
+            val latinRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+            val koreanRecognizer = TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
+            latinRecognizer.process(image)
+                .addOnSuccessListener { latinText ->
+                    koreanRecognizer.process(image)
+                        .addOnSuccessListener { koreanText ->
+                            val text = mergeRecognizedText(latinText.text, koreanText.text)
+                            result.success(text)
+                        }
+                        .addOnFailureListener { error ->
+                            val text = latinText.text.trim()
+                            if (text.isNotBlank()) {
+                                result.success(text)
+                            } else {
+                                result.error("ocr_failed", error.localizedMessage ?: "OCR 처리 중 문제가 생겼어요.", null)
+                            }
+                        }
+                        .addOnCompleteListener { koreanRecognizer.close() }
+                }
+                .addOnFailureListener { latinError ->
+                    koreanRecognizer.process(image)
+                        .addOnSuccessListener { koreanText -> result.success(koreanText.text.trim()) }
+                        .addOnFailureListener { koreanError ->
+                            result.error(
+                                "ocr_failed",
+                                koreanError.localizedMessage ?: latinError.localizedMessage ?: "OCR 처리 중 문제가 생겼어요.",
+                                null
+                            )
+                        }
+                        .addOnCompleteListener { koreanRecognizer.close() }
+                }
+                .addOnCompleteListener { latinRecognizer.close() }
+        } catch (e: Exception) {
+            result.error("ocr_failed", e.localizedMessage ?: "OCR 처리 중 문제가 생겼어요.", null)
+        }
+    }
+
+    private fun mergeRecognizedText(latinText: String?, koreanText: String?): String {
+        val lines = linkedSetOf<String>()
+        listOf(latinText.orEmpty(), koreanText.orEmpty()).forEach { block ->
+            block.lines()
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .forEach { lines.add(it) }
+        }
+        return lines.joinToString("\n")
     }
 
     private fun deleteOriginalImage(imageId: String?, result: MethodChannel.Result) {

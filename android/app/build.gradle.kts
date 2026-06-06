@@ -80,4 +80,12 @@ flutter {
 dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.7.0"))
     implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.mlkit:text-recognition-korean:16.0.1")
+}
+
+tasks.matching {
+    it.name.startsWith("processDev") && it.name.endsWith("GoogleServices")
+}.configureEach {
+    enabled = false
 }

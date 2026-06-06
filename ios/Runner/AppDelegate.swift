@@ -5,6 +5,7 @@ import UIKit
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
   private var pendingPickResult: FlutterResult?
+  private weak var shotlyController: FlutterViewController?
 
   override func application(
     _ application: UIApplication,
@@ -20,7 +21,8 @@ import UIKit
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
   }
 
-  private func registerShotlyChannel(on controller: FlutterViewController) {
+  func registerShotlyChannel(on controller: FlutterViewController) {
+    shotlyController = controller
     let channel = FlutterMethodChannel(name: "shotly/native", binaryMessenger: controller.binaryMessenger)
     channel.setMethodCallHandler { [weak self] call, result in
       guard let self else { return }
@@ -51,6 +53,11 @@ import UIKit
       case "shareImages":
         let imageIds = (call.arguments as? [String: Any])?["imageIds"] as? [String]
         self.shareImages(imageIds: imageIds, result: result)
+      case "openUrl":
+        let url = (call.arguments as? [String: Any])?["url"] as? String
+        self.openUrl(url: url, result: result)
+      case "logAnalyticsEvent":
+        result(false)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -67,6 +74,16 @@ import UIKit
     }
   }
 
+  private func openUrl(url: String?, result: @escaping FlutterResult) {
+    guard let urlString = url, let url = URL(string: urlString) else {
+      result(false)
+      return
+    }
+    UIApplication.shared.open(url, options: [:]) { opened in
+      result(opened)
+    }
+  }
+
   private func requestPhotoPermission(result: @escaping FlutterResult) {
     requestPhotoPermissionStatus(result: { status in
       result((status as? String) != "denied")
@@ -74,12 +91,12 @@ import UIKit
   }
 
   private func requestPhotoPermissionStatus(result: @escaping FlutterResult) {
-    let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+    let status = PHPhotoLibrary.authorizationStatus()
     switch status {
     case .authorized, .limited, .denied, .restricted:
       result(photoPermissionStatus(from: status))
     case .notDetermined:
-      PHPhotoLibrary.requestAuthorization(for: .readWrite) { newStatus in
+      PHPhotoLibrary.requestAuthorization { newStatus in
         DispatchQueue.main.async {
           result(self.photoPermissionStatus(from: newStatus))
         }
@@ -90,7 +107,7 @@ import UIKit
   }
 
   private func photoPermissionStatus() -> String {
-    photoPermissionStatus(from: PHPhotoLibrary.authorizationStatus(for: .readWrite))
+    photoPermissionStatus(from: PHPhotoLibrary.authorizationStatus())
   }
 
   private func photoPermissionStatus(from status: PHAuthorizationStatus) -> String {
@@ -105,7 +122,7 @@ import UIKit
   }
 
   private func getScreenshots(result: @escaping FlutterResult) {
-    let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+    let status = PHPhotoLibrary.authorizationStatus()
     guard status == .authorized || status == .limited else {
       result(FlutterError(code: "photo_permission_denied", message: "사진 접근 권한이 필요해요.", details: nil))
       return
@@ -144,7 +161,7 @@ import UIKit
     picker.sourceType = .photoLibrary
     picker.delegate = self
     picker.mediaTypes = ["public.image"]
-    window?.rootViewController?.present(picker, animated: true)
+    shotlyController?.present(picker, animated: true)
   }
 
   private func getImagePreview(imageId: String?, result: @escaping FlutterResult) {
@@ -220,7 +237,7 @@ import UIKit
         urls.append(URL(fileURLWithPath: path))
       }
     }
-    guard !urls.isEmpty, let controller = self.window?.rootViewController else {
+    guard !urls.isEmpty, let controller = self.shotlyController else {
       result(false)
       return
     }
@@ -267,7 +284,7 @@ import UIKit
       "displayName": displayName(for: asset),
       "relativePath": "Photos/Screenshots",
       "dateTakenMillis": Int64(created.timeIntervalSince1970 * 1000),
-      "appName": "iOS Screenshot",
+      "appName": "",
       "thumbnailPath": thumbnailPath(for: asset) ?? ""
     ]
   }

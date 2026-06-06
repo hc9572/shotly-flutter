@@ -162,6 +162,15 @@ class ShotlyNative {
     return result?.isEmpty == true ? fallbackPath : result ?? fallbackPath;
   }
 
+  static Future<String> recognizeScreenshotText(String imageId) async {
+    if (kIsWeb) return '';
+    final result = await _channel.invokeMethod<String>(
+      'recognizeScreenshotText',
+      {'imageId': imageId},
+    );
+    return result ?? '';
+  }
+
   static Future<bool> deleteOriginalImage(String imageId) async {
     if (kIsWeb) return false;
     final result = await _channel.invokeMethod<bool>('deleteOriginalImage', {

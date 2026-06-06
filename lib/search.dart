@@ -33,6 +33,7 @@ class _SearchPage extends StatefulWidget {
     required this.folderColors,
     required this.setAssignments,
     required this.favoriteImageIds,
+    required this.ocrIndex,
     required this.stackMatchesQuery,
     required this.onRenameStack,
     required this.onHideStack,
@@ -58,6 +59,7 @@ class _SearchPage extends StatefulWidget {
   final Map<String, String> folderColors;
   final Map<String, String> setAssignments;
   final Set<String> favoriteImageIds;
+  final Map<String, OcrIndexEntry> ocrIndex;
   final bool Function(StackItem stack, String query) stackMatchesQuery;
   final Future<void> Function(String stackKey, String name) onRenameStack;
   final Future<void> Function(String stackKey) onHideStack;
@@ -251,7 +253,8 @@ class _SearchPageState extends State<_SearchPage> {
         }
       }
       for (final image in stack.items) {
-        if (image.matches(query) && imageIds.add(image.id)) {
+        final ocrMatches = widget.ocrIndex[image.id]?.matches(query) ?? false;
+        if ((image.matches(query) || ocrMatches) && imageIds.add(image.id)) {
           results.add(_SearchResult.image(stack, image));
         }
       }
@@ -278,6 +281,7 @@ class _SearchPageState extends State<_SearchPage> {
                 setAssignments: widget.setAssignments,
                 favoriteImageIds: widget.favoriteImageIds,
                 visualFeatures: const {},
+                initialAnchorImageId: _latestMatchingImageId(result.stack),
                 onRenameStack: widget.onRenameStack,
                 onHideStack: widget.onHideStack,
                 onDeleteStack: widget.onDeleteStack,
@@ -334,6 +338,21 @@ class _SearchPageState extends State<_SearchPage> {
         },
       ),
     );
+  }
+
+  String? _latestMatchingImageId(StackItem stack) {
+    final query = _query.trim();
+    if (query.isEmpty) return null;
+    final matches =
+        stack.items
+            .where(
+              (image) =>
+                  image.matches(query) ||
+                  (widget.ocrIndex[image.id]?.matches(query) ?? false),
+            )
+            .toList()
+          ..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
+    return matches.isEmpty ? null : matches.first.id;
   }
 }
 
