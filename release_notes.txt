@@ -1,0 +1,3 @@
+Improved image text search stability.
+Search results now jump to the relevant image when opening an app.
+Image text recognition progress can now be checked and paused from Home.
