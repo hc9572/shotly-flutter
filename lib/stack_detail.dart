@@ -76,6 +76,7 @@ final Map<String, _SmartCleanSessionCache> _smartCleanSessionCache =
 
 class _StackDetailScreenState extends State<StackDetailScreen> {
   final GlobalKey _initialAnchorKey = GlobalKey();
+  final ScrollController _scrollController = ScrollController();
   final Set<String> _deletedImageIds = <String>{};
   final Set<String> _selectedImageIds = <String>{};
   bool _isSelectionMode = false;
@@ -126,11 +127,15 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   }
 
   void _scheduleInitialAnchorScroll() {
-    if (widget.initialAnchorImageId == null || _didScrollToInitialAnchor) {
+    final anchorImageId = widget.initialAnchorImageId;
+    if (anchorImageId == null || _didScrollToInitialAnchor) {
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await Future<void>.delayed(const Duration(milliseconds: 120));
+      if (!mounted || _didScrollToInitialAnchor) return;
+      _scrollNearInitialAnchor(anchorImageId);
+      await Future<void>.delayed(const Duration(milliseconds: 180));
       if (!mounted || _didScrollToInitialAnchor) return;
       final context = _initialAnchorKey.currentContext;
       if (context == null || !context.mounted) return;
@@ -142,6 +147,64 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
         alignment: 0.22,
       );
     });
+  }
+
+  void _scrollNearInitialAnchor(String imageId) {
+    if (!_scrollController.hasClients) return;
+    final estimatedOffset = _estimatedAnchorOffset(imageId);
+    if (estimatedOffset == null) return;
+    final maxOffset = _scrollController.position.maxScrollExtent;
+    final target = estimatedOffset.clamp(0.0, maxOffset);
+    _scrollController.jumpTo(target);
+  }
+
+  double? _estimatedAnchorOffset(String imageId) {
+    final visibleItems = _visibleItems;
+    if (!visibleItems.any((item) => item.id == imageId)) return null;
+    final sets = _buildScreenshotSets(
+      widget.stack.key,
+      visibleItems,
+      widget.setMemos,
+      _detailFolderNames,
+      _detailSetAssignments,
+    );
+    final dateGroups = _groupSetsByDate(
+      sets.where((set) => !_isFolderSetKey(set.key)).toList(),
+    );
+    final width = MediaQuery.sizeOf(context).width;
+    final gridWidth = math.max(0.0, width - 40);
+    final cellWidth = (gridWidth - 15) / 4;
+    final cellHeight = cellWidth * 4 / 3;
+    const topChrome = 210.0;
+    const groupGap = 32.0;
+    const dateHeader = 34.0;
+    const setBottomPadding = 10.0;
+    var offset = topChrome;
+    final folderSets = sets.where((set) => _isFolderSetKey(set.key)).toList();
+    if (folderSets.isNotEmpty) offset += 118;
+    for (final group in dateGroups) {
+      var indexInGroup = 0;
+      var groupItemCount = 0;
+      for (final set in group.sets) {
+        final indexInSet = set.items.indexWhere((item) => item.id == imageId);
+        if (indexInSet >= 0) {
+          final row = (indexInGroup + indexInSet) ~/ 4;
+          return offset + dateHeader + row * (cellHeight + 5) - 28;
+        }
+        indexInGroup += set.items.length;
+        groupItemCount += set.items.length;
+      }
+      final rows = (groupItemCount / 4).ceil();
+      offset += dateHeader + rows * cellHeight + math.max(0, rows - 1) * 5;
+      offset += setBottomPadding + groupGap;
+    }
+    return null;
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -181,6 +244,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
         child: Stack(
           children: [
             CustomScrollView(
+              controller: _scrollController,
               slivers: [
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),

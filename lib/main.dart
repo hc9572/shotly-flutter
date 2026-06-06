@@ -1303,7 +1303,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
       .length;
 
   int get _ocrPendingCount =>
-      _screenshots.where((item) => !_ocrIndex.containsKey(item.id)).length;
+      _screenshots.where((item) => _needsOcrIndexing(item.id)).length;
 
   bool get _showOcrStatusCard =>
       _hasPermission &&
@@ -1329,6 +1329,11 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
     setState(() => _ocrStatusCollapsed = collapsed);
   }
 
+  bool _needsOcrIndexing(String imageId) {
+    final entry = _ocrIndex[imageId];
+    return entry == null || entry.status == OcrIndexStatus.failed;
+  }
+
   void _startOcrIndexingIfNeeded(
     List<ScreenshotItem> screenshots, {
     bool force = false,
@@ -1336,7 +1341,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
     if (_ocrIndexingPaused || screenshots.isEmpty) return;
     if (_ocrIndexing && !force) return;
     final pending = screenshots
-        .where((item) => !_ocrIndex.containsKey(item.id))
+        .where((item) => _needsOcrIndexing(item.id))
         .toList();
     if (pending.isEmpty) return;
     final runId = ++_ocrRunId;
