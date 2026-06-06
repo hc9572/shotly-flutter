@@ -140,8 +140,13 @@ class _SearchPageState extends State<_SearchPage> {
                         controller: _controller,
                         autofocus: true,
                         onChanged: (value) => setState(() => _query = value),
-                        onSubmitted: (value) =>
-                            Navigator.of(context).pop(value.trim()),
+                        onSubmitted: (value) {
+                          final nextQuery = value.trim();
+                          if (nextQuery != _query) {
+                            setState(() => _query = nextQuery);
+                          }
+                          FocusScope.of(context).unfocus();
+                        },
                         textInputAction: TextInputAction.search,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w500,
