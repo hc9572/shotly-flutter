@@ -8,13 +8,6 @@ workflows:
       groups:
         - shotly_android_signing
         - google_play_credentials
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
     scripts:
       - name: Get Flutter packages
         script: flutter pub get
