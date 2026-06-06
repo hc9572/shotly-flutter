@@ -1187,7 +1187,7 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
   }
 
   Future<void> _openSearchPage() async {
-    final query = await Navigator.of(context).push<String>(
+    await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => _SearchPage(
           initialQuery: _query,
@@ -1217,9 +1217,9 @@ class _ShotlyHomeScreenState extends State<ShotlyHomeScreen>
         ),
       ),
     );
-    if (query != null && mounted) {
-      setState(() => _query = query);
-      _searchController.text = query;
+    if (mounted) {
+      setState(() => _query = '');
+      _searchController.clear();
     }
   }
 

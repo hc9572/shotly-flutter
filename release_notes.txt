@@ -1,3 +1,2 @@
+Search now returns to Home and clears the query when going back from results.
 Fixed search results staying visible after pressing the keyboard search button.
-Improved image text search stability.
-Search results now jump to the relevant image when opening an app.
