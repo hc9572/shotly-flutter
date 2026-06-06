@@ -281,6 +281,7 @@ class _SearchPageState extends State<_SearchPage> {
                 setAssignments: widget.setAssignments,
                 favoriteImageIds: widget.favoriteImageIds,
                 visualFeatures: const {},
+                initialAnchorImageId: _latestMatchingImageId(result.stack),
                 onRenameStack: widget.onRenameStack,
                 onHideStack: widget.onHideStack,
                 onDeleteStack: widget.onDeleteStack,
@@ -337,6 +338,21 @@ class _SearchPageState extends State<_SearchPage> {
         },
       ),
     );
+  }
+
+  String? _latestMatchingImageId(StackItem stack) {
+    final query = _query.trim();
+    if (query.isEmpty) return null;
+    final matches =
+        stack.items
+            .where(
+              (image) =>
+                  image.matches(query) ||
+                  (widget.ocrIndex[image.id]?.matches(query) ?? false),
+            )
+            .toList()
+          ..sort((a, b) => b.dateTakenMillis.compareTo(a.dateTakenMillis));
+    return matches.isEmpty ? null : matches.first.id;
   }
 }
 

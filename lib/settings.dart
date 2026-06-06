@@ -17,12 +17,6 @@ class SettingsScreen extends StatefulWidget {
     required this.onReceivePhoneTransfer,
     required this.testerNoAppInfoMode,
     required this.onSetTesterNoAppInfoMode,
-    required this.ocrSearchEnabled,
-    required this.ocrIndexing,
-    required this.ocrCompletedThisRun,
-    required this.ocrQueuedThisRun,
-    required this.ocrIndexedCount,
-    required this.onSetOcrSearchEnabled,
     required this.onResetOrganizationData,
   });
 
@@ -40,12 +34,6 @@ class SettingsScreen extends StatefulWidget {
   final Future<void> Function() onReceivePhoneTransfer;
   final bool testerNoAppInfoMode;
   final Future<void> Function(bool enabled) onSetTesterNoAppInfoMode;
-  final bool ocrSearchEnabled;
-  final bool ocrIndexing;
-  final int ocrCompletedThisRun;
-  final int ocrQueuedThisRun;
-  final int ocrIndexedCount;
-  final Future<void> Function(bool enabled) onSetOcrSearchEnabled;
   final Future<void> Function() onResetOrganizationData;
 
   @override
@@ -158,25 +146,6 @@ class _SettingsScreenState extends State<SettingsScreen>
               ],
             ),
             _SettingsSection(
-              title: st('실험 기능', 'Experimental'),
-              children: [
-                _SettingsTile(
-                  icon: Icons.document_scanner_outlined,
-                  title: st('스크린샷 내용 검색', 'Screenshot text search'),
-                  subtitle: _ocrSearchSubtitle(),
-                  trailing: Switch(
-                    value: widget.ocrSearchEnabled,
-                    activeThumbColor: const Color(0xFF111111),
-                    onChanged: (enabled) =>
-                        unawaited(widget.onSetOcrSearchEnabled(enabled)),
-                  ),
-                  onTap: () => unawaited(
-                    widget.onSetOcrSearchEnabled(!widget.ocrSearchEnabled),
-                  ),
-                ),
-              ],
-            ),
-            _SettingsSection(
               title: st('도움말', 'Help'),
               children: [
                 _SettingsTile(
@@ -239,25 +208,6 @@ class _SettingsScreenState extends State<SettingsScreen>
           ],
         ),
       ),
-    );
-  }
-
-  String _ocrSearchSubtitle() {
-    if (!widget.ocrSearchEnabled) {
-      return st(
-        '영문/국문 텍스트를 백그라운드에서 인덱싱해요',
-        'Indexes English/Korean text in the background',
-      );
-    }
-    if (widget.ocrIndexing) {
-      return st(
-        '내용 검색 준비 중 ${widget.ocrCompletedThisRun}/${widget.ocrQueuedThisRun}',
-        'Preparing text search ${widget.ocrCompletedThisRun}/${widget.ocrQueuedThisRun}',
-      );
-    }
-    return st(
-      '인덱싱 완료 ${widget.ocrIndexedCount}장 · 최근 이미지부터 처리',
-      '${widget.ocrIndexedCount} indexed · newest images first',
     );
   }
 

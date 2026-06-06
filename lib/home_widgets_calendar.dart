@@ -109,6 +109,191 @@ class _TopIconButton extends StatelessWidget {
   }
 }
 
+class _OcrStatusCard extends StatelessWidget {
+  const _OcrStatusCard({
+    required this.indexing,
+    required this.paused,
+    required this.collapsed,
+    required this.completed,
+    required this.total,
+    required this.pending,
+    required this.indexed,
+    required this.onTogglePaused,
+    required this.onToggleCollapsed,
+  });
+
+  final bool indexing;
+  final bool paused;
+  final bool collapsed;
+  final int completed;
+  final int total;
+  final int pending;
+  final int indexed;
+  final VoidCallback onTogglePaused;
+  final VoidCallback onToggleCollapsed;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = total <= 0 ? 0.0 : (completed / total).clamp(0.0, 1.0);
+    final remaining = math.max(0, total - completed);
+    final title = paused
+        ? st('내용 인식 일시정지', 'Text recognition paused')
+        : st('이미지 내용 인식 중', 'Reading image text');
+    final status = indexing
+        ? st('$remaining개 남음', '$remaining left')
+        : st('$pending개 대기 중', '$pending waiting');
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE7E9EE)),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF1F3F6),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.document_scanner_outlined,
+                  size: 18,
+                  color: Color(0xFF111111),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: const Color(0xFF111111),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (collapsed) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        status,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: const Color(0xFF727785),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              _OcrTextButton(
+                label: paused ? st('다시 시작', 'Resume') : st('일시정지', 'Pause'),
+                onTap: onTogglePaused,
+              ),
+              const SizedBox(width: 2),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                onPressed: onToggleCollapsed,
+                icon: Icon(
+                  collapsed
+                      ? Icons.keyboard_arrow_down_rounded
+                      : Icons.keyboard_arrow_up_rounded,
+                  color: const Color(0xFF727785),
+                ),
+              ),
+            ],
+          ),
+          if (!collapsed) ...[
+            const SizedBox(height: 12),
+            Text(
+              st(
+                '인식된 텍스트로 바로 검색할 수 있어요',
+                'Search by text inside recognized screenshots',
+              ),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: const Color(0xFF727785),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                minHeight: 6,
+                value: paused && total <= 0 ? null : progress,
+                backgroundColor: const Color(0xFFEDEFF3),
+                valueColor: const AlwaysStoppedAnimation(Color(0xFF111111)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    total > 0
+                        ? st(
+                            '$completed/$total 처리됨',
+                            '$completed/$total processed',
+                          )
+                        : st('$indexed개 인식 완료', '$indexed indexed'),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFF727785),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Text(
+                  status,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: const Color(0xFF424754),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _OcrTextButton extends StatelessWidget {
+  const _OcrTextButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F3F6),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: const Color(0xFF111111),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SummarySortRow extends StatelessWidget {
   const _SummarySortRow({
     required this.screenshotCount,

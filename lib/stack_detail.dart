@@ -12,6 +12,7 @@ class StackDetailScreen extends StatefulWidget {
     required this.setAssignments,
     required this.favoriteImageIds,
     required this.visualFeatures,
+    this.initialAnchorImageId,
     required this.onRenameStack,
     required this.onHideStack,
     required this.onDeleteStack,
@@ -36,6 +37,7 @@ class StackDetailScreen extends StatefulWidget {
   final Map<String, String> setAssignments;
   final Set<String> favoriteImageIds;
   final Map<String, VisualFeature> visualFeatures;
+  final String? initialAnchorImageId;
   final Future<void> Function(String stackKey, String name) onRenameStack;
   final Future<void> Function(String stackKey) onHideStack;
   final Future<void> Function(StackItem stack) onDeleteStack;
@@ -73,6 +75,7 @@ final Map<String, _SmartCleanSessionCache> _smartCleanSessionCache =
     <String, _SmartCleanSessionCache>{};
 
 class _StackDetailScreenState extends State<StackDetailScreen> {
+  final GlobalKey _initialAnchorKey = GlobalKey();
   final Set<String> _deletedImageIds = <String>{};
   final Set<String> _selectedImageIds = <String>{};
   bool _isSelectionMode = false;
@@ -84,6 +87,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
   List<_SmartCleanCandidate> _smartCleanCandidates = const [];
   final Map<String, VisualFeature> _smartFeatureCache = {};
   final List<ScreenshotItem> _addedItems = <ScreenshotItem>[];
+  bool _didScrollToInitialAnchor = false;
   late Map<String, String> _detailFolderNames;
   late Map<String, String> _detailFolderColors;
   late Map<String, String> _detailSetAssignments;
@@ -118,6 +122,26 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       _smartCleanAnalyzed = cached.analyzed;
       _smartCleanExpanded = cached.expanded;
     }
+    _scheduleInitialAnchorScroll();
+  }
+
+  void _scheduleInitialAnchorScroll() {
+    if (widget.initialAnchorImageId == null || _didScrollToInitialAnchor) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      if (!mounted || _didScrollToInitialAnchor) return;
+      final context = _initialAnchorKey.currentContext;
+      if (context == null || !context.mounted) return;
+      _didScrollToInitialAnchor = true;
+      await Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 360),
+        curve: Curves.easeOutCubic,
+        alignment: 0.22,
+      );
+    });
   }
 
   @override
@@ -298,6 +322,8 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
                         onSaveMemo: widget.onSaveSetMemo,
                         onAssignImageToSet: widget.onAssignImageToSet,
                         viewerItems: visibleItems,
+                        anchorImageId: widget.initialAnchorImageId,
+                        anchorKey: _initialAnchorKey,
                       );
                     },
                   ),

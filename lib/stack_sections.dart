@@ -21,6 +21,8 @@ class _SetDateSection extends StatelessWidget {
     required this.onSaveMemo,
     required this.onAssignImageToSet,
     required this.viewerItems,
+    this.anchorImageId,
+    this.anchorKey,
   });
 
   final String dateLabel;
@@ -40,6 +42,8 @@ class _SetDateSection extends StatelessWidget {
   final Future<void> Function(String setKey, String memo) onSaveMemo;
   final Future<void> Function(String imageId, String setKey) onAssignImageToSet;
   final List<ScreenshotItem> viewerItems;
+  final String? anchorImageId;
+  final GlobalKey? anchorKey;
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +85,8 @@ class _SetDateSection extends StatelessWidget {
               headerCheckValue: entry.$1 == 0 ? dateCheckValue : null,
               showHeaderCheckbox: entry.$1 == 0 && selectionMode,
               viewerItems: viewerItems,
+              anchorImageId: anchorImageId,
+              anchorKey: anchorKey,
             ),
           ),
         ),
@@ -117,6 +123,8 @@ class _SetSection extends StatefulWidget {
     this.currentFolderKey,
     this.onMoveImagesToFolder,
     this.onClearSelection,
+    this.anchorImageId,
+    this.anchorKey,
   });
 
   final ScreenshotSet set;
@@ -146,6 +154,8 @@ class _SetSection extends StatefulWidget {
   final Future<void> Function(String folderKey, List<String> imageIds)?
   onMoveImagesToFolder;
   final VoidCallback? onClearSelection;
+  final String? anchorImageId;
+  final GlobalKey? anchorKey;
   @override
   State<_SetSection> createState() => _SetSectionState();
 }
@@ -216,6 +226,8 @@ class _SetSectionState extends State<_SetSection> {
       currentFolderKey: widget.currentFolderKey,
       onMoveImagesToFolder: widget.onMoveImagesToFolder,
       onClearSelection: widget.onClearSelection,
+      anchorImageId: widget.anchorImageId,
+      anchorKey: widget.anchorKey,
     );
   }
 
@@ -334,6 +346,8 @@ class _ImageGridSection extends StatefulWidget {
     this.currentFolderKey,
     this.onMoveImagesToFolder,
     this.onClearSelection,
+    this.anchorImageId,
+    this.anchorKey,
   });
 
   final String title;
@@ -362,6 +376,8 @@ class _ImageGridSection extends StatefulWidget {
   final Future<void> Function(String folderKey, List<String> imageIds)?
   onMoveImagesToFolder;
   final VoidCallback? onClearSelection;
+  final String? anchorImageId;
+  final GlobalKey? anchorKey;
 
   @override
   State<_ImageGridSection> createState() => _ImageGridSectionState();
@@ -473,7 +489,7 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
           ),
           itemBuilder: (context, index) {
             final item = items[index];
-            return _SelectableThumb(
+            final thumb = _SelectableThumb(
               item: item,
               selected: _effectiveSelectedIds.contains(item.id),
               selecting: _isSelecting,
@@ -487,6 +503,10 @@ class _ImageGridSectionState extends State<_ImageGridSection> {
                   : _openImageViewer(context, item),
               onLongPress: () => _toggleSelection(item.id),
             );
+            if (item.id == widget.anchorImageId && widget.anchorKey != null) {
+              return KeyedSubtree(key: widget.anchorKey, child: thumb);
+            }
+            return thumb;
           },
         ),
         if (_isSelecting && widget.showLocalActionBar) ...[
