@@ -331,9 +331,11 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun deleteOriginalImages(imageIds: List<String>?, result: MethodChannel.Result) {
-        val uris = imageIds.orEmpty().mapNotNull { imageUriForId(it) }
+        val uris = imageIds.orEmpty()
+            .mapNotNull { imageUriForId(it) }
+            .filter { doesImageExist(it) }
         if (uris.isEmpty()) {
-            result.error("invalid_image_id", "삭제할 원본 이미지를 찾을 수 없어요.", null)
+            result.success(false)
             return
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

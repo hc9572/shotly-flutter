@@ -74,6 +74,26 @@ class _SmartCleanSessionCache {
 final Map<String, _SmartCleanSessionCache> _smartCleanSessionCache =
     <String, _SmartCleanSessionCache>{};
 
+List<_SmartCleanCandidate> _pruneSmartCleanCandidates(
+  List<_SmartCleanCandidate> candidates,
+  Set<String> validImageIds,
+) => [
+  for (final candidate in candidates)
+    _SmartCleanCandidate(
+      type: candidate.type,
+      title: candidate.title,
+      subtitle: candidate.subtitle,
+      items: candidate.items
+          .where((item) => validImageIds.contains(item.id))
+          .toList(),
+      targetFolderKey: candidate.targetFolderKey,
+      targetFolderName: candidate.targetFolderName,
+      selectableImageIds: candidate.selectableImageIds
+          .where(validImageIds.contains)
+          .toSet(),
+    ),
+].where((candidate) => candidate.items.length >= 2).toList();
+
 class _StackDetailScreenState extends State<StackDetailScreen> {
   final GlobalKey _initialAnchorKey = GlobalKey();
   final ScrollController _scrollController = ScrollController();
@@ -118,10 +138,14 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     _smartFeatureCache.addAll(widget.visualFeatures);
     final cached = _smartCleanSessionCache[widget.stack.key];
     if (cached != null) {
-      _smartCleanCandidates = cached.candidates;
+      final validImageIds = widget.stack.items.map((item) => item.id).toSet();
+      _smartCleanCandidates = _pruneSmartCleanCandidates(
+        cached.candidates,
+        validImageIds,
+      );
       _smartCleanMessage = cached.message;
       _smartCleanAnalyzed = cached.analyzed;
-      _smartCleanExpanded = cached.expanded;
+      _smartCleanExpanded = cached.expanded && _smartCleanCandidates.isNotEmpty;
     }
     _scheduleInitialAnchorScroll();
   }
@@ -473,6 +497,26 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     _saveSmartCleanSessionCache();
   }
 
+  void _removeSmartCleanImageIds(Iterable<String> imageIds) {
+    final ids = imageIds.toSet();
+    if (ids.isEmpty) return;
+    final validImageIds = _visibleItems
+        .where((item) => !ids.contains(item.id))
+        .map((item) => item.id)
+        .toSet();
+    final pruned = _pruneSmartCleanCandidates(
+      _smartCleanCandidates,
+      validImageIds,
+    );
+    setState(() {
+      _smartCleanCandidates = pruned;
+      _smartCleanExpanded = pruned.isNotEmpty;
+      _selectedImageIds.removeAll(ids);
+      if (_selectedImageIds.isEmpty) _isSelectionMode = false;
+    });
+    _saveSmartCleanSessionCache();
+  }
+
   Future<void> _runSmartClean(List<ScreenshotItem> visibleItems) async {
     if (_smartCleanRunning) return;
     final targetItems =
@@ -709,7 +753,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
             'Deleted ${ids.length} originals',
           );
         });
-        _removeSmartCleanCandidate(candidate);
+        _removeSmartCleanImageIds(ids);
       }
       return;
     }
@@ -822,6 +866,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
         _selectedImageIds.clear();
         _isSelectionMode = false;
       });
+      _removeSmartCleanImageIds(selected);
     }
   }
 
@@ -1224,6 +1269,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
         _selectedImageIds.clear();
         _isSelectionMode = false;
       });
+      _removeSmartCleanImageIds(selected);
     }
   }
 
@@ -1246,6 +1292,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
         _selectedImageIds.clear();
         _isSelectionMode = false;
       });
+      _removeSmartCleanImageIds(selected);
     }
   }
 
