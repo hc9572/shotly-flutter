@@ -83,9 +83,21 @@ class _SearchPage extends StatefulWidget {
 class _SearchPageState extends State<_SearchPage> {
   late final TextEditingController _controller;
   late String _query;
+  final Set<String> _removedImageIds = <String>{};
   bool _showAllStacks = false;
   bool _showAllSets = false;
   bool _showAllImages = false;
+
+  List<StackItem> get _visibleStacks => [
+    for (final stack in widget.stacks)
+      StackItem(
+        key: stack.key,
+        name: stack.name,
+        items: stack.items
+            .where((item) => !_removedImageIds.contains(item.id))
+            .toList(),
+      ),
+  ].where((stack) => stack.items.isNotEmpty).toList();
 
   @override
   void initState() {
@@ -152,10 +164,7 @@ class _SearchPageState extends State<_SearchPage> {
                           fontWeight: FontWeight.w500,
                         ),
                         decoration: InputDecoration(
-                          hintText: st(
-                            '찾고 싶은 화면이나 텍스트 검색',
-                            'Search screens or text',
-                          ),
+                          hintText: st('검색', 'Search'),
                           hintStyle: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
                                 color: const Color(0xFF727785),
@@ -238,7 +247,7 @@ class _SearchPageState extends State<_SearchPage> {
     final results = <_SearchResult>[];
     final imageIds = <String>{};
     final setKeys = <String>{};
-    for (final stack in widget.stacks) {
+    for (final stack in _visibleStacks) {
       if (widget.stackMatchesQuery(stack, query)) {
         results.add(_SearchResult.stack(stack));
       }
@@ -290,11 +299,11 @@ class _SearchPageState extends State<_SearchPage> {
                 onRenameStack: widget.onRenameStack,
                 onHideStack: widget.onHideStack,
                 onDeleteStack: widget.onDeleteStack,
-                onExcludeImage: widget.onExcludeImage,
-                onDeleteOriginalImage: widget.onDeleteOriginalImage,
-                onDeleteOriginalImages: widget.onDeleteOriginalImages,
+                onExcludeImage: _handleExcludeImage,
+                onDeleteOriginalImage: _handleDeleteOriginalImage,
+                onDeleteOriginalImages: _handleDeleteOriginalImages,
                 onToggleFavoriteImage: widget.onToggleFavoriteImage,
-                onMoveImage: widget.onMoveImage,
+                onMoveImage: _handleMoveImage,
                 onAddImageToStack: widget.onAddImageToStack,
                 onSaveSetMemo: widget.onSaveSetMemo,
                 onSaveFolderName: widget.onSaveFolderName,
@@ -308,10 +317,10 @@ class _SearchPageState extends State<_SearchPage> {
                 allStackKeys: widget.allStackKeys,
                 stackNames: widget.stackNames,
                 favoriteImageIds: widget.favoriteImageIds,
-                onExcludeImage: widget.onExcludeImage,
-                onDeleteOriginalImage: widget.onDeleteOriginalImage,
+                onExcludeImage: _handleExcludeImage,
+                onDeleteOriginalImage: _handleDeleteOriginalImage,
                 onToggleFavoriteImage: widget.onToggleFavoriteImage,
-                onMoveImage: widget.onMoveImage,
+                onMoveImage: _handleMoveImage,
                 onSaveSetMemo: widget.onSaveSetMemo,
                 onAssignImageToSet: widget.onAssignImageToSet,
                 onRenameFolder: (name) =>
@@ -337,12 +346,41 @@ class _SearchPageState extends State<_SearchPage> {
                 initialIndex: index < 0 ? 0 : index,
                 favoriteImageIds: widget.favoriteImageIds,
                 onToggleFavoriteImage: widget.onToggleFavoriteImage,
-                onDeleteOriginalImage: widget.onDeleteOriginalImage,
+                onDeleteOriginalImage: _handleDeleteOriginalImage,
               );
           }
         },
       ),
     );
+    if (mounted) setState(() {});
+  }
+
+  void _removeImageIdsFromSearch(Iterable<String> imageIds) {
+    final ids = imageIds.toSet();
+    if (ids.isEmpty) return;
+    setState(() => _removedImageIds.addAll(ids));
+  }
+
+  Future<void> _handleExcludeImage(String imageId) async {
+    await widget.onExcludeImage(imageId);
+    if (mounted) _removeImageIdsFromSearch([imageId]);
+  }
+
+  Future<bool> _handleDeleteOriginalImage(String imageId) async {
+    final deleted = await widget.onDeleteOriginalImage(imageId);
+    if (deleted && mounted) _removeImageIdsFromSearch([imageId]);
+    return deleted;
+  }
+
+  Future<bool> _handleDeleteOriginalImages(List<String> imageIds) async {
+    final deleted = await widget.onDeleteOriginalImages(imageIds);
+    if (deleted && mounted) _removeImageIdsFromSearch(imageIds);
+    return deleted;
+  }
+
+  Future<void> _handleMoveImage(String imageId, String stackKey) async {
+    await widget.onMoveImage(imageId, stackKey);
+    if (mounted) _removeImageIdsFromSearch([imageId]);
   }
 
   String? _latestMatchingImageId(StackItem stack) {
@@ -987,7 +1025,7 @@ class _SearchField extends StatelessWidget {
               context,
             ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
             decoration: InputDecoration(
-              hintText: st('찾고 싶은 화면이나 텍스트 검색', 'Search screens or text'),
+              hintText: st('검색', 'Search'),
               hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: const Color(0xFF727785),
                 fontWeight: FontWeight.w500,
