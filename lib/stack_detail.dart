@@ -478,25 +478,6 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     );
   }
 
-  void _removeSmartCleanCandidate(_SmartCleanCandidate candidate) {
-    setState(() {
-      _smartCleanCandidates = _smartCleanCandidates
-          .where((item) => !identical(item, candidate))
-          .toList();
-      _smartCleanMessage = _smartCleanCandidates.isEmpty
-          ? st(
-              '남은 후보가 없어요. 필요하면 다시 분석해요',
-              'No candidates left. Analyze again if needed.',
-            )
-          : st(
-              '${_smartCleanCandidates.length}개 후보가 남았어요',
-              '${_smartCleanCandidates.length} candidates left',
-            );
-      _smartCleanExpanded = _smartCleanCandidates.isNotEmpty;
-    });
-    _saveSmartCleanSessionCache();
-  }
-
   void _removeSmartCleanImageIds(Iterable<String> imageIds) {
     final ids = imageIds.toSet();
     if (ids.isEmpty) return;
@@ -763,7 +744,7 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
       return;
     }
     final moved = await _showSmartCleanFolderPicker(ids);
-    if (moved) _removeSmartCleanCandidate(candidate);
+    if (moved) _removeSmartCleanImageIds(ids);
   }
 
   String _folderNameForAssignedItem(String imageId) {
@@ -820,7 +801,6 @@ class _StackDetailScreenState extends State<StackDetailScreen> {
     }
     if (mounted) {
       setState(() {
-        _smartCleanCandidates = const [];
         _smartCleanMessage = message;
       });
     }
