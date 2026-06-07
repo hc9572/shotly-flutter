@@ -208,12 +208,12 @@ class _SearchPageState extends State<_SearchPage> {
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                       children: [
                         _SearchResultSection(
-                          title: st('앱', 'Apps'),
-                          results: stackResults,
+                          title: st('사진', 'Photos'),
+                          results: imageResults,
                           folderColors: widget.folderColors,
-                          expanded: _showAllStacks,
+                          expanded: _showAllImages,
                           onToggleExpanded: () =>
-                              setState(() => _showAllStacks = !_showAllStacks),
+                              setState(() => _showAllImages = !_showAllImages),
                           onOpen: _openResult,
                         ),
                         _SearchResultSection(
@@ -226,12 +226,12 @@ class _SearchPageState extends State<_SearchPage> {
                           onOpen: _openResult,
                         ),
                         _SearchResultSection(
-                          title: st('사진', 'Photos'),
-                          results: imageResults,
+                          title: st('앱', 'Apps'),
+                          results: stackResults,
                           folderColors: widget.folderColors,
-                          expanded: _showAllImages,
+                          expanded: _showAllStacks,
                           onToggleExpanded: () =>
-                              setState(() => _showAllImages = !_showAllImages),
+                              setState(() => _showAllStacks = !_showAllStacks),
                           onOpen: _openResult,
                         ),
                       ],
